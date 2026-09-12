@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.moyue</groupId>
+        <artifactId>moyue-parent</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>moyue-api</artifactId>
+    <packaging>jar</packaging>
+    <name>moyue-api</name>
+    <description>墨阅小说网 · 跨服务 DTO 与 Feign 客户端定义（被各业务服务依赖）</description>
+
+    <dependencies>
+        <!-- OpenFeign：提供 @FeignClient 注解与编解码；消费者通过 @EnableFeignClients 扫描本包 -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-openfeign</artifactId>
+        </dependency>
+        <!-- 通用模块（R&lt;T&gt; / 异常 / JWT / 常量） -->
+        <dependency>
+            <groupId>com.moyue</groupId>
+            <artifactId>moyue-common</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+    <!-- 本模块是接口/POJO 库，非可执行 jar，跳过 boot repackage -->
+</project>

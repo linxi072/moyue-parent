@@ -1,0 +1,51 @@
+version: "3.8"
+
+# 墨阅小说网本地依赖（开发联调一键启动）
+# 启动：docker compose up -d
+# 停止：docker compose down
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: moyue-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: moyue
+      TZ: Asia/Shanghai
+    ports:
+      - "3306:3306"
+    volumes:
+      - moyue-mysql-data:/var/lib/mysql
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7.2
+    container_name: moyue-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  nacos:
+    image: nacos/nacos-server:v2.3.2
+    container_name: moyue-nacos
+    environment:
+      MODE: standalone
+      NACOS_AUTH_ENABLE: "false"
+    ports:
+      - "8848:8848"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8848/nacos/health/check"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  moyue-mysql-data:

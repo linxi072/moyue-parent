@@ -1,0 +1,29 @@
+server:
+  port: 8092
+
+spring:
+  application:
+    name: moyue-job
+  cloud:
+    nacos:
+      discovery:
+        server-addr: localhost:8848
+
+# XXL-Job 执行器配置
+xxl:
+  job:
+    admin:
+      # 调度中心地址：需单独启动 xuxueli/xxl-job-admin:2.4.0（见 README 的 docker 说明）
+      addresses: http://localhost:8088/xxl-job-admin
+    accessToken: ""
+    executor:
+      appname: moyue-job
+      address: ""
+      ip: ""
+      port: 9099
+      logpath: ./logs/xxl-job
+      logretentiondays: 30
+
+logging:
+  level:
+    com.moyue: INFO

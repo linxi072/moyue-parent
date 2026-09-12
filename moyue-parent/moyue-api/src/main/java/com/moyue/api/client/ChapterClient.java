@@ -1,0 +1,19 @@
+package com.moyue.api.client;
+
+import com.moyue.api.dto.ChapterDTO;
+import com.moyue.common.R;
+import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+
+/**
+ * 章节服务 Feign 客户端（moyue-chapter）。
+ * 返回类型包裹 R&lt;T&gt;，与控制器 {@code R<ChapterDTO>} 结构一致。
+ */
+@FeignClient(name = "moyue-chapter")
+public interface ChapterClient {
+
+    /** 章节正文 */
+    @GetMapping("/api/v1/chapters/{chapterId}")
+    R<ChapterDTO> getChapter(@PathVariable("chapterId") Long chapterId);
+}

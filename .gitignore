@@ -1,0 +1,37 @@
+# ===== WorkBuddy 内部状态（切勿入库） =====
+.workbuddy/
+.workbuddy/**
+
+# ===== 本会话探针 / 临时文件 =====
+_probe*.txt
+m0.png
+m1.png
+m2.png
+m3.png
+
+# ===== Maven 构建产物 =====
+target/
+**/target/
+*.class
+*.jar
+*.war
+
+# ===== 前端依赖与构建产物 =====
+node_modules/
+dist/
+moyue-web/_npm_stdout.txt
+moyue-web/_npm_stderr.txt
+
+# ===== 日志 =====
+*.log
+logs/
+**/logs/
+
+# ===== IDE =====
+.idea/
+.vscode/
+*.iml
+
+# ===== 操作系统 =====
+.DS_Store
+Thumbs.db
