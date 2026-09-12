@@ -241,3 +241,8 @@ chmod +x scripts/*.sh        # 首次使用需赋予可执行权限
 * 【新增·P1-8】管理端 / 内部写接口补齐：审核裁决 `PUT /api/v1/admin/audit/tasks/{taskId}/approve|reject`（经 Feign 回写章节 / 评论状态）、公告增删改查 `GET/POST/PUT/DELETE /api/v1/admin/announcements[/{id}]`、订单对账 `GET /api/v1/admin/orders`、用户资料更新 `PUT /api/v1/users/{id}`（本人或管理员）。其中 `/api/v1/internal/**` 为服务间端点，**不在网关任何路由内**，仅供 Feign 调用。
 * 【已修复·16-18】**V6 迁移**（`moyue-common/src/main/resources/db/migration/V6__announcement_and_reward_fix.sql`）：为 `reward_order` 补 `is_deleted` 列——原先 V1 漏建该列而实体含 `isDeleted` + 全局 `logic-delete-field: isDeleted` 生效，导致对 `reward_order` 的任何 MyBatis-Plus 查询都会追加 `is_deleted = 0` 并报 `Unknown column 'is_deleted'`；同时新建 `announcement` 表（公告 CRUD 的地基），并改正 `payChannel` 字段类型 `String → Integer`。
 * 【已修复·16-19】审核回写显式校验 `R.code`：全局异常处理器以 HTTP 200 + `R.code != 0` 承载业务错误，Feign 默认不抛异常，故 `AuditService` 必须显式判码，否则下游「回写失败」会被误判为成功、审核任务被错误置为已完成且不可重试。
+* 【已修复·16-8】**契约与 DDL 同步**（`deliverables/`）：
+  * `openapi.yaml` 由设计期产物升级为 **2.0.0**：21 paths → **49 paths / 68 operations**（脚本静态提取全部 `*Controller.java` 端点后逐条对齐），新增 `components` 段——`bearerAuth` 安全方案、8 个公共参数（Page/Size/Id/BookId/ChapterId/PostId/ConversationId/OrderNo）、4 种响应（Ok / OkPage / OkLogin / OkUser）、19 个 schema（`R`、`PageResult` 及各请求体）。
+  * `moyue-schema.sql` 由 8 表 → **20 表**当前状态快照，与 Flyway V1–V6 逐表对齐（`reward_order` 含 V6 补建的 `is_deleted`；`author_income` / `audit_task` 如实保持无 `is_deleted`）。文件头已标注「快照会 DROP 重建，权威来源为 Flyway 迁移」。
+  * 校验结论：端点集合比对 **68 = 68、双向差集 0**；表集合比对 **20 = 20、缺失 0、多余 0**；YAML 可解析且 131 处 `$ref` 全部可解析、无悬空引用。
+  * 剩余风险：仍为人工同步，未接入 `springdoc-openapi`；改动接口后需重跑比对。

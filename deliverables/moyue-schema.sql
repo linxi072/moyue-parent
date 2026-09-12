@@ -2,6 +2,18 @@
 --  墨阅小说网 · MySQL 8 建表脚本 (moyue-schema.sql)
 --  引擎 InnoDB / 字符集 utf8mb4 / 主键统一雪花 ID (BIGINT)
 --  约定：create_time · update_time 全表统一；is_deleted 逻辑删除
+--
+--  ⚠️ 本文件是「当前状态快照」，内容与 Flyway 迁移 V1–V6 完全对齐（20 张表）。
+--     实际部署以 Flyway 为准：各服务启动时自动执行
+--     moyue-common/src/main/resources/db/migration 下的迁移。
+--     本脚本会 DROP 同名表后重建，**仅用于初始化全新库或本地演示**，
+--     切勿对已有数据的库执行。
+--
+--  同步说明（技术债 16-8）：
+--    · 补齐 V3/V4/V5/V6 共 12 张表（原文件仅 8 张）
+--    · reward_order 补 is_deleted 列（V1 建表漏建，V6 已修复；
+--      实体含 isDeleted 且全局 logic-delete-field 生效，缺列会导致
+--      任何查询追加 is_deleted=0 而报 Unknown column）
 -- =============================================================
 
 SET NAMES utf8mb4;
@@ -94,7 +106,24 @@ CREATE TABLE `comment` (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '评论表';
 
 -- -------------------------------------------------------------
--- 05  reward_order  打赏订单表
+-- 05  comment_like  评论点赞表（V5，防重复点赞）
+-- -------------------------------------------------------------
+DROP TABLE IF EXISTS `comment_like`;
+CREATE TABLE `comment_like` (
+  `id`          BIGINT       NOT NULL                COMMENT '主键',
+  `comment_id`  BIGINT       NOT NULL                COMMENT '评论 ID → comment.id',
+  `user_id`     BIGINT       NOT NULL                COMMENT '点赞人 → user.id',
+  `is_deleted`  TINYINT(1)   NOT NULL DEFAULT 0      COMMENT '逻辑删除',
+  `create_time` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_comment_user` (`comment_id`, `user_id`),
+  KEY `idx_comment` (`comment_id`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '评论点赞表';
+
+-- -------------------------------------------------------------
+-- 06  reward_order  打赏订单表
+--     注：is_deleted 为 V6 补齐，V1 建表时漏建
 -- -------------------------------------------------------------
 DROP TABLE IF EXISTS `reward_order`;
 CREATE TABLE `reward_order` (
@@ -107,6 +136,7 @@ CREATE TABLE `reward_order` (
   `pay_channel` TINYINT       NOT NULL DEFAULT 1     COMMENT '支付渠道：1 微信 / 2 支付宝',
   `status`      TINYINT       NOT NULL DEFAULT 0     COMMENT '状态：0 待支付 / 1 已支付 / 2 已关闭 / 3 已退款',
   `pay_time`    DATETIME      DEFAULT NULL           COMMENT '支付完成时间',
+  `is_deleted`  TINYINT(1)    NOT NULL DEFAULT 0     COMMENT '逻辑删除',
   `create_time` DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
@@ -116,7 +146,7 @@ CREATE TABLE `reward_order` (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '打赏订单表';
 
 -- -------------------------------------------------------------
--- 06  bookshelf  书架表
+-- 07  bookshelf  书架表
 -- -------------------------------------------------------------
 DROP TABLE IF EXISTS `bookshelf`;
 CREATE TABLE `bookshelf` (
@@ -133,7 +163,8 @@ CREATE TABLE `bookshelf` (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '书架表（用户与书籍多对多）';
 
 -- -------------------------------------------------------------
--- 07  稿酬流水表（作者收入，按月结算）
+-- 08  author_income  稿酬流水表（作者收入，按月结算）
+--     注：本表无 is_deleted 列（结算流水不物理/逻辑删除）
 -- -------------------------------------------------------------
 DROP TABLE IF EXISTS `author_income`;
 CREATE TABLE `author_income` (
@@ -150,7 +181,8 @@ CREATE TABLE `author_income` (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '作者稿酬流水表';
 
 -- -------------------------------------------------------------
--- 08  待审任务表（本地消息表，保证审核消息不丢）
+-- 09  audit_task  待审任务表（本地消息表，保证审核消息不丢）
+--     注：本表无 is_deleted 列
 -- -------------------------------------------------------------
 DROP TABLE IF EXISTS `audit_task`;
 CREATE TABLE `audit_task` (
@@ -166,4 +198,215 @@ CREATE TABLE `audit_task` (
   KEY `idx_biz` (`biz_type`, `biz_id`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '审核任务本地消息表';
 
+-- -------------------------------------------------------------
+-- 10  announcement  运营公告表（V6）
+-- -------------------------------------------------------------
+DROP TABLE IF EXISTS `announcement`;
+CREATE TABLE `announcement` (
+  `id`           BIGINT       NOT NULL               COMMENT '公告主键',
+  `title`        VARCHAR(128) NOT NULL               COMMENT '标题',
+  `content`      TEXT         NOT NULL               COMMENT '正文',
+  `type`         TINYINT      NOT NULL DEFAULT 1     COMMENT '类型：1 站内公告 / 2 活动 / 3 系统维护',
+  `status`       TINYINT      NOT NULL DEFAULT 0     COMMENT '状态：0 草稿 / 1 已发布 / 2 已下线',
+  `is_top`       TINYINT(1)   NOT NULL DEFAULT 0     COMMENT '是否置顶：0 否 / 1 是',
+  `publish_time` DATETIME     DEFAULT NULL           COMMENT '发布时间',
+  `is_deleted`   TINYINT(1)   NOT NULL DEFAULT 0     COMMENT '逻辑删除',
+  `create_time`  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time`  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_status` (`status`),
+  KEY `idx_top_time` (`is_top`, `publish_time`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '运营公告表';
+
+-- -------------------------------------------------------------
+-- 11  notice  站内信/通知表（V3）
+-- -------------------------------------------------------------
+DROP TABLE IF EXISTS `notice`;
+CREATE TABLE `notice` (
+  `id`          BIGINT       NOT NULL                COMMENT '通知主键',
+  `user_id`     BIGINT       NOT NULL                COMMENT '接收用户 → user.id',
+  `title`       VARCHAR(128) NOT NULL                COMMENT '标题',
+  `content`     VARCHAR(500) DEFAULT NULL            COMMENT '内容',
+  `type`        TINYINT      NOT NULL DEFAULT 1      COMMENT '类型：1 系统 / 2 互动 / 3 审核',
+  `is_read`     TINYINT(1)   NOT NULL DEFAULT 0      COMMENT '是否已读',
+  `create_time` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_user` (`user_id`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '站内信/通知表';
+
+-- -------------------------------------------------------------
+-- 12  chat_conversation  聊天会话表（V4）
+-- -------------------------------------------------------------
+DROP TABLE IF EXISTS `chat_conversation`;
+CREATE TABLE `chat_conversation` (
+  `id`                BIGINT       NOT NULL                COMMENT '会话主键',
+  `type`              TINYINT      NOT NULL DEFAULT 1      COMMENT '类型：1 单聊 / 2 群聊',
+  `title`             VARCHAR(64)  DEFAULT NULL            COMMENT '群聊名称；单聊为空',
+  `owner_id`          BIGINT       DEFAULT NULL            COMMENT '群主 / 创建人 → user.id',
+  `last_message`      VARCHAR(512) DEFAULT NULL            COMMENT '最近一条消息预览',
+  `last_message_time` DATETIME     DEFAULT NULL            COMMENT '最近消息时间',
+  `is_deleted`        TINYINT(1)   NOT NULL DEFAULT 0      COMMENT '逻辑删除',
+  `create_time`       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time`       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_owner` (`owner_id`),
+  KEY `idx_type` (`type`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '聊天会话表（单聊 / 群聊）';
+
+-- -------------------------------------------------------------
+-- 13  chat_conversation_member  会话成员表（V4）
+-- -------------------------------------------------------------
+DROP TABLE IF EXISTS `chat_conversation_member`;
+CREATE TABLE `chat_conversation_member` (
+  `id`                   BIGINT       NOT NULL                COMMENT '主键',
+  `conversation_id`      BIGINT       NOT NULL                COMMENT '会话 ID → chat_conversation.id',
+  `user_id`              BIGINT       NOT NULL                COMMENT '成员 ID → user.id',
+  `role`                 TINYINT      NOT NULL DEFAULT 2      COMMENT '角色：1 群主 / 2 成员',
+  `last_read_message_id` BIGINT       DEFAULT NULL            COMMENT '最后已读消息 ID',
+  `is_deleted`           TINYINT(1)   NOT NULL DEFAULT 0      COMMENT '逻辑删除',
+  `create_time`          DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '加入时间',
+  `update_time`          DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_conv_user` (`conversation_id`, `user_id`),
+  KEY `idx_user` (`user_id`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '会话成员关系表';
+
+-- -------------------------------------------------------------
+-- 14  chat_message  聊天消息表（V4）
+-- -------------------------------------------------------------
+DROP TABLE IF EXISTS `chat_message`;
+CREATE TABLE `chat_message` (
+  `id`              BIGINT        NOT NULL                COMMENT '消息主键',
+  `conversation_id` BIGINT        NOT NULL                COMMENT '会话 ID → chat_conversation.id',
+  `sender_id`       BIGINT        NOT NULL                COMMENT '发送人 → user.id',
+  `content`         VARCHAR(2000) NOT NULL                COMMENT '消息内容',
+  `type`            TINYINT       NOT NULL DEFAULT 1      COMMENT '类型：1 文本 / 2 图片 / 3 系统',
+  `status`          TINYINT       NOT NULL DEFAULT 0      COMMENT '状态：0 已发送 / 1 已读',
+  `is_deleted`      TINYINT(1)    NOT NULL DEFAULT 0      COMMENT '逻辑删除',
+  `create_time`     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '发送时间',
+  `update_time`     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_conv_time` (`conversation_id`, `create_time`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '聊天消息表';
+
+-- -------------------------------------------------------------
+-- 15  points_account  积分账户表（V4，每用户一行）
+-- -------------------------------------------------------------
+DROP TABLE IF EXISTS `points_account`;
+CREATE TABLE `points_account` (
+  `user_id`      BIGINT     NOT NULL                COMMENT '用户 ID（主键）→ user.id',
+  `balance`      INT        NOT NULL DEFAULT 0      COMMENT '当前积分余额',
+  `total_earned` INT        NOT NULL DEFAULT 0      COMMENT '累计获得',
+  `total_spent`  INT        NOT NULL DEFAULT 0      COMMENT '累计消费',
+  `is_deleted`   TINYINT(1) NOT NULL DEFAULT 0      COMMENT '逻辑删除',
+  `create_time`  DATETIME   NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time`  DATETIME   NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`user_id`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '用户积分账户表';
+
+-- -------------------------------------------------------------
+-- 16  points_product  积分商品表（V4）
+-- -------------------------------------------------------------
+DROP TABLE IF EXISTS `points_product`;
+CREATE TABLE `points_product` (
+  `id`          BIGINT        NOT NULL               COMMENT '商品主键',
+  `name`        VARCHAR(64)   NOT NULL               COMMENT '商品名称',
+  `description` VARCHAR(255)  DEFAULT NULL           COMMENT '商品描述',
+  `image_url`   VARCHAR(255)  DEFAULT NULL           COMMENT '商品图片',
+  `cost_points` INT           NOT NULL DEFAULT 0     COMMENT '兑换所需积分',
+  `stock`       INT           NOT NULL DEFAULT 0     COMMENT '库存',
+  `status`      TINYINT       NOT NULL DEFAULT 1     COMMENT '状态：1 上架 / 2 下架',
+  `is_deleted`  TINYINT(1)    NOT NULL DEFAULT 0     COMMENT '逻辑删除',
+  `create_time` DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_status` (`status`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '积分商城商品表';
+
+-- -------------------------------------------------------------
+-- 17  points_order  积分兑换订单表（V4）
+-- -------------------------------------------------------------
+DROP TABLE IF EXISTS `points_order`;
+CREATE TABLE `points_order` (
+  `id`           BIGINT        NOT NULL               COMMENT '订单主键',
+  `user_id`      BIGINT        NOT NULL               COMMENT '兑换人 → user.id',
+  `product_id`   BIGINT        NOT NULL               COMMENT '商品 ID → points_product.id',
+  `product_name` VARCHAR(64)   DEFAULT NULL           COMMENT '商品名称快照',
+  `cost_points`  INT           NOT NULL DEFAULT 0     COMMENT '兑换消耗积分',
+  `status`       TINYINT       NOT NULL DEFAULT 0     COMMENT '状态：0 待兑换 / 1 已兑换 / 2 已取消',
+  `is_deleted`   TINYINT(1)    NOT NULL DEFAULT 0     COMMENT '逻辑删除',
+  `create_time`  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time`  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_user` (`user_id`),
+  KEY `idx_product` (`product_id`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '积分兑换订单表';
+
+-- -------------------------------------------------------------
+-- 18  blog_post  博客文章表（V4）
+-- -------------------------------------------------------------
+DROP TABLE IF EXISTS `blog_post`;
+CREATE TABLE `blog_post` (
+  `id`            BIGINT        NOT NULL               COMMENT '文章主键',
+  `author_id`     BIGINT        NOT NULL               COMMENT '作者 → user.id',
+  `title`         VARCHAR(128)  NOT NULL               COMMENT '标题',
+  `cover_url`     VARCHAR(255)  DEFAULT NULL           COMMENT '封面',
+  `summary`       VARCHAR(255)  DEFAULT NULL           COMMENT '摘要',
+  `content`       MEDIUMTEXT    NOT NULL               COMMENT '正文',
+  `status`        TINYINT       NOT NULL DEFAULT 1     COMMENT '状态：0 草稿 / 1 已发布 / 2 已下架',
+  `like_count`    INT           NOT NULL DEFAULT 0     COMMENT '点赞数',
+  `comment_count` INT           NOT NULL DEFAULT 0     COMMENT '评论数',
+  `view_count`    INT           NOT NULL DEFAULT 0     COMMENT '浏览数',
+  `is_deleted`    TINYINT(1)    NOT NULL DEFAULT 0     COMMENT '逻辑删除',
+  `create_time`   DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time`   DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_author` (`author_id`),
+  KEY `idx_status` (`status`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '博客文章表';
+
+-- -------------------------------------------------------------
+-- 19  blog_comment  博客评论表（V4）
+-- -------------------------------------------------------------
+DROP TABLE IF EXISTS `blog_comment`;
+CREATE TABLE `blog_comment` (
+  `id`          BIGINT        NOT NULL               COMMENT '评论主键',
+  `post_id`     BIGINT        NOT NULL               COMMENT '文章 ID → blog_post.id',
+  `user_id`     BIGINT        NOT NULL               COMMENT '评论人 → user.id',
+  `content`     VARCHAR(1000) NOT NULL               COMMENT '评论内容',
+  `like_count`  INT           NOT NULL DEFAULT 0     COMMENT '点赞数',
+  `is_deleted`  TINYINT(1)    NOT NULL DEFAULT 0     COMMENT '逻辑删除',
+  `create_time` DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_post` (`post_id`),
+  KEY `idx_user` (`user_id`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '博客评论表';
+
+-- -------------------------------------------------------------
+-- 20  blog_like  博客点赞表（V4，防重复点赞）
+-- -------------------------------------------------------------
+DROP TABLE IF EXISTS `blog_like`;
+CREATE TABLE `blog_like` (
+  `id`          BIGINT       NOT NULL                COMMENT '主键',
+  `post_id`     BIGINT       NOT NULL                COMMENT '文章 ID → blog_post.id',
+  `user_id`     BIGINT       NOT NULL                COMMENT '点赞人 → user.id',
+  `is_deleted`  TINYINT(1)   NOT NULL DEFAULT 0      COMMENT '逻辑删除',
+  `create_time` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_post_user` (`post_id`, `user_id`),
+  KEY `idx_post` (`post_id`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '博客点赞表';
+
 SET FOREIGN_KEY_CHECKS = 1;
+
+-- =============================================================
+--  附：Flyway 迁移对照（以代码为准）
+--    V1  user/book/chapter/comment/reward_order/bookshelf/author_income/audit_task
+--    V2  书籍种子数据
+--    V3  notice
+--    V4  chat_* / points_* / blog_*
+--    V5  comment_like
+--    V6  announcement + reward_order 补 is_deleted
+-- =============================================================

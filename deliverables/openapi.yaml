@@ -2,14 +2,26 @@ openapi: 3.0.3
 
 info:
   title: 墨阅小说网 API
-  version: 1.0.0
+  version: 2.0.0
   description: |
     免费读书网站「墨阅小说网」后端接口契约（OpenAPI 3.0）。
-    前端 Vue 3 三端（读者端 / 作家端 / 管理后台）与本契约并行开发。
-    约定：统一响应体 R<T>；鉴权 Authorization: Bearer {accessToken}；
-    分页参数 page / size；写操作需带 Idempotency-Key；错误码为 5 位业务码。
+
+    **本契约于 2026-09-12 与工程源码对齐**：共 68 个 REST 端点（另有 1 个 WebSocket
+    `/ws/im`），由脚本从全部 `*Controller.java` 静态提取生成，非计划值。
+
+    约定：
+    - 统一响应体 `R<T>` = `{ code, message, data, traceId }`，**HTTP 一律 200 承载**，
+      业务结果用 `code` 表达（0 成功，其余见 `ResultCode`）。
+    - 鉴权：`Authorization: Bearer {accessToken}`；网关校验后向下游注入
+      `X-User-Id` / `X-User-Role`（1 读者 / 2 作者 / 3 管理员）。
+      **写接口的身份一律取注入头，不接受请求体传 userId。**
+    - `/admin/**` 由 `AdminRoleInterceptor` 在服务端断言 `X-User-Role=3`。
+    - `/internal/**` 为**服务间端点**，不在网关任何路由内，仅供 Feign 调用。
+    - 分页参数 `page` / `size`；错误码 0 / 10001 / 10002 / 10003 / 20001 / 30001 / 40001 / 50001。
 
 servers:
+  - url: http://localhost:8080/api/v1
+    description: 本地开发（经网关）
   - url: https://api.moyue.com/api/v1
     description: 生产环境
   - url: https://staging-api.moyue.com/api/v1
@@ -17,26 +29,43 @@ servers:
 
 tags:
   - name: auth
-    description: 鉴权与用户
+    description: 鉴权（auth 8081）
+  - name: user
+    description: 用户资料（user 8083）
   - name: book
-    description: 书城与检索
+    description: 书城与作品管理（book 8082）
   - name: chapter
-    description: 章节与创作
+    description: 章节与创作（chapter 8085）
+  - name: read
+    description: 书架与阅读进度（read 8084）
   - name: comment
-    description: 互动
+    description: 评论（comment 8087）
+  - name: im
+    description: 即时通讯（im 8093）
+  - name: blog
+    description: 博客空间（blog 8095）
+  - name: points
+    description: 积分商城（points 8094）
+  - name: author
+    description: 作者稿酬（author 8086）
   - name: reward
-    description: 打赏支付
+    description: 打赏支付（operation 8089）
+  - name: message
+    description: 站内信（message 8090）
   - name: admin
-    description: 管理后台
+    description: 管理后台（需 X-User-Role=3）
+  - name: internal
+    description: 服务间端点（不经网关）
 
 security:
   - bearerAuth: []
 
 paths:
+  # ---------------- 鉴权 ----------------
   /auth/login:
     post:
       tags: [auth]
-      summary: 手机号 + 密码登录
+      summary: 手机号 + 密码登录，返回 accessToken / refreshToken
       security: []
       requestBody:
         required: true
@@ -44,266 +73,708 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/LoginReq" }
       responses:
-        "200":
-          description: 登录成功
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/ApiResponse" }
-        "401":
-          description: 账号或密码错误
+        "200": { $ref: "#/components/responses/OkLogin" }
 
   /auth/register:
     post:
       tags: [auth]
-      summary: 注册账号并下发短信验证码
+      summary: 注册账号（BCrypt 加密写库）
       security: []
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              type: object
-              required: [phone, code, password]
-              properties:
-                phone:    { type: string }
-                code:     { type: string }
-                password: { type: string, format: password }
+            schema: { $ref: "#/components/schemas/RegisterReq" }
       responses:
-        "200": { description: 注册成功 }
+        "200": { $ref: "#/components/responses/Ok" }
 
   /auth/refresh:
     post:
       tags: [auth]
       summary: 用 refreshToken 换取新的 accessToken
       security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RefreshReq" }
       responses:
-        "200": { description: 刷新成功 }
+        "200": { $ref: "#/components/responses/OkLogin" }
 
   /users/me:
     get:
       tags: [auth]
-      summary: 获取当前登录用户资料与角色权限
+      summary: 当前登录用户资料（读网关注入的 X-User-Id）
       responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/UserInfo" }
+        "200": { $ref: "#/components/responses/OkUser" }
 
+  # ---------------- 用户 ----------------
+  /users:
+    get:
+      tags: [user]
+      summary: 用户分页列表
+      parameters:
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/Size" }
+      responses:
+        "200": { $ref: "#/components/responses/OkPage" }
+
+  /users/{id}:
+    parameters:
+      - { $ref: "#/components/parameters/Id" }
+    get:
+      tags: [user]
+      summary: 用户资料查询
+      responses:
+        "200": { $ref: "#/components/responses/OkUser" }
+    put:
+      tags: [user]
+      summary: 更新资料（昵称 / 头像）——仅本人或管理员；不允许改手机号 / 角色 / 状态
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateProfileReq" }
+      responses:
+        "200": { $ref: "#/components/responses/OkUser" }
+
+  # ---------------- 作品 ----------------
   /books:
     get:
       tags: [book]
-      summary: 分页查询作品（分类 / 标签 / 排序 / 状态筛选）
+      summary: 书籍分页（经 Feign 解析作者昵称）
       parameters:
-        - name: page
-          in: query
-          schema: { type: integer, default: 1 }
-        - name: size
-          in: query
-          schema: { type: integer, default: 20, maximum: 100 }
-        - name: categoryId
-          in: query
-          schema: { type: integer, format: int64 }
-        - name: sort
-          in: query
-          schema: { type: string, enum: [hot, newest, wordcount] }
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/Size" }
       responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/PageResult" }
+        "200": { $ref: "#/components/responses/OkPage" }
+    post:
+      tags: [book]
+      summary: 创建作品（需 X-User-Role≥2；authorId 取注入头，不接受请求体传入）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateBookReq" }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
 
   /books/{bookId}:
+    parameters:
+      - { $ref: "#/components/parameters/BookId" }
     get:
       tags: [book]
-      summary: 书籍详情（简介 / 作者 / 统计 / 最新章节）
-      parameters:
-        - name: bookId
-          in: path
-          required: true
-          schema: { type: integer, format: int64 }
+      summary: 书籍详情
       responses:
-        "200": { description: OK }
-
-  /books/search:
-    get:
+        "200": { $ref: "#/components/responses/Ok" }
+    put:
       tags: [book]
-      summary: 全文检索（Elasticsearch），返回书籍与作者
-      parameters:
-        - name: keyword
-          in: query
-          required: true
-          schema: { type: string }
+      summary: 编辑作品（上架 / 下架用 status）——作者本人或管理员
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateBookReq" }
       responses:
-        "200": { description: OK }
-
-  /shelf/{bookId}:
-    post:
+        "200": { $ref: "#/components/responses/Ok" }
+    delete:
       tags: [book]
-      summary: 加入或移出我的书架（幂等）
-      parameters:
-        - name: bookId
-          in: path
-          required: true
-          schema: { type: integer, format: int64 }
+      summary: 删除作品（逻辑删除）——作者本人或管理员
       responses:
-        "200": { description: OK }
+        "200": { $ref: "#/components/responses/Ok" }
 
-  /books/{bookId}/catalog:
+  # ---------------- 章节 ----------------
+  /chapters:
     get:
       tags: [chapter]
-      summary: 章节目录（分页，Redis 缓存 10 分钟）
+      summary: 章节目录分页（按 chapterNo 升序）
       parameters:
-        - name: bookId
-          in: path
-          required: true
-          schema: { type: integer, format: int64 }
+        - { name: bookId, in: query, required: true, schema: { type: integer, format: int64 } }
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/Size" }
       responses:
-        "200": { description: OK }
+        "200": { $ref: "#/components/responses/OkPage" }
+    post:
+      tags: [chapter]
+      summary: 创建章节（序号为空则取 max+1；wordCount 由正文长度推导）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateChapterReq" }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /chapters/drafts:
+    get:
+      tags: [chapter]
+      summary: 草稿箱（status=0）
+      parameters:
+        - { name: bookId, in: query, required: true, schema: { type: integer, format: int64 } }
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/Size" }
+      responses:
+        "200": { $ref: "#/components/responses/OkPage" }
 
   /chapters/{chapterId}:
+    parameters:
+      - { $ref: "#/components/parameters/ChapterId" }
     get:
       tags: [chapter]
-      summary: 章节正文（热点缓存，未命中回源 MySQL 从库）
-      parameters:
-        - name: chapterId
-          in: path
-          required: true
-          schema: { type: integer, format: int64 }
+      summary: 章节详情（含正文 content）
       responses:
-        "200": { description: OK }
+        "200": { $ref: "#/components/responses/Ok" }
+    put:
+      tags: [chapter]
+      summary: 编辑章节（仅更新非空字段；正文变更重算字数）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateChapterReq" }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+    delete:
+      tags: [chapter]
+      summary: 删除章节（逻辑删除）
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
 
-  /author/books:
+  /chapters/{chapterId}/publish:
+    parameters:
+      - { $ref: "#/components/parameters/ChapterId" }
     post:
       tags: [chapter]
-      summary: 新建作品（草稿态）
+      summary: 发布 / 定时发布（publishTime 未到则置 status=1 待调度到点转 2）
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                publishTime: { type: string, format: date-time }
       responses:
-        "200": { description: 创建成功 }
-    get:
-      tags: [chapter]
-      summary: 我的作品列表
-      responses:
-        "200": { description: OK }
+        "200": { $ref: "#/components/responses/Ok" }
 
-  /author/books/{bookId}/chapters:
-    post:
+  /chapters/{chapterId}/order:
+    parameters:
+      - { $ref: "#/components/parameters/ChapterId" }
+    put:
       tags: [chapter]
-      summary: 新建章节（默认草稿态，支持自动保存）
-      parameters:
-        - name: bookId
-          in: path
-          required: true
-          schema: { type: integer, format: int64 }
-      responses:
-        "200": { description: 创建成功 }
-
-  /author/chapters/{id}/publish:
-    post:
-      tags: [chapter]
-      summary: 提交发布 / 定时发布，进入审核队列
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema: { type: integer, format: int64 }
-      responses:
-        "200": { description: 已提交审核 }
-
-  /comments:
-    get:
-      tags: [comment]
-      summary: 评论列表（按书籍 / 章节分页，含点赞数）
-      parameters:
-        - name: bookId
-          in: query
-          schema: { type: integer, format: int64 }
-        - name: chapterId
-          in: query
-          schema: { type: integer, format: int64 }
-      responses:
-        "200": { description: OK }
-    post:
-      tags: [comment]
-      summary: 发表评论，先落库待审再异步机审
+      summary: 章节排序（改 chapterNo，冲突返回 10001）
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [bookId, content]
+              required: [chapterNo]
               properties:
-                bookId:    { type: integer, format: int64 }
-                chapterId: { type: integer, format: int64 }
-                content:   { type: string, maxLength: 1000 }
+                chapterNo: { type: integer }
       responses:
-        "200": { description: 已提交，审核中 }
+        "200": { $ref: "#/components/responses/Ok" }
 
-  /rewards:
+  # ---------------- 书架 / 阅读 ----------------
+  /read/bookshelf:
     post:
-      tags: [reward]
-      summary: 创建打赏订单，返回 orderNo 与支付参数
-      parameters:
-        - name: Idempotency-Key
-          in: header
-          required: true
-          schema: { type: string }
+      tags: [read]
+      summary: 加入书架（幂等：uk_user_book 冲突时复活软删行）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AddShelfReq" }
       responses:
-        "200": { description: OK }
+        "200": { $ref: "#/components/responses/Ok" }
 
-  /orders/{orderNo}:
+  /read/bookshelf/{userId}:
+    get:
+      tags: [read]
+      summary: 查询书架
+      parameters:
+        - { name: userId, in: path, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /read/bookshelf/{bookId}:
+    delete:
+      tags: [read]
+      summary: 移出书架（逻辑删除）
+      parameters:
+        - { $ref: "#/components/parameters/BookId" }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /read/bookshelf/{bookId}/progress:
+    put:
+      tags: [read]
+      summary: 更新阅读进度（最后阅读章节）
+      parameters:
+        - { $ref: "#/components/parameters/BookId" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                lastChapterId: { type: integer, format: int64 }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  # ---------------- 评论 ----------------
+  /comments:
+    get:
+      tags: [comment]
+      summary: 评论查询（按 bookId 分页）
+      parameters:
+        - { name: bookId, in: query, schema: { type: integer, format: int64 } }
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/Size" }
+      responses:
+        "200": { $ref: "#/components/responses/OkPage" }
+    post:
+      tags: [comment]
+      summary: 发表评论（评论人取 X-User-Id，默认 status=0 待审）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateCommentReq" }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /comments/{commentId}:
+    delete:
+      tags: [comment]
+      summary: 删除评论（评论人本人 / 管理员）
+      parameters:
+        - { name: commentId, in: path, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /comments/{commentId}/like:
+    post:
+      tags: [comment]
+      summary: 点赞切换（comment_like 唯一键防重；计数走原子 setSql，返回当前点赞数）
+      parameters:
+        - { name: commentId, in: path, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  # ---------------- IM ----------------
+  /im/conversations:
+    get:
+      tags: [im]
+      summary: 我的会话列表（分页）
+      parameters:
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/Size" }
+      responses:
+        "200": { $ref: "#/components/responses/OkPage" }
+    post:
+      tags: [im]
+      summary: 创建会话（单聊 type=1 / 群聊 type=2）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type]
+              properties:
+                type:      { type: integer, enum: [1, 2] }
+                title:     { type: string }
+                memberIds: { type: array, items: { type: integer, format: int64 } }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /im/conversations/{conversationId}:
+    get:
+      tags: [im]
+      summary: 会话详情（聚合成员 ID）
+      parameters:
+        - { $ref: "#/components/parameters/ConversationId" }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /im/conversations/{conversationId}/messages:
+    parameters:
+      - { $ref: "#/components/parameters/ConversationId" }
+    get:
+      tags: [im]
+      summary: 会话消息分页
+      parameters:
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/Size" }
+      responses:
+        "200": { $ref: "#/components/responses/OkPage" }
+    post:
+      tags: [im]
+      summary: 发送消息（落库后经 WebSocket 广播；推送失败仅记日志不阻断 HTTP）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content: { type: string, maxLength: 2000 }
+                type:    { type: integer, enum: [1, 2, 3], description: 1 文本 / 2 图片 / 3 系统 }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  # ---------------- 博客 ----------------
+  /blog/posts:
+    get:
+      tags: [blog]
+      summary: 文章列表（authorId 可选）
+      parameters:
+        - { name: authorId, in: query, schema: { type: integer, format: int64 } }
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/Size" }
+      responses:
+        "200": { $ref: "#/components/responses/OkPage" }
+    post:
+      tags: [blog]
+      summary: 发布文章
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreatePostReq" }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /blog/posts/{id}:
+    parameters:
+      - { $ref: "#/components/parameters/PostId" }
+    get:
+      tags: [blog]
+      summary: 文章详情（view_count 自增）
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+    put:
+      tags: [blog]
+      summary: 编辑文章
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:    { type: string }
+                coverUrl: { type: string }
+                summary:  { type: string }
+                content:  { type: string }
+                status:   { type: integer, enum: [0, 1, 2] }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+    delete:
+      tags: [blog]
+      summary: 删除文章（逻辑删除）
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /blog/posts/{id}/comments:
+    parameters:
+      - { $ref: "#/components/parameters/PostId" }
+    get:
+      tags: [blog]
+      summary: 文章评论列表
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+    post:
+      tags: [blog]
+      summary: 评论文章
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content: { type: string, maxLength: 1000 }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /blog/posts/{id}/like:
+    parameters:
+      - { $ref: "#/components/parameters/PostId" }
+    post:
+      tags: [blog]
+      summary: 点赞 / 取消点赞（blog_like 唯一键防重，幂等切换）
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  # ---------------- 积分商城 ----------------
+  /points/accounts/{userId}:
+    get:
+      tags: [points]
+      summary: 积分账户（不存在自动初始化）
+      parameters:
+        - { name: userId, in: path, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /points/products:
+    get:
+      tags: [points]
+      summary: 上架商品列表
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /points/orders:
+    get:
+      tags: [points]
+      summary: 我的兑换订单
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+    post:
+      tags: [points]
+      summary: 兑换商品（事务：原子扣余额 + 原子扣库存 + 建单，防超卖）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreatePointsOrderReq" }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  # ---------------- 作者稿酬 ----------------
+  /author/income/{authorId}:
+    get:
+      tags: [author]
+      summary: 作者稿酬流水
+      parameters:
+        - { name: authorId, in: path, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  # ---------------- 打赏 ----------------
+  /rewards:
     get:
       tags: [reward]
-      summary: 轮询订单支付状态（幂等查询）
+      summary: 我的打赏记录（按创建时间倒序）
       parameters:
-        - name: orderNo
-          in: path
-          required: true
-          schema: { type: string }
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/Size" }
       responses:
-        "200": { description: OK }
-
-  /callbacks/wechat/pay:
+        "200": { $ref: "#/components/responses/OkPage" }
     post:
       tags: [reward]
-      summary: 微信支付异步回调（验签 + 解密 + 幂等）
-      security: []
+      summary: 创建打赏订单（待支付；金额 >0 且 ≤10 万；打赏人取 X-User-Id）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateRewardReq" }
       responses:
-        "200": { description: 返回 SUCCESS }
+        "200": { $ref: "#/components/responses/Ok" }
 
+  /rewards/income:
+    get:
+      tags: [reward]
+      summary: 我的稿酬流水（作者视角，打赏分成）
+      parameters:
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/Size" }
+      responses:
+        "200": { $ref: "#/components/responses/OkPage" }
+
+  /rewards/{orderNo}:
+    get:
+      tags: [reward]
+      summary: 打赏订单详情（仅下单人可见）
+      parameters:
+        - { $ref: "#/components/parameters/OrderNo" }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /rewards/{orderNo}/pay:
+    post:
+      tags: [reward]
+      summary: 支付成功回调（以 order_no 幂等；重复回调不重复结算稿酬）
+      parameters:
+        - { $ref: "#/components/parameters/OrderNo" }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  # ---------------- 站内信 ----------------
+  /messages:
+    post:
+      tags: [message]
+      summary: 发送站内通知
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, title]
+              properties:
+                userId:  { type: integer, format: int64 }
+                title:   { type: string }
+                content: { type: string }
+                type:    { type: integer, enum: [1, 2, 3] }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /messages/{userId}:
+    get:
+      tags: [message]
+      summary: 站内通知查询
+      parameters:
+        - { name: userId, in: path, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  # ---------------- 管理后台（需 X-User-Role=3） ----------------
   /admin/audit/comments:
     get:
       tags: [admin]
-      summary: 待审核评论列表（举报次数 / 机审分）
+      summary: 待审核任务列表（兼容旧路径，等价于 status=0）
       responses:
-        "200": { description: OK }
+        "200": { $ref: "#/components/responses/Ok" }
 
-  /admin/audit/comments/{id}:
+  /admin/audit/tasks:
+    get:
+      tags: [admin]
+      summary: 审核任务列表（可按 status 过滤：0 待投递 / 1 已投递 / 2 已完成 / 3 死信）
+      parameters:
+        - { name: status, in: query, schema: { type: integer, enum: [0, 1, 2, 3] } }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /admin/audit/tasks/{taskId}/approve:
+    put:
+      tags: [admin]
+      summary: 审核通过（经 Feign 回写：章节→2 已发布 / 评论→1 已通过）
+      parameters:
+        - { name: taskId, in: path, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /admin/audit/tasks/{taskId}/reject:
+    put:
+      tags: [admin]
+      summary: 审核驳回（回写：章节→3 已驳回 / 评论→2 已驳回）
+      parameters:
+        - { name: taskId, in: path, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /admin/announcements:
+    get:
+      tags: [admin]
+      summary: 公告列表（可按 status 过滤：0 草稿 / 1 已发布 / 2 已下线）
+      parameters:
+        - { name: status, in: query, schema: { type: integer, enum: [0, 1, 2] } }
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/Size" }
+      responses:
+        "200": { $ref: "#/components/responses/OkPage" }
     post:
       tags: [admin]
-      summary: 审核通过 / 驳回，写回审核结果与通知
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema: { type: integer, format: int64 }
+      summary: 发布公告（支持定时上线与置顶）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AnnouncementReq" }
       responses:
-        "200": { description: OK }
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /admin/announcements/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+    put:
+      tags: [admin]
+      summary: 编辑公告（仅更新非空字段）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AnnouncementReq" }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+    delete:
+      tags: [admin]
+      summary: 删除公告（逻辑删除）
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /admin/orders:
+    get:
+      tags: [admin]
+      summary: 打赏订单分页（运营对账）
+      parameters:
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/Size" }
+      responses:
+        "200": { $ref: "#/components/responses/OkPage" }
 
   /admin/stats/overview:
     get:
       tags: [admin]
-      summary: 运营数据总览（用户 / 作品 / 评论 / 收入）
+      summary: 全站聚合统计（只读）
       responses:
-        "200": { description: OK }
+        "200": { $ref: "#/components/responses/Ok" }
 
-  /admin/announcements:
+  /admin/points/products:
+    get:
+      tags: [admin]
+      summary: 后台商品列表
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
     post:
       tags: [admin]
-      summary: 发布运营公告，支持定时上线与置顶
+      summary: 后台新增商品
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PointsProductReq" }
       responses:
-        "200": { description: OK }
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /admin/points/products/{id}:
+    put:
+      tags: [admin]
+      summary: 后台修改商品（上下架用 status）
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PointsProductReq" }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  # ---------------- 服务间内部端点（不经网关） ----------------
+  /internal/chapters/{chapterId}/audit:
+    put:
+      tags: [internal]
+      summary: "[内部] 审核回写章节状态（status 2 已发布 / 3 已驳回）"
+      parameters:
+        - { $ref: "#/components/parameters/ChapterId" }
+        - { name: status, in: query, required: true, schema: { type: integer, enum: [2, 3] } }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /internal/comments/{commentId}/audit:
+    put:
+      tags: [internal]
+      summary: "[内部] 审核回写评论状态（status 1 已通过 / 2 已驳回）"
+      parameters:
+        - { name: commentId, in: path, required: true, schema: { type: integer, format: int64 } }
+        - { name: status, in: query, required: true, schema: { type: integer, enum: [1, 2] } }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
 
 components:
   securitySchemes:
@@ -311,37 +782,293 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+      description: >-
+        网关 JwtAuthGlobalFilter 校验 Authorization: Bearer <accessToken>，
+        校验通过后向下游注入 X-User-Id / X-User-Role 头。
+
+  parameters:
+    Page:
+      name: page
+      in: query
+      required: false
+      description: 页码，从 1 开始
+      schema: { type: integer, minimum: 1, default: 1 }
+    Size:
+      name: size
+      in: query
+      required: false
+      description: 每页条数
+      schema: { type: integer, minimum: 1, maximum: 100, default: 10 }
+    Id:
+      name: id
+      in: path
+      required: true
+      description: 资源主键（雪花 ID）
+      schema: { type: integer, format: int64 }
+    BookId:
+      name: bookId
+      in: path
+      required: true
+      description: 作品 ID
+      schema: { type: integer, format: int64 }
+    ChapterId:
+      name: chapterId
+      in: path
+      required: true
+      description: 章节 ID
+      schema: { type: integer, format: int64 }
+    PostId:
+      name: postId
+      in: path
+      required: true
+      description: 帖子 ID
+      schema: { type: integer, format: int64 }
+    ConversationId:
+      name: conversationId
+      in: path
+      required: true
+      description: 会话 ID
+      schema: { type: integer, format: int64 }
+    OrderNo:
+      name: orderNo
+      in: path
+      required: true
+      description: 打赏订单号（RW + 14 位时间戳 + 8 位随机）
+      schema: { type: string }
+      example: RW2026091212000012345678
+
+  responses:
+    Ok:
+      description: >-
+        统一响应。HTTP 状态码恒为 200，业务结果由 body 中的 code 表达：
+        0 成功；10001 参数错误；10002 未认证；10003 无权限；20001 资源不存在；
+        30001 频率限制；40001 服务内部错误；50001 支付失败。
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/R" }
+    OkPage:
+      description: 统一响应，data 为分页结果
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: "#/components/schemas/R"
+              - type: object
+                properties:
+                  data: { $ref: "#/components/schemas/PageResult" }
+    OkLogin:
+      description: 统一响应，data 为令牌对
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: "#/components/schemas/R"
+              - type: object
+                properties:
+                  data: { $ref: "#/components/schemas/LoginVO" }
+    OkUser:
+      description: 统一响应，data 为用户资料
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: "#/components/schemas/R"
+              - type: object
+                properties:
+                  data: { $ref: "#/components/schemas/UserInfo" }
 
   schemas:
-    ApiResponse:
+    R:
       type: object
-      description: 统一响应体 R<T>
+      description: 全局统一响应包装 R<T>
       properties:
-        code:    { type: integer, example: 0 }
-        message: { type: string,  example: success }
-        data:    { type: object }
-        traceId: { type: string }
+        code:
+          type: integer
+          format: int32
+          description: 0 成功，其余见 ResultCode
+          example: 0
+        message:
+          type: string
+          description: 提示信息，成功时为 ok
+          example: ok
+        data:
+          description: 业务数据，类型随接口而定
+          nullable: true
+        traceId:
+          type: string
+          description: 链路追踪 ID
+      required: [code, message]
+
+    PageResult:
+      type: object
+      description: MyBatis-Plus 分页结果
+      properties:
+        records:
+          type: array
+          items: {}
+        total:
+          type: integer
+          format: int64
+          example: 128
+        page:
+          type: integer
+          example: 1
+        size:
+          type: integer
+          example: 10
 
     LoginReq:
       type: object
       required: [phone, password]
       properties:
-        phone:    { type: string, pattern: "^1[3-9][0-9]{9}$" }
-        password: { type: string, format: password, minLength: 6 }
+        phone:
+          type: string
+          pattern: "^1[3-9][0-9]{9}$"
+          example: "13800000000"
+        password: { type: string, format: password, example: "Pass@1234" }
+
+    RegisterReq:
+      type: object
+      required: [phone, code, password]
+      properties:
+        phone: { type: string, pattern: "^1[3-9][0-9]{9}$", example: "13800000000" }
+        code: { type: string, example: "123456" }
+        password: { type: string, format: password, example: "Pass@1234" }
+
+    RefreshReq:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken: { type: string }
+
+    LoginVO:
+      type: object
+      properties:
+        accessToken: { type: string }
+        refreshToken: { type: string }
 
     UserInfo:
       type: object
+      description: 用户资料（手机号/角色/状态不可通过更新接口自改）
       properties:
-        id:       { type: integer, format: int64 }
-        phone:    { type: string }
+        id: { type: integer, format: int64 }
+        phone: { type: string }
         nickname: { type: string }
-        role:     { type: integer, enum: [1, 2, 3], description: 1 读者 / 2 作者 / 3 管理员 }
-        status:   { type: integer, enum: [0, 1] }
+        role: { type: integer, description: "1 读者 / 2 作者 / 3 管理员", enum: [1, 2, 3] }
+        status: { type: integer, description: "0 禁用 / 1 正常", enum: [0, 1] }
+        avatarUrl: { type: string }
 
-    PageResult:
+    UpdateProfileReq:
       type: object
       properties:
-        total:   { type: integer }
-        page:    { type: integer }
-        size:    { type: integer }
-        records: { type: array, items: { type: object } }
+        nickname: { type: string, example: "墨小阅" }
+        avatarUrl: { type: string, example: "https://cdn.moyue.com/a.png" }
+
+    CreateBookReq:
+      type: object
+      required: [title, categoryId]
+      properties:
+        title: { type: string }
+        coverUrl: { type: string }
+        categoryId: { type: integer, format: int64 }
+        tags: { type: string, description: "逗号分隔" }
+        intro: { type: string }
+
+    UpdateBookReq:
+      type: object
+      properties:
+        title: { type: string }
+        coverUrl: { type: string }
+        categoryId: { type: integer, format: int64 }
+        tags: { type: string }
+        intro: { type: string }
+        status: { type: integer, description: "1 草稿 / 2 连载 / 3 完结 / 4 下架", enum: [1, 2, 3, 4] }
+
+    CreateChapterReq:
+      type: object
+      required: [title, content]
+      properties:
+        bookId: { type: integer, format: int64 }
+        title: { type: string }
+        content: { type: string }
+        chapterNo: { type: integer }
+        status: { type: integer, description: "1 草稿 / 2 已发布 / 3 已驳回", enum: [1, 2, 3] }
+
+    UpdateChapterReq:
+      type: object
+      properties:
+        title: { type: string }
+        content: { type: string }
+        chapterNo: { type: integer }
+        status: { type: integer, enum: [1, 2, 3] }
+        publishTime: { type: string, format: date-time }
+
+    CreateCommentReq:
+      type: object
+      required: [content]
+      properties:
+        bookId: { type: integer, format: int64 }
+        chapterId: { type: integer, format: int64 }
+        content: { type: string }
+
+    CreateRewardReq:
+      type: object
+      required: [amount]
+      properties:
+        bookId: { type: integer, format: int64 }
+        chapterId: { type: integer, format: int64 }
+        amount:
+          type: number
+          format: double
+          minimum: 0.01
+          maximum: 100000
+          description: 打赏金额，服务端以 BigDecimal setScale(2, HALF_UP) 落库
+          example: 6.66
+        payChannel: { type: integer, description: "1 微信 / 2 支付宝 / 3 余额", enum: [1, 2, 3] }
+
+    AnnouncementReq:
+      type: object
+      required: [title, content]
+      properties:
+        title: { type: string }
+        content: { type: string }
+        type: { type: integer, description: "1 系统 / 2 活动 / 3 维护", enum: [1, 2, 3], default: 1 }
+        status: { type: integer, description: "0 草稿 / 1 已发布", enum: [0, 1], default: 0 }
+        isTop: { type: integer, description: "0 否 / 1 置顶", enum: [0, 1], default: 0 }
+
+    PointsProductReq:
+      type: object
+      required: [name, costPoints]
+      properties:
+        name: { type: string }
+        description: { type: string }
+        imageUrl: { type: string }
+        costPoints: { type: integer, minimum: 1 }
+        stock: { type: integer, minimum: 0 }
+        status: { type: integer, description: "1 上架 / 2 下架", enum: [1, 2], default: 1 }
+
+    CreatePostReq:
+      type: object
+      required: [title, content]
+      properties:
+        authorId: { type: integer, format: int64 }
+        title: { type: string }
+        coverUrl: { type: string }
+        summary: { type: string }
+        content: { type: string }
+        status: { type: integer, description: "0 草稿 / 1 已发布", enum: [0, 1], default: 1 }
+
+    CreatePointsOrderReq:
+      type: object
+      required: [userId, productId]
+      properties:
+        userId: { type: integer, format: int64 }
+        productId: { type: integer, format: int64 }
+
+    AddShelfReq:
+      type: object
+      required: [bookId]
+      properties:
+        bookId: { type: integer, format: int64 }
+        chapterId: { type: integer, format: int64 }
+
