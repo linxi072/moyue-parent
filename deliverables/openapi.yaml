@@ -159,6 +159,16 @@ paths:
       responses:
         "200": { $ref: "#/components/responses/Ok" }
 
+  /books/mine:
+    get:
+      tags: [book]
+      summary: 我的作品（作者后台作品管理页的地基；authorId 取网关注入头，前端无法伪造）
+      parameters:
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/Size" }
+      responses:
+        "200": { $ref: "#/components/responses/OkPage" }
+
   /books/{bookId}:
     parameters:
       - { $ref: "#/components/parameters/BookId" }
@@ -636,7 +646,9 @@ paths:
   /admin/audit/comments:
     get:
       tags: [admin]
-      summary: 待审核任务列表（兼容旧路径，等价于 status=0）
+      summary: >-
+        待审核任务列表（兼容旧路径）。已知缺陷：内部实现等价于 listTasks(0)，
+        **未按 bizType 过滤**，返回的「待审评论」中可能混入章节类任务（见技术债 16-21）
       responses:
         "200": { $ref: "#/components/responses/Ok" }
 
@@ -982,7 +994,7 @@ components:
         categoryId: { type: integer, format: int64 }
         tags: { type: string }
         intro: { type: string }
-        status: { type: integer, description: "1 草稿 / 2 连载 / 3 完结 / 4 下架", enum: [1, 2, 3, 4] }
+        status: { type: integer, description: "1 连载中 / 2 已完结 / 3 已下架", enum: [1, 2, 3] }
 
     CreateChapterReq:
       type: object
@@ -1024,7 +1036,11 @@ components:
           maximum: 100000
           description: 打赏金额，服务端以 BigDecimal setScale(2, HALF_UP) 落库
           example: 6.66
-        payChannel: { type: integer, description: "1 微信 / 2 支付宝 / 3 余额", enum: [1, 2, 3] }
+        payChannel:
+          type: integer
+          description: "1 微信 / 2 支付宝（后端 RewardOrderEntity 仅定义这两个渠道，暂无余额渠道）"
+          enum: [1, 2]
+          default: 1
 
     AnnouncementReq:
       type: object
@@ -1032,8 +1048,8 @@ components:
       properties:
         title: { type: string }
         content: { type: string }
-        type: { type: integer, description: "1 系统 / 2 活动 / 3 维护", enum: [1, 2, 3], default: 1 }
-        status: { type: integer, description: "0 草稿 / 1 已发布", enum: [0, 1], default: 0 }
+        type: { type: integer, description: "1 站内公告 / 2 活动 / 3 系统维护", enum: [1, 2, 3], default: 1 }
+        status: { type: integer, description: "0 草稿 / 1 已发布 / 2 已下线", enum: [0, 1, 2], default: 0 }
         isTop: { type: integer, description: "0 否 / 1 置顶", enum: [0, 1], default: 0 }
 
     PointsProductReq:

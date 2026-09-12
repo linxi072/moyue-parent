@@ -67,4 +67,14 @@ export function post<T = unknown>(url: string, data?: unknown): Promise<T> {
   return request.post(url, data).then((r: any) => r.data as T);
 }
 
+/** PUT 请求：直接返回 data 载荷 */
+export function put<T = unknown>(url: string, data?: unknown): Promise<T> {
+  return request.put(url, data).then((r: any) => r.data as T);
+}
+
+/** DELETE 请求：直接返回 data 载荷 */
+export function del<T = unknown>(url: string): Promise<T> {
+  return request.delete(url).then((r: any) => r.data as T);
+}
+
 export default request;

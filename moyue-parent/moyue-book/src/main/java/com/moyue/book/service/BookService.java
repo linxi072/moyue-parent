@@ -1,5 +1,6 @@
 package com.moyue.book.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyue.api.client.UserClient;
 import com.moyue.api.dto.BookSummaryDTO;
@@ -67,6 +68,29 @@ public class BookService {
     public BookSummaryDTO detail(Long bookId) {
         BookEntity e = bookMapper.selectById(bookId);
         return e == null ? null : toDto(e);
+    }
+
+    /**
+     * 我的作品：按 authorId 过滤（作者后台「作品管理」页的地基）。
+     * 全局逻辑删除生效，已删除作品自动排除。
+     */
+    public PageResult<BookSummaryDTO> listMyBooks(long userId, int page, int size) {
+        Page<BookEntity> p = new Page<>(page, size);
+        LambdaQueryWrapper<BookEntity> q = new LambdaQueryWrapper<BookEntity>()
+                .eq(BookEntity::getAuthorId, userId)
+                .orderByDesc(BookEntity::getId);
+        bookMapper.selectPage(p, q);
+
+        PageResult<BookSummaryDTO> result = new PageResult<>();
+        result.setTotal(p.getTotal());
+        result.setPage((int) p.getCurrent());
+        result.setSize((int) p.getSize());
+        List<BookSummaryDTO> records = new ArrayList<>();
+        for (BookEntity e : p.getRecords()) {
+            records.add(toDto(e));
+        }
+        result.setRecords(records);
+        return result;
     }
 
     /** 创建作品：authorId 取当前登录用户，初始连载中、字数与点击为 0 */

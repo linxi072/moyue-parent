@@ -42,6 +42,18 @@ public class BookController {
         return R.ok(bookService.listBooks(page, size));
     }
 
+    /**
+     * 我的作品：authorId 取网关注入的 X-User-Id，前端无法伪造。
+     * 注意：Spring 的字面量路径优先于 /books/{bookId} 模板，故本路由不会被详情接口吃掉。
+     */
+    @GetMapping("/books/mine")
+    public R<PageResult<BookSummaryDTO>> listMyBooks(@RequestParam(defaultValue = "1") int page,
+                                                     @RequestParam(defaultValue = "20") int size,
+                                                     HttpServletRequest request) {
+        long userId = requireUserId(request);
+        return R.ok(bookService.listMyBooks(userId, page, size));
+    }
+
     /** 书籍详情 */
     @GetMapping("/books/{bookId}")
     public R<BookSummaryDTO> detail(@PathVariable Long bookId) {
