@@ -235,3 +235,4 @@ chmod +x scripts/*.sh        # 首次使用需赋予可执行权限
 * 集成层 `moyue-api` 的 DTO 由主理人分批落下：`PointsOrderDTO` 原本漏建，由积分服务实现时按 `PointsAccountDTO`/`PointsProductDTO` 风格补建（字段与 `points_order` 表一一对应）。后续新增跨服务返回类型时应一次性补齐全部 DTO。
 * IM 服务已支持 WebSocket 实时推送：端点 `ws://localhost:8093/ws/im?userId={userId}`（`moyue-im` 的 `config/WebSocketConfig.java` + `websocket/ImWebSocketHandler.java`）。`ImService.sendMessage` 在消息落库后向会话成员广播，推送失败仅记日志、不阻断 HTTP 发送，客户端仍可轮询拉取历史消息。
   * 注意：WebSocket 请**直连 8093**，不要走网关 8080——网关 `JwtAuthGlobalFilter` 是全局过滤器，对非白名单路径一律要求 `Authorization: Bearer`，握手会被判为 10002。后续如需经网关转发，需新增 `ws` 路由并把该路径加入白名单。
+* 【已修复·16-6】后台接口越权防护：所有 `/api/v1/admin/**` 端点（审核 / 运营 / 统计 / 积分后台）现已由 `moyue-common` 的 `AdminRoleInterceptor` 在服务端校验 `X-User-Role=3`，普通用户 / 作者凭有效令牌不再能访问后台数据；非管理员（缺头 / 非数字 / 角色≠3）返回 **10003**。演示用户默认 `role=1`（读者），联调后台接口可将 `moyue-auth` 的 `moyue.demo.role` 设为 `3` 临时取得管理员权限。
