@@ -8,6 +8,7 @@ import com.moyue.api.dto.PageResult;
 import com.moyue.chapter.entity.ChapterEntity;
 import com.moyue.chapter.mapper.ChapterMapper;
 import com.moyue.common.BizException;
+import com.moyue.common.R;
 import com.moyue.common.ResultCode;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
@@ -187,6 +188,27 @@ public class ChapterService {
         return e;
     }
 
+    /**
+     * 审核回写（内部端点专用，不经网关）：status 2=已发布 / 3=已驳回。
+     * 由 moyue-audit 审核裁决后经 Feign 调用；置为已发布且无发布时间时补当前时间。
+     * 不做归属校验——调用方为受信的内部审核流程。
+     */
+    @Transactional
+    public void auditChapter(Long chapterId, Integer status) {
+        if (status == null || (status != 2 && status != 3)) {
+            throw new BizException(ResultCode.PARAM_ERROR, "审核状态非法（仅支持 2 已发布 / 3 已驳回）");
+        }
+        ChapterEntity e = chapterMapper.selectById(chapterId);
+        if (e == null) {
+            throw new BizException(ResultCode.RESOURCE_NOT_FOUND);
+        }
+        e.setStatus(status);
+        if (status == 2 && e.getPublishTime() == null) {
+            e.setPublishTime(LocalDateTime.now());
+        }
+        chapterMapper.updateById(e);
+    }
+
     // ------------------------------ 内部工具 ------------------------------
 
     /** 取下一位章节序号 = 当前最大序号 +1（全局逻辑删除会自动过滤已删章节） */
@@ -206,7 +228,8 @@ public class ChapterService {
 
     /**
      * 归属校验：管理员放行；否则经 BookClient 取书籍作者比对。
-     * BookClient 不可用（未注册 / 调用异常）时降级为仅角色校验，避免阻断作者创作。
+     * 书籍明确不存在（下游返回 RESOURCE_NOT_FOUND）时直接拒绝，避免给不存在的作品写章节；
+     * BookClient 不可用（未注册 / 网络异常）时降级为仅角色校验，不阻断作者创作。
      */
     private void checkBookOwner(Long bookId, long userId, int role) {
         if (role == ROLE_ADMIN) {
@@ -216,7 +239,12 @@ public class ChapterService {
             return;
         }
         try {
-            BookSummaryDTO book = bookClient.getBook(bookId).getData();
+            R<BookSummaryDTO> resp = bookClient.getBook(bookId);
+            // 全局异常处理器以 HTTP 200 + R.code 承载业务错误，Feign 不抛异常，故须显式判码
+            if (resp != null && resp.getCode() == ResultCode.RESOURCE_NOT_FOUND.getCode()) {
+                throw new BizException(ResultCode.RESOURCE_NOT_FOUND, "作品不存在或已下架");
+            }
+            BookSummaryDTO book = resp == null ? null : resp.getData();
             if (book != null && book.getAuthorId() != null && !Objects.equals(book.getAuthorId(), userId)) {
                 throw new BizException(ResultCode.FORBIDDEN);
             }

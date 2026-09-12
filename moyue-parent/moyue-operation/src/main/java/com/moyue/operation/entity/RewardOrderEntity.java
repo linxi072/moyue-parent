@@ -31,8 +31,8 @@ public class RewardOrderEntity {
     /** 打赏金额 */
     private BigDecimal amount;
 
-    /** 支付渠道 */
-    private String payChannel;
+    /** 支付渠道：1 微信 / 2 支付宝（列类型 TINYINT，此处须为数值型，避免字符串隐式转换） */
+    private Integer payChannel;
 
     /** 订单状态：0 待支付 / 1 已支付 / 2 已关闭 */
     private Integer status;

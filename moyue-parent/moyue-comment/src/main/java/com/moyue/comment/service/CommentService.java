@@ -116,4 +116,21 @@ public class CommentService {
         CommentEntity latest = commentMapper.selectById(commentId);
         return latest == null || latest.getLikeCount() == null ? 0 : latest.getLikeCount();
     }
+
+    /**
+     * 审核回写（内部端点专用，不经网关）：status 1=已通过 / 2=已驳回。
+     * 由 moyue-audit 审核裁决后经 Feign 调用。
+     */
+    @Transactional
+    public void auditComment(Long commentId, Integer status) {
+        if (status == null || (status != 1 && status != 2)) {
+            throw new BizException(ResultCode.PARAM_ERROR, "审核状态非法（仅支持 1 已通过 / 2 已驳回）");
+        }
+        CommentEntity e = commentMapper.selectById(commentId);
+        if (e == null) {
+            throw new BizException(ResultCode.RESOURCE_NOT_FOUND);
+        }
+        e.setStatus(status);
+        commentMapper.updateById(e);
+    }
 }
