@@ -87,13 +87,13 @@ public class JwtAuthGlobalFilter implements GlobalFilter {
         R<Object> body = R.fail(code.getCode(), code.getMessage());
         try {
             byte[] bytes = objectMapper.writeValueAsBytes(body);
-            DataBuffer buffer = response.bufferFactory().write(bytes);
+            DataBuffer buffer = response.bufferFactory().wrap(bytes);
             return response.writeWith(Mono.just(buffer));
         } catch (Exception e) {
             // 兜底：序列化失败时手写最小 JSON
             String fallback = "{\"code\":" + code.getCode() + ",\"message\":\"" + code.getMessage() + "\"}";
             byte[] bytes = fallback.getBytes(StandardCharsets.UTF_8);
-            return response.writeWith(Mono.just(response.bufferFactory().write(bytes)));
+            return response.writeWith(Mono.just(response.bufferFactory().wrap(bytes)));
         }
     }
 }

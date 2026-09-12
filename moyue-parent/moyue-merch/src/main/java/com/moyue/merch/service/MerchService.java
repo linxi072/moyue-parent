@@ -287,17 +287,9 @@ public class MerchService {
         return sb.toString();
     }
 
-    private PageResult<MerchProductEntity> toPage(Page<MerchProductEntity> p) {
-        PageResult<MerchProductEntity> result = new PageResult<>();
-        result.setTotal(p.getTotal());
-        result.setPage((int) p.getCurrent());
-        result.setSize((int) p.getSize());
-        result.setRecords(p.getRecords());
-        return result;
-    }
-
-    private PageResult<MerchOrderEntity> toPage(Page<MerchOrderEntity> p) {
-        PageResult<MerchOrderEntity> result = new PageResult<>();
+    /** MP Page → 统一分页结果（泛型，商品/订单共用） */
+    private <T> PageResult<T> toPage(Page<T> p) {
+        PageResult<T> result = new PageResult<>();
         result.setTotal(p.getTotal());
         result.setPage((int) p.getCurrent());
         result.setSize((int) p.getSize());

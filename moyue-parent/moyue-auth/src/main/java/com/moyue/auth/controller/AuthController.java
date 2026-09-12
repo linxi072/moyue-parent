@@ -47,7 +47,7 @@ public class AuthController {
     /** 用 refreshToken 换取新的 accessToken（白名单免鉴权） */
     @PostMapping("/auth/refresh")
     public R<LoginVO> refresh(@RequestBody RefreshReq req) {
-        return R.ok(authService.refresh(req.getRefreshToken()));
+        return R.ok(authService.refresh(req));
     }
 
     /** 获取当前登录用户资料（读取网关注入的 X-User-Id 头） */
