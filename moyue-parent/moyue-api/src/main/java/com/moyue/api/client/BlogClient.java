@@ -8,10 +8,10 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 /**
- * 博客服务 Feign 客户端（moyue-blog）。
+ * 博客服务 Feign 客户端（moyue-social）。
  * 返回类型包裹 R&lt;T&gt;，与控制器实际响应结构一致。
  */
-@FeignClient(name = "moyue-blog")
+@FeignClient(name = "moyue-social")
 public interface BlogClient {
 
     /** 按作者分页查询博客文章 */

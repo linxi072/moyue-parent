@@ -20,7 +20,10 @@ import java.util.Date;
 @Component
 public class JwtProvider {
 
-    /** 默认开发密钥（生产环境务必在配置中心覆盖，且不短于 32 字节） */
+    /**
+     * 默认开发密钥。
+     * 仅用于本地开发；生产必须通过环境变量 MOYUE_JWT_SECRET 注入，长度不短于 32 字节。
+     */
     private static final String DEFAULT_SECRET = "moyue-jwt-dev-secret-key-0123456789abcdefghij";
 
     @Value("${moyue.jwt.secret:" + DEFAULT_SECRET + "}")

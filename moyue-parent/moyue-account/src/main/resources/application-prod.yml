@@ -1,0 +1,10 @@
+# 生产环境配置：所有敏感项由环境变量注入，禁止在此文件写入真实密钥。
+spring:
+  cloud:
+    nacos:
+      discovery:
+        namespace: ${NACOS_NAMESPACE:prod}
+        server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
+logging:
+  level:
+    com.moyue: WARN

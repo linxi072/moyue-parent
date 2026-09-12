@@ -4,6 +4,10 @@
 
 # ===== 本会话探针 / 临时文件 =====
 _probe*.txt
+_scan*.txt
+_del*.txt
+_final*.txt
+_bootstrap/
 m0.png
 m1.png
 m2.png

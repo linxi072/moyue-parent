@@ -34,12 +34,18 @@ import java.util.List;
 @Order(-1)
 public class JwtAuthGlobalFilter implements GlobalFilter {
 
-    /** 免鉴权白名单 */
+    /** 免鉴权白名单（精确匹配：登录 / 注册 / 刷新） */
     private static final List<String> WHITE_LIST = List.of(
             "/api/v1/auth/login",
             "/api/v1/auth/register",
             "/api/v1/auth/refresh"
     );
+
+    /**
+     * 免鉴权前缀：上传文件（封面 / 头像等）为公开静态资源，
+     * 图片标签无法携带 Authorization 头，故按前缀整体放行（只读，不含写接口）。
+     */
+    private static final List<String> WHITE_PREFIXES = List.of("/api/v1/files/");
 
     @Autowired
     private JwtProvider jwtProvider;
@@ -51,8 +57,8 @@ public class JwtAuthGlobalFilter implements GlobalFilter {
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         String path = exchange.getRequest().getURI().getPath();
 
-        // 白名单直接放行
-        if (WHITE_LIST.contains(path)) {
+        // 白名单（精确路径或公开静态资源前缀）直接放行
+        if (WHITE_LIST.contains(path) || isWhitePrefix(path)) {
             return chain.filter(exchange);
         }
 
@@ -76,6 +82,16 @@ public class JwtAuthGlobalFilter implements GlobalFilter {
                     : ResultCode.TOKEN_INVALID;
             return writeUnauthorized(exchange, code);
         }
+    }
+
+    /** 命中公开静态资源前缀则免鉴权 */
+    private boolean isWhitePrefix(String path) {
+        for (String prefix : WHITE_PREFIXES) {
+            if (path.startsWith(prefix)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** 写入统一响应体 R&lt;T&gt;，HTTP 状态固定 200 */

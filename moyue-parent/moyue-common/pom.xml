@@ -43,6 +43,21 @@
             <artifactId>lombok</artifactId>
             <scope>provided</scope>
         </dependency>
+        <!-- ===== P2-16 缓存基建 ===== -->
+        <!-- spring-boot-starter-cache：Spring Cache 抽象（@EnableCaching / CacheManager 契约） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-cache</artifactId>
+        </dependency>
+        <!-- spring-data-redis：RedisCacheManager / RedisCacheWriter / JSON 序列化器。
+             optional=true：不传递给 moyue-gateway（WebFlux 网关无需 Redis），
+             需要缓存的业务服务（chapter / read / book 等）已在自身 pom 声明；
+             MoyueCacheAutoConfiguration 以 @ConditionalOnClass 做保护，缺失即自动关闭缓存。 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+            <optional>true</optional>
+        </dependency>
         <!-- JWT -->
         <dependency>
             <groupId>io.jsonwebtoken</groupId>

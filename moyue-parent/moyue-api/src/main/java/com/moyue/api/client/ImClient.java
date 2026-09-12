@@ -10,11 +10,11 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 
 /**
- * 即时通讯服务 Feign 客户端（moyue-im）。
+ * 即时通讯服务 Feign 客户端（moyue-social）。
  * 返回类型包裹 R&lt;T&gt;，与控制器实际响应结构一致；DTO 为实体的字段子集，
  * Jackson 默认忽略未知字段，可安全反序列化。
  */
-@FeignClient(name = "moyue-im")
+@FeignClient(name = "moyue-social")
 public interface ImClient {
 
     /** 查询用户会话列表（单聊 + 群聊） */

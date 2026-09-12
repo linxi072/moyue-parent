@@ -10,10 +10,11 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 /**
- * 评论服务 Feign 客户端（moyue-comment）。
+ * 评论服务 Feign 客户端（moyue-social）。
  * 返回类型包裹 R&lt;T&gt;，与控制器 {@code R<PageResult<CommentDTO>>} 结构一致。
+ * CommentController 已在 CommentService.toDtoPage 做实体转换后返回 CommentDTO，与此处声明严格对齐。
  */
-@FeignClient(name = "moyue-comment")
+@FeignClient(name = "moyue-social")
 public interface CommentClient {
 
     /** 按书籍分页查询评论 */
@@ -24,7 +25,7 @@ public interface CommentClient {
 
     /**
      * 审核回写评论状态（内部端点，不经网关）：1=已通过 / 2=已驳回。
-     * 供 moyue-audit 审核裁决后调用。
+     * 供 moyue-platform 审核裁决后调用。
      */
     @PutMapping("/api/v1/internal/comments/{commentId}/audit")
     R<Void> auditComment(@PathVariable("commentId") Long commentId,

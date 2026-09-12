@@ -22,104 +22,122 @@ spring:
             allowedHeaders: "*"
             allowCredentials: true
       # 服务发现路由：uri 使用 lb://<服务名>，由 Nacos 解析实例
+      # 模块收敛后仅 6 个业务服务：account / content / social / commerce / platform / ai
+      # 路由 id 保留原业务语义（便于日志排查），uri 指向承载它的合并后服务。
       routes:
-        # 1) 鉴权服务（含 /api/v1/users/me，必须排在 user 路由之前，
-        #    否则 /users/me 会被下方 /api/v1/users/** 截走导致 404）
+        # ===== account（账号域：鉴权 + 用户资料）=====
+        # A1) 鉴权（含 /api/v1/users/me，必须排在 users 通配之前，
+        #     否则 /users/me 会被下方 /api/v1/users/** 截走导致 404）
         - id: moyue-auth
-          uri: lb://moyue-auth
+          uri: lb://moyue-account
           predicates:
             - Path=/api/v1/auth/**
             - Path=/api/v1/users/me
-        # 2) 用户服务（用户资料 / 分页）
+        # A2) 用户资料 / 分页
         - id: moyue-user
-          uri: lb://moyue-user
+          uri: lb://moyue-account
           predicates:
             - Path=/api/v1/users/**
-        # 3) 书城服务
+
+        # ===== content（内容域：书城 + 章节 + 阅读 + 检索 + 静态资源）=====
+        # C1) 书城（含后台完结申请审核 /api/v1/admin/books/**）
         - id: moyue-book
-          uri: lb://moyue-book
+          uri: lb://moyue-content
           predicates:
             - Path=/api/v1/books/**
-        # 4) 阅读 / 书架
+            - Path=/api/v1/admin/books/**
+        # C2) 书城静态资源（封面等上传文件，公网只读，JwtAuthGlobalFilter 已加白名单）
+        - id: moyue-book-files
+          uri: lb://moyue-content
+          predicates:
+            - Path=/api/v1/files/**
+        # C3) 阅读 / 书架
         - id: moyue-read
-          uri: lb://moyue-read
+          uri: lb://moyue-content
           predicates:
             - Path=/api/v1/read/**
-        # 5) 章节
+        # C4) 章节
         - id: moyue-chapter
-          uri: lb://moyue-chapter
+          uri: lb://moyue-content
           predicates:
             - Path=/api/v1/chapters/**
-        # 6) 作者稿酬
-        - id: moyue-author
-          uri: lb://moyue-author
+        # C5) 搜索引擎（书籍全文检索，Elasticsearch）
+        - id: moyue-search
+          uri: lb://moyue-content
           predicates:
-            - Path=/api/v1/author/**
-        # 7) 评论
+            - Path=/api/v1/search/**
+
+        # ===== social（社区域：评论 + 博客 + 站内消息 + IM）=====
+        # S1) 评论
         - id: moyue-comment
-          uri: lb://moyue-comment
+          uri: lb://moyue-social
           predicates:
             - Path=/api/v1/comments/**
-        # 8) 审核（admin，前缀较具体，排在 operation / stat 之前）
-        - id: moyue-audit
-          uri: lb://moyue-audit
+        # S2) 博客空间
+        - id: moyue-blog
+          uri: lb://moyue-social
           predicates:
-            - Path=/api/v1/admin/audit/**
-        # 9) 运营（公告 / 对账）
-        - id: moyue-operation
-          uri: lb://moyue-operation
-          predicates:
-            - Path=/api/v1/admin/announcements/**
-            - Path=/api/v1/admin/orders/**
-        # 10) 统计（admin）
-        - id: moyue-stat
-          uri: lb://moyue-stat
-          predicates:
-            - Path=/api/v1/admin/stats/**
-        # 11) 站内消息
+            - Path=/api/v1/blog/**
+        # S3) 站内消息
         - id: moyue-message
-          uri: lb://moyue-message
+          uri: lb://moyue-social
           predicates:
             - Path=/api/v1/messages/**
-        # 12) 即时通讯（单聊 / 群聊）
+        # S4) 即时通讯（单聊 / 群聊；WebSocket 端点 /ws/im 亦在此服务）
         - id: moyue-im
-          uri: lb://moyue-im
+          uri: lb://moyue-social
           predicates:
             - Path=/api/v1/im/**
-        # 13) 积分商城
+
+        # ===== commerce（商业域：稿酬 + 积分 + 周边商城）=====
+        # M1) 作者稿酬
+        - id: moyue-author
+          uri: lb://moyue-commerce
+          predicates:
+            - Path=/api/v1/author/**
+        # M2) 积分商城
         - id: moyue-points
-          uri: lb://moyue-points
+          uri: lb://moyue-commerce
           predicates:
             - Path=/api/v1/points/**
             - Path=/api/v1/admin/points/**
-        # 14) 博客空间
-        - id: moyue-blog
-          uri: lb://moyue-blog
-          predicates:
-            - Path=/api/v1/blog/**
-        # 15) 打赏（读者端；订单与稿酬表由 operation 持有）
-        - id: moyue-reward
-          uri: lb://moyue-operation
-          predicates:
-            - Path=/api/v1/rewards/**
-        # 16) 搜索引擎（书籍全文检索，Elasticsearch）
-        - id: moyue-search
-          uri: lb://moyue-search
-          predicates:
-            - Path=/api/v1/search/**
-        # 17) AI 智能客服
-        - id: moyue-ai
-          uri: lb://moyue-ai
-          predicates:
-            - Path=/api/v1/ai/**
-        # 18) 商城周边（含管理端商品维护，AdminRoleInterceptor 断言 role=3）
+        # M3) 商城周边（含管理端商品维护，AdminRoleInterceptor 断言 role=3）
         - id: moyue-merch
-          uri: lb://moyue-merch
+          uri: lb://moyue-commerce
           predicates:
             - Path=/api/v1/merch/**
             - Path=/api/v1/admin/merch/**
 
-# JWT 密钥：与 moyue-auth 保持一致（共享密钥，网关与鉴权服务使用同一值）
+        # ===== platform（平台域：审核 + 公告订单 + 统计 + 打赏流水 + 定时任务）=====
+        # P1) 审核（admin，前缀较具体，排在公告 / 统计之前）
+        - id: moyue-audit
+          uri: lb://moyue-platform
+          predicates:
+            - Path=/api/v1/admin/audit/**
+        # P2) 运营（公告 / 对账）
+        - id: moyue-operation
+          uri: lb://moyue-platform
+          predicates:
+            - Path=/api/v1/admin/announcements/**
+            - Path=/api/v1/admin/orders/**
+        # P3) 统计（admin）
+        - id: moyue-stat
+          uri: lb://moyue-platform
+          predicates:
+            - Path=/api/v1/admin/stats/**
+        # P4) 打赏（读者端；订单与稿酬表由 platform 持有）
+        - id: moyue-reward
+          uri: lb://moyue-platform
+          predicates:
+            - Path=/api/v1/rewards/**
+
+        # ===== ai（智能域：AI 智能客服，独立服务）=====
+        - id: moyue-ai
+          uri: lb://moyue-ai
+          predicates:
+            - Path=/api/v1/ai/**
+
+# JWT 密钥：与 moyue-account 保持一致（共享密钥，网关与账号服务使用同一值）
 moyue:
   jwt:
     secret: "moyue-jwt-dev-secret-key-0123456789abcdefghij"

@@ -9,10 +9,10 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 /**
- * 章节服务 Feign 客户端（moyue-chapter）。
+ * 章节服务 Feign 客户端（moyue-content）。
  * 返回类型包裹 R&lt;T&gt;，与控制器 {@code R<ChapterDTO>} 结构一致。
  */
-@FeignClient(name = "moyue-chapter")
+@FeignClient(name = "moyue-content")
 public interface ChapterClient {
 
     /** 章节正文 */
@@ -21,7 +21,7 @@ public interface ChapterClient {
 
     /**
      * 审核回写章节状态（内部端点，不经网关）：status 2=已发布 / 3=已驳回。
-     * 供 moyue-audit 审核裁决后调用。
+     * 供 moyue-platform 审核裁决后调用。
      */
     @PutMapping("/api/v1/internal/chapters/{chapterId}/audit")
     R<Void> auditChapter(@PathVariable("chapterId") Long chapterId,

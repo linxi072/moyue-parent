@@ -17,7 +17,7 @@
     <version>1.0.0-SNAPSHOT</version>
     <packaging>pom</packaging>
     <name>moyue-parent</name>
-    <description>墨阅小说网 · Maven 多模块父工程（网关 + 鉴权 + API + 业务服务 + 任务调度）</description>
+    <description>墨阅小说网 · Maven 多模块父工程（网关 + 账号 / 内容 / 社交 / 商业 / 平台 / 智能 六大业务域）</description>
 
     <properties>
         <java.version>17</java.version>
@@ -32,29 +32,28 @@
         <testcontainers.version>1.19.8</testcontainers.version>
     </properties>
 
-    <!-- 子模块：通用 / API / 网关 / 鉴权 / 业务服务 / 任务调度 -->
+    <!--
+      子模块（9 个 = 3 基础 + 6 业务，按领域收敛）：
+        基础层：common（公共）· api（跨服务契约）· gateway（网关）
+        账号域 account  ：auth（认证）+ user（用户资料）
+        内容域 content  ：book（书城）+ chapter（章节）+ read（阅读书架）+ search（检索）
+        社区域 social   ：comment（评论）+ blog（博客）+ im（即时通讯）+ message（站内信）
+        商业域 commerce ：points（积分）+ merch（周边商城）+ author（稿酬）
+        平台域 platform ：audit（审核）+ operation（运营）+ stat（统计）+ job（调度）
+        智能域 ai       ：AI 智能客服（独立能力域，便于单独扩容）
+      说明：各业务模块内部保留原 `com.moyue.<旧包名>` 子包不变，由启动类
+      `@ComponentScan("com.moyue")` 统一扫描。
+    -->
     <modules>
         <module>moyue-common</module>
         <module>moyue-api</module>
         <module>moyue-gateway</module>
-        <module>moyue-auth</module>
-        <module>moyue-book</module>
-        <module>moyue-user</module>
-        <module>moyue-read</module>
-        <module>moyue-chapter</module>
-        <module>moyue-author</module>
-        <module>moyue-comment</module>
-        <module>moyue-audit</module>
-        <module>moyue-operation</module>
-        <module>moyue-message</module>
-        <module>moyue-stat</module>
-        <module>moyue-job</module>
-        <module>moyue-im</module>
-        <module>moyue-points</module>
-        <module>moyue-blog</module>
-        <module>moyue-search</module>
+        <module>moyue-account</module>
+        <module>moyue-content</module>
+        <module>moyue-social</module>
+        <module>moyue-commerce</module>
+        <module>moyue-platform</module>
         <module>moyue-ai</module>
-        <module>moyue-merch</module>
     </modules>
 
     <dependencyManagement>
