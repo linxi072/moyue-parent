@@ -2,12 +2,12 @@ openapi: 3.0.3
 
 info:
   title: 墨阅小说网 API
-  version: 2.0.0
+  version: 2.1.0
   description: |
     免费读书网站「墨阅小说网」后端接口契约（OpenAPI 3.0）。
 
-    **本契约于 2026-09-12 与工程源码对齐**：共 68 个 REST 端点（另有 1 个 WebSocket
-    `/ws/im`），由脚本从全部 `*Controller.java` 静态提取生成，非计划值。
+    **本契约于 2026-09-12 与工程源码对齐**：共 95 个 REST 端点（另有 1 个 WebSocket
+    `/ws/im`），由脚本从全部 `*Controller.java` 静态提取并做双向差集校验（95 = 95），非计划值。
 
     约定：
     - 统一响应体 `R<T>` = `{ code, message, data, traceId }`，**HTTP 一律 200 承载**，
@@ -54,6 +54,12 @@ tags:
     description: 站内信（message 8090）
   - name: admin
     description: 管理后台（需 X-User-Role=3）
+  - name: search
+    description: 书籍搜索（search 8096，Elasticsearch）
+  - name: ai
+    description: AI 智能客服（ai 8097）
+  - name: merch
+    description: 商城周边（merch 8098）
   - name: internal
     description: 服务间端点（不经网关）
 
@@ -767,6 +773,49 @@ paths:
       responses:
         "200": { $ref: "#/components/responses/Ok" }
 
+  /admin/merch/products:
+    post:
+      tags: [admin]
+      summary: 后台新建周边商品（status 默认 1 上架）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, price]
+              properties:
+                name: { type: string }
+                description: { type: string }
+                imageUrl: { type: string }
+                price: { type: number, format: double }
+                stock: { type: integer }
+                status: { type: integer, enum: [1, 2], description: 1 上架 / 2 下架 }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /admin/merch/products/{id}:
+    put:
+      tags: [admin]
+      summary: 后台修改周边商品（部分更新，仅传需改字段；上下架用 status）
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                description: { type: string }
+                imageUrl: { type: string }
+                price: { type: number, format: double }
+                stock: { type: integer }
+                status: { type: integer, enum: [1, 2] }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
   # ---------------- 服务间内部端点（不经网关） ----------------
   /internal/chapters/{chapterId}/audit:
     put:
@@ -785,6 +834,328 @@ paths:
       parameters:
         - { name: commentId, in: path, required: true, schema: { type: integer, format: int64 } }
         - { name: status, in: query, required: true, schema: { type: integer, enum: [1, 2] } }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  # ---------------- 搜索（search 8096） ----------------
+  /search/books:
+    get:
+      tags: [search]
+      summary: 书籍全文检索（标题 / 作者 / 分类 / 简介，仅上架与完结）
+      security: []
+      parameters:
+        - { name: keyword, in: query, required: true, schema: { type: string } }
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/Size" }
+      responses:
+        "200": { $ref: "#/components/responses/OkPage" }
+
+  # ---------------- AI 智能客服（ai 8097） ----------------
+  /ai/chat:
+    post:
+      tags: [ai]
+      summary: AI 客服对话（sessionId 为空则新建会话；返回助手回复）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, content]
+              properties:
+                sessionId: { type: integer, format: int64, description: 会话 ID，空则新建 }
+                userId: { type: integer, format: int64 }
+                content: { type: string }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /ai/sessions:
+    get:
+      tags: [ai]
+      summary: 某用户的 AI 会话列表（分页）
+      parameters:
+        - { name: userId, in: query, required: true, schema: { type: integer, format: int64 } }
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/Size" }
+      responses:
+        "200": { $ref: "#/components/responses/OkPage" }
+
+  /ai/sessions/{sessionId}/messages:
+    get:
+      tags: [ai]
+      summary: 会话消息历史（仅归属人可见）
+      parameters:
+        - { name: sessionId, in: path, required: true, schema: { type: integer, format: int64 } }
+        - { name: userId, in: query, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  # ---------------- 商城周边（merch 8098） ----------------
+  /merch/products:
+    get:
+      tags: [merch]
+      summary: 上架商品列表（分页，按创建时间倒序）
+      security: []
+      parameters:
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/Size" }
+      responses:
+        "200": { $ref: "#/components/responses/OkPage" }
+
+  /merch/products/{id}:
+    get:
+      tags: [merch]
+      summary: 商品详情（不存在或已下架返回 20001）
+      security: []
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /merch/cart:
+    get:
+      tags: [merch]
+      summary: 某用户购物车（带商品快照）
+      parameters:
+        - { name: userId, in: query, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+    post:
+      tags: [merch]
+      summary: 加入购物车（重复加入数量累加；软删行复活）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, productId]
+              properties:
+                userId: { type: integer, format: int64 }
+                productId: { type: integer, format: int64 }
+                quantity: { type: integer, default: 1 }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /merch/cart/{productId}:
+    delete:
+      tags: [merch]
+      summary: 移出购物车（逻辑删除）
+      parameters:
+        - { name: userId, in: query, required: true, schema: { type: integer, format: int64 } }
+        - { name: productId, in: path, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /merch/orders:
+    get:
+      tags: [merch]
+      summary: 某用户订单列表（一行一商品，分页）
+      parameters:
+        - { name: userId, in: query, required: true, schema: { type: integer, format: int64 } }
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/Size" }
+      responses:
+        "200": { $ref: "#/components/responses/OkPage" }
+    post:
+      tags: [merch]
+      summary: 结算购物车（一次结算一个 order_no，按购物车行拆单；条件原子扣库存防超卖）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId]
+              properties:
+                userId: { type: integer, format: int64 }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /merch/orders/{orderNo}/pay:
+    post:
+      tags: [merch]
+      summary: 订单支付（幂等：status 0→1 条件更新）
+      parameters:
+        - { name: orderNo, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId]
+              properties:
+                userId: { type: integer, format: int64 }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  # ---------------- 积分：获取渠道（P1-10） ----------------
+  /points/check-in:
+    post:
+      tags: [points]
+      summary: 每日签到（一天一次，+10 分；重复签到返回 10001）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId]
+              properties:
+                userId: { type: integer, format: int64 }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /points/flows:
+    get:
+      tags: [points]
+      summary: 积分流水（分页；bizType 1 签到 / 2 阅读时长 / 3 评论奖励 / 4 系统发放 / 5 兑换消费）
+      parameters:
+        - { name: userId, in: query, required: true, schema: { type: integer, format: int64 } }
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/Size" }
+      responses:
+        "200": { $ref: "#/components/responses/OkPage" }
+
+  /read/duration:
+    post:
+      tags: [read]
+      summary: 阅读时长上报（每 10 分钟奖 1 积分，单次上限 120 分钟；奖励失败不阻断）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                bookId: { type: integer, format: int64 }
+                minutes: { type: integer, minimum: 1, maximum: 120 }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  # ---------------- 打赏：稿酬汇总（16-24） ----------------
+  /rewards/income/summary:
+    get:
+      tags: [reward]
+      summary: 稿酬汇总（累计 + 本月，数据库层 SUM）
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  # ---------------- 站内信：标记已读（16-22） ----------------
+  /messages/{noticeId}/read:
+    put:
+      tags: [message]
+      summary: 标记单条通知已读（仅归属人；重复标记幂等）
+      parameters:
+        - { name: noticeId, in: path, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /messages/users/{userId}/read-all:
+    put:
+      tags: [message]
+      summary: 全部标记已读（数据库层原子更新，返回已读条数；仅本人）
+      parameters:
+        - { name: userId, in: path, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  # ---------------- IM：撤回 / 已读回执（P1-11） ----------------
+  /im/messages/{messageId}/recall:
+    put:
+      tags: [im]
+      summary: 撤回消息（仅发送者本人、2 分钟时间窗内；逻辑删除）
+      parameters:
+        - { name: messageId, in: path, required: true, schema: { type: integer, format: int64 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId]
+              properties:
+                userId: { type: integer, format: int64 }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /im/conversations/{conversationId}/read:
+    put:
+      tags: [im]
+      summary: 已读回执（推进 last_read_message_id + 他人未读消息置已读，返回置读条数）
+      parameters:
+        - { name: conversationId, in: path, required: true, schema: { type: integer, format: int64 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId]
+              properties:
+                userId: { type: integer, format: int64 }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /im/conversations/{conversationId}/unread:
+    get:
+      tags: [im]
+      summary: 会话未读数（last_read_message_id 之后、非本人发送的消息条数）
+      parameters:
+        - { name: conversationId, in: path, required: true, schema: { type: integer, format: int64 } }
+        - { name: userId, in: query, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  # ---------------- 审核意见落库（16-20/21，参数扩展不新增路径） ----------------
+
+  /internal/points/award:
+    post:
+      tags: [internal]
+      summary: "[内部] 积分发放（阅读时长 / 评论奖励等生产者调用；返回新余额）"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, bizType, points]
+              properties:
+                userId: { type: integer, format: int64 }
+                bizType: { type: integer, enum: [1, 2, 3, 4, 5], description: 1 签到 / 2 阅读时长 / 3 评论奖励 / 4 系统发放 / 5 兑换消费 }
+                points: { type: integer }
+                remark: { type: string }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /internal/search/books/_index:
+    post:
+      tags: [internal]
+      summary: "[内部] 书籍索引进 ES（幂等覆盖，book 服务内容变更后推送）"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [bookId]
+              properties:
+                bookId: { type: integer, format: int64 }
+                title: { type: string }
+                authorName: { type: string }
+                categoryName: { type: string }
+                description: { type: string }
+                status: { type: integer, description: 与书籍状态一致，仅 1/2 可被检索 }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /internal/search/books/{bookId}:
+    delete:
+      tags: [internal]
+      summary: "[内部] 从 ES 移除书籍索引（书籍下架时推送）"
+      parameters:
+        - { name: bookId, in: path, required: true, schema: { type: integer, format: int64 } }
       responses:
         "200": { $ref: "#/components/responses/Ok" }
 

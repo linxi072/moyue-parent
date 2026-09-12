@@ -3,17 +3,20 @@
 --  引擎 InnoDB / 字符集 utf8mb4 / 主键统一雪花 ID (BIGINT)
 --  约定：create_time · update_time 全表统一；is_deleted 逻辑删除
 --
---  ⚠️ 本文件是「当前状态快照」，内容与 Flyway 迁移 V1–V6 完全对齐（20 张表）。
+--  ⚠️ 本文件是「当前状态快照」，内容与 Flyway 迁移 V1–V10 完全对齐（27 张表）。
 --     实际部署以 Flyway 为准：各服务启动时自动执行
 --     moyue-common/src/main/resources/db/migration 下的迁移。
 --     本脚本会 DROP 同名表后重建，**仅用于初始化全新库或本地演示**，
 --     切勿对已有数据的库执行。
 --
---  同步说明（技术债 16-8）：
+--  同步说明（技术债 16-8 / 16-26）：
 --    · 补齐 V3/V4/V5/V6 共 12 张表（原文件仅 8 张）
 --    · reward_order 补 is_deleted 列（V1 建表漏建，V6 已修复；
 --      实体含 isDeleted 且全局 logic-delete-field 生效，缺列会导致
 --      任何查询追加 is_deleted=0 而报 Unknown column）
+--    · 补齐 V7/V8/V9 共 7 张表：points_check_in / points_flow（积分获取渠道）、
+--      merch_product / merch_cart / merch_order（商城周边）、ai_session / ai_message（AI 客服）
+--    · audit_task 补 remark / operator_id 列（V10，审核意见落库 16-20）
 -- =============================================================
 
 SET NAMES utf8mb4;
@@ -191,6 +194,8 @@ CREATE TABLE `audit_task` (
   `biz_id`      BIGINT      NOT NULL                 COMMENT '业务主键',
   `status`      TINYINT     NOT NULL DEFAULT 0       COMMENT '状态：0 待投递 / 1 已投递 / 2 已完成 / 3 死信',
   `retry_count` INT         NOT NULL DEFAULT 0       COMMENT '重试次数',
+  `remark`      VARCHAR(255) DEFAULT NULL            COMMENT '审核意见（通过/驳回理由，可空；V10 新增）',
+  `operator_id` BIGINT      DEFAULT NULL             COMMENT '审核操作人用户 ID（网关注入，可空；V10 新增）',
   `create_time` DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
@@ -399,6 +404,132 @@ CREATE TABLE `blog_like` (
   KEY `idx_post` (`post_id`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '博客点赞表';
 
+-- -------------------------------------------------------------
+-- 23  points_check_in  每日签到记录表（V7）
+-- -------------------------------------------------------------
+DROP TABLE IF EXISTS `points_check_in`;
+CREATE TABLE `points_check_in` (
+  `id`             BIGINT     NOT NULL              COMMENT '主键',
+  `user_id`        BIGINT     NOT NULL              COMMENT '用户 ID（主键之一）→ user.id',
+  `check_in_date`  DATE       NOT NULL              COMMENT '签到日期 YYYY-MM-DD',
+  `points`         INT        NOT NULL DEFAULT 0    COMMENT '本次签到发放积分',
+  `is_deleted`     TINYINT(1) NOT NULL DEFAULT 0    COMMENT '逻辑删除',
+  `create_time`    DATETIME   NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '签到时间',
+  `update_time`    DATETIME   NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_user_date` (`user_id`, `check_in_date`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '每日签到记录表';
+
+-- -------------------------------------------------------------
+-- 24  points_flow  积分流水表（V7，只增不改的台账）
+-- biz_type：1 签到 / 2 阅读时长 / 3 评论奖励 / 4 系统发放 / 5 兑换消费
+-- points：正数为获得，负数为消费
+-- -------------------------------------------------------------
+DROP TABLE IF EXISTS `points_flow`;
+CREATE TABLE `points_flow` (
+  `id`          BIGINT       NOT NULL              COMMENT '主键',
+  `user_id`     BIGINT       NOT NULL              COMMENT '用户 ID → user.id',
+  `biz_type`    TINYINT      NOT NULL              COMMENT '业务类型：1 签到 / 2 阅读时长 / 3 评论奖励 / 4 系统发放 / 5 兑换消费',
+  `points`      INT          NOT NULL              COMMENT '积分变动（正获得 / 负消费）',
+  `remark`      VARCHAR(255) DEFAULT NULL          COMMENT '备注',
+  `is_deleted`  TINYINT(1)   NOT NULL DEFAULT 0    COMMENT '逻辑删除',
+  `create_time` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '发生时间',
+  `update_time` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_user` (`user_id`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '积分流水表（只增台账）';
+
+-- -------------------------------------------------------------
+-- 25  merch_product  周边商品表（V8）
+-- -------------------------------------------------------------
+DROP TABLE IF EXISTS `merch_product`;
+CREATE TABLE `merch_product` (
+  `id`          BIGINT        NOT NULL               COMMENT '商品主键',
+  `name`        VARCHAR(128)  NOT NULL               COMMENT '商品名称',
+  `description` VARCHAR(500)  DEFAULT NULL           COMMENT '商品描述',
+  `image_url`   VARCHAR(255)  DEFAULT NULL           COMMENT '商品图片',
+  `price`       DECIMAL(10,2) NOT NULL DEFAULT 0.00  COMMENT '售价（元）',
+  `stock`       INT           NOT NULL DEFAULT 0     COMMENT '库存',
+  `sales`       INT           NOT NULL DEFAULT 0     COMMENT '累计销量',
+  `status`      TINYINT       NOT NULL DEFAULT 1     COMMENT '状态：1 上架 / 2 下架',
+  `is_deleted`  TINYINT(1)    NOT NULL DEFAULT 0     COMMENT '逻辑删除',
+  `create_time` DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_status` (`status`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '周边商品表';
+
+-- -------------------------------------------------------------
+-- 26  merch_cart  周边购物车表（V8）
+-- -------------------------------------------------------------
+DROP TABLE IF EXISTS `merch_cart`;
+CREATE TABLE `merch_cart` (
+  `id`          BIGINT     NOT NULL              COMMENT '主键',
+  `user_id`     BIGINT     NOT NULL              COMMENT '用户 ID → user.id',
+  `product_id`  BIGINT     NOT NULL              COMMENT '商品 ID → merch_product.id',
+  `quantity`    INT        NOT NULL DEFAULT 1    COMMENT '数量',
+  `is_deleted`  TINYINT(1) NOT NULL DEFAULT 0    COMMENT '逻辑删除',
+  `create_time` DATETIME   NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '加入时间',
+  `update_time` DATETIME   NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_user_product` (`user_id`, `product_id`),
+  KEY `idx_user` (`user_id`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '周边购物车表';
+
+-- -------------------------------------------------------------
+-- 27  merch_order  周边订单表（V8，一行一商品，按 order_no 聚合整单）
+-- status：0 待支付 / 1 已支付 / 2 已取消
+-- -------------------------------------------------------------
+DROP TABLE IF EXISTS `merch_order`;
+CREATE TABLE `merch_order` (
+  `id`           BIGINT        NOT NULL               COMMENT '订单主键',
+  `order_no`     VARCHAR(32)   NOT NULL               COMMENT '订单号（一次结算一个，整单共用）',
+  `user_id`      BIGINT        NOT NULL               COMMENT '下单人 → user.id',
+  `product_id`   BIGINT        NOT NULL               COMMENT '商品 ID → merch_product.id',
+  `product_name` VARCHAR(128)  DEFAULT NULL           COMMENT '商品名称快照',
+  `quantity`     INT           NOT NULL DEFAULT 1     COMMENT '购买数量',
+  `total_amount` DECIMAL(10,2) NOT NULL DEFAULT 0.00  COMMENT '本行金额（元）= price * quantity',
+  `status`       TINYINT       NOT NULL DEFAULT 0     COMMENT '状态：0 待支付 / 1 已支付 / 2 已取消',
+  `is_deleted`   TINYINT(1)    NOT NULL DEFAULT 0     COMMENT '逻辑删除',
+  `create_time`  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '下单时间',
+  `update_time`  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_order_no` (`order_no`),
+  KEY `idx_user` (`user_id`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '周边订单表（一行一商品）';
+
+-- -------------------------------------------------------------
+-- 28  ai_session  客服会话表（V9）
+-- -------------------------------------------------------------
+DROP TABLE IF EXISTS `ai_session`;
+CREATE TABLE `ai_session` (
+  `id`          BIGINT       NOT NULL              COMMENT '会话主键',
+  `user_id`     BIGINT       NOT NULL              COMMENT '用户 ID → user.id',
+  `title`       VARCHAR(128) DEFAULT NULL           COMMENT '会话标题（默认取首条提问截断）',
+  `is_deleted`  TINYINT(1)   NOT NULL DEFAULT 0    COMMENT '逻辑删除',
+  `create_time` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_user` (`user_id`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = 'AI 客服会话表';
+
+-- -------------------------------------------------------------
+-- 29  ai_message  客服消息表（V9）
+-- role：1 用户提问 / 2 助手回复
+-- -------------------------------------------------------------
+DROP TABLE IF EXISTS `ai_message`;
+CREATE TABLE `ai_message` (
+  `id`          BIGINT        NOT NULL              COMMENT '消息主键',
+  `session_id`  BIGINT        NOT NULL              COMMENT '会话 ID → ai_session.id',
+  `role`        TINYINT       NOT NULL DEFAULT 1    COMMENT '角色：1 用户 / 2 助手',
+  `content`     VARCHAR(2000) NOT NULL              COMMENT '消息内容',
+  `is_deleted`  TINYINT(1)    NOT NULL DEFAULT 0    COMMENT '逻辑删除',
+  `create_time` DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '发送时间',
+  `update_time` DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_session` (`session_id`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = 'AI 客服消息表';
+
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- =============================================================
@@ -409,4 +540,8 @@ SET FOREIGN_KEY_CHECKS = 1;
 --    V4  chat_* / points_* / blog_*
 --    V5  comment_like
 --    V6  announcement + reward_order 补 is_deleted
+--    V7  points_check_in / points_flow（积分获取渠道）
+--    V8  merch_product / merch_cart / merch_order（商城周边）
+--    V9  ai_session / ai_message（AI 客服）
+--    V10 audit_task 补 remark / operator_id（审核意见落库）
 -- =============================================================
