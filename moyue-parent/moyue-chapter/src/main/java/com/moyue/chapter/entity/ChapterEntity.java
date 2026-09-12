@@ -28,6 +28,9 @@ public class ChapterEntity {
     /** 章节标题 */
     private String title;
 
+    /** 章节正文（chapter 表 MEDIUMTEXT；创作链路写入，目录列表亦返回） */
+    private String content;
+
     /** 本章字数 */
     private Integer wordCount;
 
