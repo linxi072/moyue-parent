@@ -51,24 +51,31 @@ public class AuditService {
     @Autowired(required = false)
     private CommentClient commentClient;
 
-    /** 查询 status=0 的待投递任务（本地消息表未消费记录） */
-    public List<AuditTaskEntity> listPending() {
-        return listTasks(0);
+    /**
+     * 查询 status=0 的待投递任务（本地消息表未消费记录）。
+     * 16-21：支持按 bizType 过滤（1 章节 / 2 评论）；传 2 即「待审评论」口径。
+     */
+    public List<AuditTaskEntity> listPending(Integer bizType) {
+        return listTasks(0, bizType);
     }
 
-    /** 查询审核任务，status 为空则查全部（按创建时间升序） */
-    public List<AuditTaskEntity> listTasks(Integer status) {
+    /**
+     * 查询审核任务，status / bizType 为空则不过滤（按创建时间升序）。
+     */
+    public List<AuditTaskEntity> listTasks(Integer status, Integer bizType) {
         return auditTaskMapper.selectList(Wrappers.<AuditTaskEntity>lambdaQuery()
                 .eq(status != null, AuditTaskEntity::getStatus, status)
+                .eq(bizType != null, AuditTaskEntity::getBizType, bizType)
                 .orderByAsc(AuditTaskEntity::getCreateTime));
     }
 
     /**
      * 审核裁决：passed=true 通过 / false 驳回。
      * 先回写业务状态，再置本地任务为已完成；同一任务重复裁决被拒绝（幂等保护）。
+     * 16-20：落库审核意见 remark 与操作人 operatorId（可空，取网关注入 X-User-Id）。
      */
     @Transactional
-    public AuditTaskEntity decide(Long taskId, boolean passed) {
+    public AuditTaskEntity decide(Long taskId, boolean passed, String remark, Long operatorId) {
         AuditTaskEntity task = auditTaskMapper.selectById(taskId);
         if (task == null) {
             throw new BizException(ResultCode.RESOURCE_NOT_FOUND);
@@ -78,6 +85,10 @@ public class AuditService {
         }
         applyBusinessStatus(task, passed);
         task.setStatus(STATUS_FINISHED);
+        if (remark != null && !remark.isBlank()) {
+            task.setRemark(remark.trim());
+        }
+        task.setOperatorId(operatorId);
         task.setUpdateTime(LocalDateTime.now());
         auditTaskMapper.updateById(task);
         return task;

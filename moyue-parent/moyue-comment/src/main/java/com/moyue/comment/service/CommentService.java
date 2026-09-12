@@ -2,13 +2,18 @@ package com.moyue.comment.service;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.moyue.api.client.PointsClient;
 import com.moyue.api.dto.PageResult;
+import com.moyue.api.dto.PointsAwardDTO;
 import com.moyue.comment.entity.CommentEntity;
 import com.moyue.comment.entity.CommentLikeEntity;
 import com.moyue.comment.mapper.CommentLikeMapper;
 import com.moyue.comment.mapper.CommentMapper;
 import com.moyue.common.BizException;
+import com.moyue.common.R;
 import com.moyue.common.ResultCode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -19,17 +24,30 @@ import java.util.Objects;
 /**
  * 评论业务：按书籍分页查询评论、发表评论（默认待审）、删除（本人 / 管理员）、点赞切换。
  * 发表评论的 userId 一律由调用方从网关注入头取得，绝不信任请求体。
+ * 发表成功后发评论奖励积分（P1-10 生产者侧，bizType=3）；奖励失败不阻断评论主流程。
  */
 @Service
 public class CommentService {
 
+    private static final Logger log = LoggerFactory.getLogger(CommentService.class);
+
     private static final int ROLE_ADMIN = 3;
+
+    /** 评论奖励积分（P1-10） */
+    private static final int COMMENT_AWARD_POINTS = 2;
+
+    /** 评论奖励 bizType（与 points_flow.biz_type 注释对齐） */
+    private static final int BIZ_COMMENT_AWARD = 3;
 
     @Autowired
     private CommentMapper commentMapper;
 
     @Autowired
     private CommentLikeMapper commentLikeMapper;
+
+    /** 积分服务客户端；不可用时评论主流程不受影响（奖励降级跳过） */
+    @Autowired(required = false)
+    private PointsClient pointsClient;
 
     /** 按 book_id 分页查询评论，按创建时间倒序 */
     public PageResult<CommentEntity> listByBook(Long bookId, int page, int size) {
@@ -46,7 +64,7 @@ public class CommentService {
         return result;
     }
 
-    /** 发表评论：userId 取当前登录用户；状态默认 0 待审，点赞数默认 0 */
+    /** 发表评论：userId 取当前登录用户；状态默认 0 待审，点赞数默认 0；成功后发评论奖励（降级不阻断） */
     public CommentEntity addComment(Long userId, Long bookId, Long chapterId, String content) {
         if (bookId == null) {
             throw new BizException(ResultCode.PARAM_ERROR, "作品 ID 不能为空");
@@ -63,7 +81,34 @@ public class CommentService {
         e.setLikeCount(0);
         e.setIsDeleted(0);
         commentMapper.insert(e);
+        awardCommentPoints(userId, e.getId());
         return e;
+    }
+
+    /**
+     * 评论奖励发放（P1-10 生产者侧，bizType=3）。
+     * 积分服务不可用 / 发放失败仅记日志：评论已落库，奖励是旁路不能回滚主流程。
+     */
+    private void awardCommentPoints(Long userId, Long commentId) {
+        if (pointsClient == null) {
+            log.warn("[comment] 积分服务不可用，评论奖励跳过：userId={}, commentId={}", userId, commentId);
+            return;
+        }
+        try {
+            PointsAwardDTO award = new PointsAwardDTO();
+            award.setUserId(userId);
+            award.setBizType(BIZ_COMMENT_AWARD);
+            award.setPoints(COMMENT_AWARD_POINTS);
+            award.setRemark("评论奖励：评论 " + commentId);
+            R<Integer> resp = pointsClient.award(award);
+            // 关键：Feign 不抛业务异常（HTTP 200 + R.code != 0），必须显式校验 code
+            if (resp == null || resp.getCode() != ResultCode.SUCCESS.getCode()) {
+                log.warn("[comment] 评论奖励发放失败（已忽略）：userId={}, commentId={}, resp={}",
+                        userId, commentId, resp);
+            }
+        } catch (Exception ex) {
+            log.warn("[comment] 评论奖励调用异常（已忽略）：userId={}, commentId={}", userId, commentId, ex);
+        }
     }
 
     /** 删除评论（逻辑删除）：仅评论人本人或管理员 */

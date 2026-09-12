@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyue.api.client.BookClient;
+import com.moyue.api.client.ChapterClient;
 import com.moyue.api.dto.BookSummaryDTO;
 import com.moyue.api.dto.PageResult;
 import com.moyue.common.BizException;
@@ -21,6 +22,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -58,6 +60,10 @@ public class RewardService {
 
     @Autowired(required = false)
     private BookClient bookClient;
+
+    /** 章节客户端（16-23 标题 enrichment）；不可用时标题留空，不阻断主流程 */
+    @Autowired(required = false)
+    private ChapterClient chapterClient;
 
     /** 创建打赏订单（userId 由调用方从网关注入头取得，绝不信任请求体），返回待支付订单 */
     @Transactional
@@ -113,13 +119,14 @@ public class RewardService {
         return order;
     }
 
-    /** 我的打赏记录（按创建时间倒序） */
+    /** 我的打赏记录（按创建时间倒序），出参补书籍 / 章节标题（16-23，Feign 失败降级为空） */
     public PageResult<RewardOrderEntity> myOrders(Long userId, int page, int size) {
         Page<RewardOrderEntity> p = new Page<>(page, size);
         IPage<RewardOrderEntity> result = rewardOrderMapper.selectPage(p,
                 Wrappers.<RewardOrderEntity>lambdaQuery()
                         .eq(RewardOrderEntity::getUserId, userId)
                         .orderByDesc(RewardOrderEntity::getCreateTime));
+        enrichTitles(result.getRecords());
         return toPageResult(result, page, size);
     }
 
@@ -131,6 +138,101 @@ public class RewardService {
                         .eq(AuthorIncomeEntity::getAuthorId, userId)
                         .orderByDesc(AuthorIncomeEntity::getCreateTime));
         return toPageResult(result, page, size);
+    }
+
+    /**
+     * 稿酬汇总（16-24）：累计收入 + 本月收入（按 settle_month = 当前月过滤）。
+     * 聚合在数据库层完成（SUM），避免把全表流水拉到内存求和。
+     */
+    public IncomeSummary incomeSummary(Long userId) {
+        String month = LocalDateTime.now().format(MONTH_FORMATTER);
+        IncomeSummary summary = new IncomeSummary();
+        summary.setSettleMonth(month);
+        summary.setTotalAmount(sumIncome(userId, null));
+        summary.setMonthAmount(sumIncome(userId, month));
+        return summary;
+    }
+
+    /** 按条件聚合稿酬金额；typeFilter 为空时统计全部类型 */
+    private BigDecimal sumIncome(Long userId, String month) {
+        com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<AuthorIncomeEntity> qw =
+                new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<>();
+        qw.select("COALESCE(SUM(amount), 0) AS total_amount")
+                .eq("author_id", userId);
+        if (month != null) {
+            qw.eq("settle_month", month);
+        }
+        List<Object> objs = authorIncomeMapper.selectObjs(qw);
+        if (objs.isEmpty() || objs.get(0) == null) {
+            return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        }
+        return new BigDecimal(objs.get(0).toString()).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    /** 批量填充书籍 / 章节标题（16-23）：Feign 不可用或失败时留空，不阻断列表返回 */
+    private void enrichTitles(List<RewardOrderEntity> orders) {
+        if (orders == null || orders.isEmpty()) {
+            return;
+        }
+        for (RewardOrderEntity order : orders) {
+            if (order.getBookId() != null && bookClient != null) {
+                try {
+                    R<BookSummaryDTO> resp = bookClient.getBook(order.getBookId());
+                    if (resp != null && resp.getCode() == ResultCode.SUCCESS.getCode() && resp.getData() != null) {
+                        order.setBookTitle(resp.getData().getTitle());
+                    }
+                } catch (Exception ex) {
+                    // 降级：标题缺失不影响打赏记录主流程
+                }
+            }
+            if (order.getChapterId() != null && chapterClient != null) {
+                try {
+                    R<com.moyue.api.dto.ChapterDTO> resp = chapterClient.getChapter(order.getChapterId());
+                    if (resp != null && resp.getCode() == ResultCode.SUCCESS.getCode() && resp.getData() != null) {
+                        order.setChapterTitle(resp.getData().getTitle());
+                    }
+                } catch (Exception ex) {
+                    // 降级：标题缺失不影响打赏记录主流程
+                }
+            }
+        }
+    }
+
+    /** 稿酬汇总出参（16-24） */
+    public static class IncomeSummary {
+
+        /** 累计稿酬总额 */
+        private BigDecimal totalAmount;
+
+        /** 本月稿酬（按 settle_month 过滤） */
+        private BigDecimal monthAmount;
+
+        /** 本月标识（yyyy-MM） */
+        private String settleMonth;
+
+        public BigDecimal getTotalAmount() {
+            return totalAmount;
+        }
+
+        public void setTotalAmount(BigDecimal totalAmount) {
+            this.totalAmount = totalAmount;
+        }
+
+        public BigDecimal getMonthAmount() {
+            return monthAmount;
+        }
+
+        public void setMonthAmount(BigDecimal monthAmount) {
+            this.monthAmount = monthAmount;
+        }
+
+        public String getSettleMonth() {
+            return settleMonth;
+        }
+
+        public void setSettleMonth(String settleMonth) {
+            this.settleMonth = settleMonth;
+        }
     }
 
     // ------------------------------ 内部工具 ------------------------------

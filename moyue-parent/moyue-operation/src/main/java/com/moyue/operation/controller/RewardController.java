@@ -63,6 +63,12 @@ public class RewardController {
         return R.ok(rewardService.myIncome(requireUserId(request), page, size));
     }
 
+    /** 稿酬汇总：累计 + 本月（16-24）：GET /api/v1/rewards/income/summary */
+    @GetMapping("/income/summary")
+    public R<RewardService.IncomeSummary> incomeSummary(HttpServletRequest request) {
+        return R.ok(rewardService.incomeSummary(requireUserId(request)));
+    }
+
     /** 订单详情（仅下单人可见）：GET /api/v1/rewards/{orderNo} */
     @GetMapping("/{orderNo}")
     public R<RewardOrderEntity> detail(@PathVariable String orderNo, HttpServletRequest request) {

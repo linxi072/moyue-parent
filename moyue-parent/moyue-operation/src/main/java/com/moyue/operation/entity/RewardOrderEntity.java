@@ -1,5 +1,6 @@
 package com.moyue.operation.entity;
 
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
@@ -45,4 +46,12 @@ public class RewardOrderEntity {
 
     /** 逻辑删除标记：0 未删除 / 1 已删除（对应全局逻辑删除字段 isDeleted） */
     private Integer isDeleted;
+
+    /** 书籍标题（16-23 出参 enrichment，经 Feign 查询填充；非表列） */
+    @TableField(exist = false)
+    private String bookTitle;
+
+    /** 章节标题（16-23 出参 enrichment，经 Feign 查询填充；非表列） */
+    @TableField(exist = false)
+    private String chapterTitle;
 }

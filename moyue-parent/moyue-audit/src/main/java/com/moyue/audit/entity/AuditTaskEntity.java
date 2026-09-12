@@ -31,6 +31,12 @@ public class AuditTaskEntity {
     /** 重试次数 */
     private Integer retryCount;
 
+    /** 审核意见（16-20：通过 / 驳回理由，可空；V10 迁移新增） */
+    private String remark;
+
+    /** 审核操作人用户 ID（16-20：网关注入 X-User-Id，可空；V10 迁移新增） */
+    private Long operatorId;
+
     /** 创建时间 */
     private LocalDateTime createTime;
 

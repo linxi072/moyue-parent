@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -60,5 +61,38 @@ public class ImController {
     public R<MessageDTO> sendMessage(@PathVariable Long conversationId,
                                     @RequestBody SendMessageRequest req) {
         return R.ok(imService.sendMessage(conversationId, req));
+    }
+
+    /** 撤回消息（P1-11）：仅发送者本人、2 分钟时间窗内：PUT /api/v1/im/messages/{messageId}/recall */
+    @PutMapping("/im/messages/{messageId}/recall")
+    public R<Void> recallMessage(@PathVariable Long messageId, @RequestBody RecallRequest req) {
+        imService.recallMessage(messageId, req.getUserId());
+        return R.ok();
+    }
+
+    /** 已读回执（P1-11）：推进 last_read_message_id + 他人未读消息置已读，返回本次置读条数 */
+    @PutMapping("/im/conversations/{conversationId}/read")
+    public R<Integer> markRead(@PathVariable Long conversationId, @RequestBody RecallRequest req) {
+        return R.ok(imService.markConversationRead(conversationId, req.getUserId()));
+    }
+
+    /** 会话未读数（P1-11）：GET /api/v1/im/conversations/{conversationId}/unread?userId=... */
+    @GetMapping("/im/conversations/{conversationId}/unread")
+    public R<Long> unreadCount(@PathVariable Long conversationId, @RequestParam Long userId) {
+        return R.ok(imService.unreadCount(conversationId, userId));
+    }
+
+    /** 撤回 / 已读回执请求体（仅携带操作人） */
+    public static class RecallRequest {
+
+        private Long userId;
+
+        public Long getUserId() {
+            return userId;
+        }
+
+        public void setUserId(Long userId) {
+            this.userId = userId;
+        }
     }
 }

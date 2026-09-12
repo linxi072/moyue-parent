@@ -61,6 +61,12 @@ public class ReadController {
         return R.ok();
     }
 
+    /** 阅读时长上报（P1-10）：每 10 分钟奖 1 积分，单次上限 120 分钟；奖励失败不阻断本请求 */
+    @PostMapping("/read/duration")
+    public R<Integer> reportDuration(@RequestBody DurationRequest req, HttpServletRequest request) {
+        return R.ok(readService.reportDuration(requireUserId(request), req.getBookId(), req.getMinutes()));
+    }
+
     // ------------------------------ 上下文工具 ------------------------------
 
     private Long requireUserId(HttpServletRequest request) {
@@ -87,5 +93,14 @@ public class ReadController {
     @Data
     public static class ProgressRequest {
         private Long chapterId;
+    }
+
+    /** 阅读时长上报请求 */
+    @Data
+    public static class DurationRequest {
+        /** 上报的书籍（可选，仅用于统计口径） */
+        private Long bookId;
+        /** 本次连续阅读分钟数 */
+        private Integer minutes;
     }
 }

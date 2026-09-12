@@ -27,6 +27,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -47,6 +48,12 @@ public class ImService {
     private static final int ROLE_MEMBER = 2;
     /** 最近消息预览截断长度 */
     private static final int PREVIEW_MAX = 200;
+
+    /** 消息撤回时间窗（分钟，P1-11） */
+    private static final int RECALL_WINDOW_MINUTES = 2;
+
+    /** 撤回后的会话预览占位文案（P1-11） */
+    private static final String RECALLED_PREVIEW = "[消息已撤回]";
 
     private static final Logger log = LoggerFactory.getLogger(ImService.class);
 
@@ -211,6 +218,102 @@ public class ImService {
         // 消息已落库，向会话成员实时广播；WebSocket 不可用时安全降级，不影响本次发送结果
         broadcastToMembers(conversationId, dto);
         return dto;
+    }
+
+    /**
+     * 撤回消息（P1-11）：仅发送者本人可撤回，且在 2 分钟时间窗内（全局逻辑删除）。
+     * 会话最近消息预览若为该消息内容，同步置为「[消息已撤回]」。
+     * 重复撤回幂等（已删行视为成功）。撤回后成员拉取历史消息时全局逻辑删除自动过滤。
+     */
+    public void recallMessage(Long messageId, Long userId) {
+        if (userId == null) {
+            throw new BizException(ResultCode.PARAM_ERROR, "操作人不能为空");
+        }
+        MessageEntity msg = messageMapper.selectById(messageId);
+        if (msg == null) {
+            throw new BizException(ResultCode.RESOURCE_NOT_FOUND, "消息不存在");
+        }
+        if (!Objects.equals(msg.getSenderId(), userId)) {
+            throw new BizException(ResultCode.FORBIDDEN, "仅发送者本人可撤回消息");
+        }
+        if (msg.getCreateTime() != null
+                && msg.getCreateTime().plusMinutes(RECALL_WINDOW_MINUTES).isBefore(LocalDateTime.now())) {
+            throw new BizException(ResultCode.PARAM_ERROR, "超过可撤回时间（" + RECALL_WINDOW_MINUTES + " 分钟）");
+        }
+        messageMapper.deleteById(messageId);
+
+        // 会话预览同步：最近消息正是被撤回的消息时更新占位文案
+        ConversationEntity conv = conversationMapper.selectById(msg.getConversationId());
+        if (conv != null && RECALLED_PREVIEW.equals(conv.getLastMessage()) == false
+                && conv.getLastMessage() != null && conv.getLastMessage().startsWith(msg.getContent())) {
+            conv.setLastMessage(RECALLED_PREVIEW);
+            conversationMapper.updateById(conv);
+        }
+    }
+
+    /**
+     * 已读回执（P1-11）：把成员 last_read_message_id 推进到会话内最新消息，
+     * 并把会话内他人发送的消息批量置为已读（status 0→1）。
+     *
+     * @return 本次置为已读的消息条数
+     */
+    public int markConversationRead(Long conversationId, Long userId) {
+        if (userId == null) {
+            throw new BizException(ResultCode.PARAM_ERROR, "操作人不能为空");
+        }
+        ConversationEntity conv = conversationMapper.selectById(conversationId);
+        if (conv == null) {
+            throw new BizException(ResultCode.RESOURCE_NOT_FOUND, "会话不存在或已删除");
+        }
+        ConversationMemberEntity membership = conversationMemberMapper.selectOne(
+                new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<ConversationMemberEntity>()
+                        .eq("conversation_id", conversationId)
+                        .eq("user_id", userId));
+        if (membership == null) {
+            throw new BizException(ResultCode.FORBIDDEN, "非会话成员，无权上报已读");
+        }
+
+        // 会话内最新一条消息（全局逻辑删除自动过滤已撤回）
+        MessageEntity latest = messageMapper.selectOne(
+                new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<MessageEntity>()
+                        .eq("conversation_id", conversationId)
+                        .orderByDesc("create_time")
+                        .last("LIMIT 1"));
+        if (latest != null) {
+            membership.setLastReadMessageId(latest.getId());
+            conversationMemberMapper.updateById(membership);
+        }
+
+        // 他人发送的未读消息批量置已读（状态原子 0→1）
+        return messageMapper.update(null,
+                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<MessageEntity>()
+                        .eq(MessageEntity::getConversationId, conversationId)
+                        .ne(MessageEntity::getSenderId, userId)
+                        .eq(MessageEntity::getStatus, 0)
+                        .set(MessageEntity::getStatus, 1));
+    }
+
+    /**
+     * 会话未读数（P1-11）：last_read_message_id 之后、非本人发送的消息条数。
+     * 从未上报过已读时统计全部他人消息。
+     */
+    public long unreadCount(Long conversationId, Long userId) {
+        ConversationMemberEntity membership = conversationMemberMapper.selectOne(
+                new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<ConversationMemberEntity>()
+                        .eq("conversation_id", conversationId)
+                        .eq("user_id", userId));
+        if (membership == null) {
+            throw new BizException(ResultCode.FORBIDDEN, "非会话成员");
+        }
+        com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<MessageEntity> qw =
+                new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<MessageEntity>()
+                        .eq("conversation_id", conversationId)
+                        .ne("sender_id", userId);
+        if (membership.getLastReadMessageId() != null) {
+            // 雪花 ID 单调递增：以 ID 界定「已读之后」
+            qw.gt("id", membership.getLastReadMessageId());
+        }
+        return messageMapper.selectCount(qw);
     }
 
     /**

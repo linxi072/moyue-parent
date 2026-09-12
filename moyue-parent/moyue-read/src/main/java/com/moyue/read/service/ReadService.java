@@ -1,10 +1,14 @@
 package com.moyue.read.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.moyue.api.client.PointsClient;
+import com.moyue.api.dto.PointsAwardDTO;
 import com.moyue.common.BizException;
 import com.moyue.common.ResultCode;
 import com.moyue.read.entity.BookshelfEntity;
 import com.moyue.read.mapper.BookshelfMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -14,13 +18,28 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * 阅读业务：书架查询与增删、阅读进度更新。
+ * 阅读业务：书架查询与增删、阅读进度更新、阅读时长上报（P1-10 生产者侧）。
  */
 @Service
 public class ReadService {
 
+    private static final Logger log = LoggerFactory.getLogger(ReadService.class);
+
+    /** 单次上报时长上限（分钟），防异常刷分 */
+    private static final int MAX_MINUTES_PER_REPORT = 120;
+
+    /** 每阅读 10 分钟奖励 1 积分（bizType=2） */
+    private static final int MINUTES_PER_POINT = 10;
+
+    /** 阅读时长奖励 bizType（与 points_flow.biz_type 注释对齐） */
+    private static final int BIZ_READ_DURATION = 2;
+
     @Autowired
     private BookshelfMapper bookshelfMapper;
+
+    /** 积分服务客户端；不可用时阅读主流程不受影响（奖励降级跳过） */
+    @Autowired(required = false)
+    private PointsClient pointsClient;
 
     /** 按用户 ID 查询书架（按加入时间倒序） */
     public List<BookshelfEntity> getShelf(Long userId) {
@@ -74,6 +93,43 @@ public class ReadService {
         }
         e.setLastChapterId(chapterId);
         bookshelfMapper.updateById(e);
+    }
+
+    /**
+     * 阅读时长上报（P1-10 生产者侧）：按 10 分钟 = 1 积分发放到积分服务（bizType=2）。
+     * 单次上限 120 分钟；积分服务不可用 / 发放失败仅记日志，不阻断阅读主流程（奖励是旁路）。
+     *
+     * @return 本次实际发放的积分数（发放失败返回 0）
+     */
+    public int reportDuration(Long userId, Long bookId, Integer minutes) {
+        if (minutes == null || minutes <= 0) {
+            throw new BizException(ResultCode.PARAM_ERROR, "阅读时长必须大于 0 分钟");
+        }
+        if (minutes > MAX_MINUTES_PER_REPORT) {
+            throw new BizException(ResultCode.PARAM_ERROR, "单次上报时长不能超过 " + MAX_MINUTES_PER_REPORT + " 分钟");
+        }
+        int points = Math.max(1, minutes / MINUTES_PER_POINT);
+        if (pointsClient == null) {
+            log.warn("[read] 积分服务不可用，阅读时长奖励跳过：userId={}, minutes={}", userId, minutes);
+            return 0;
+        }
+        try {
+            PointsAwardDTO award = new PointsAwardDTO();
+            award.setUserId(userId);
+            award.setBizType(BIZ_READ_DURATION);
+            award.setPoints(points);
+            award.setRemark("阅读时长奖励：" + minutes + " 分钟");
+            com.moyue.common.R<Integer> resp = pointsClient.award(award);
+            // 关键：Feign 不抛业务异常（HTTP 200 + R.code != 0），必须显式校验 code
+            if (resp == null || resp.getCode() != ResultCode.SUCCESS.getCode()) {
+                log.warn("[read] 阅读时长奖励发放失败（已忽略）：userId={}, resp={}", userId, resp);
+                return 0;
+            }
+            return points;
+        } catch (Exception ex) {
+            log.warn("[read] 阅读时长奖励调用异常（已忽略）：userId={}, minutes={}", userId, minutes, ex);
+            return 0;
+        }
     }
 
     /** 查当前用户在该书上的有效书架行（全局逻辑删除自动过滤已移除行） */
