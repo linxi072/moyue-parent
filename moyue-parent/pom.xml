@@ -52,6 +52,9 @@
         <module>moyue-im</module>
         <module>moyue-points</module>
         <module>moyue-blog</module>
+        <module>moyue-search</module>
+        <module>moyue-ai</module>
+        <module>moyue-merch</module>
     </modules>
 
     <dependencyManagement>

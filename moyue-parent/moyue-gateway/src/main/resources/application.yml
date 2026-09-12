@@ -102,6 +102,22 @@ spring:
           uri: lb://moyue-operation
           predicates:
             - Path=/api/v1/rewards/**
+        # 16) 搜索引擎（书籍全文检索，Elasticsearch）
+        - id: moyue-search
+          uri: lb://moyue-search
+          predicates:
+            - Path=/api/v1/search/**
+        # 17) AI 智能客服
+        - id: moyue-ai
+          uri: lb://moyue-ai
+          predicates:
+            - Path=/api/v1/ai/**
+        # 18) 商城周边（含管理端商品维护，AdminRoleInterceptor 断言 role=3）
+        - id: moyue-merch
+          uri: lb://moyue-merch
+          predicates:
+            - Path=/api/v1/merch/**
+            - Path=/api/v1/admin/merch/**
 
 # JWT 密钥：与 moyue-auth 保持一致（共享密钥，网关与鉴权服务使用同一值）
 moyue:

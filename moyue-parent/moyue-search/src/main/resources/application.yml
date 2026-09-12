@@ -1,0 +1,18 @@
+server:
+  port: 8096
+spring:
+  application:
+    name: moyue-search
+  elasticsearch:
+    uris: http://localhost:9200
+    connection-timeout: 5s
+    socket-timeout: 30s
+  cloud:
+    nacos:
+      discovery:
+        server-addr: localhost:8848
+
+logging:
+  level:
+    com.moyue: INFO
+    org.springframework.data.elasticsearch: WARN

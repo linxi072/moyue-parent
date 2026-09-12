@@ -5,6 +5,7 @@ import com.moyue.api.dto.PointsAccountDTO;
 import com.moyue.api.dto.PointsOrderDTO;
 import com.moyue.api.dto.PointsProductDTO;
 import com.moyue.common.R;
+import com.moyue.points.entity.PointsFlowEntity;
 import com.moyue.points.service.PointsService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -55,6 +56,27 @@ public class PointsController {
         return R.ok(pointsService.pageOrders(userId, page, size));
     }
 
+    /** 每日签到（P1-10）：一天一次，成功返回本次获得积分；重复签到返回 10001「今日已签到」 */
+    @PostMapping("/points/check-in")
+    public R<Integer> checkIn(@RequestBody CheckInRequest request) {
+        return R.ok(pointsService.checkIn(request.getUserId()));
+    }
+
+    /** 积分流水分页，按发生时间倒序 */
+    @GetMapping("/points/flows")
+    public R<PageResult<PointsFlowEntity>> listFlows(@RequestParam Long userId,
+                                                     @RequestParam(defaultValue = "1") int page,
+                                                     @RequestParam(defaultValue = "20") int size) {
+        return R.ok(pointsService.pageFlows(userId, page, size));
+    }
+
+    /** 服务间内部端点：积分发放（阅读时长 / 评论奖励等生产者经 Feign 调用；/internal/** 不在网关路由内） */
+    @PostMapping("/internal/points/award")
+    public R<Integer> award(@RequestBody AwardRequest request) {
+        return R.ok(pointsService.award(request.getUserId(), request.getBizType(),
+                request.getPoints(), request.getRemark()));
+    }
+
     /** 管理端：新建商品 */
     @PostMapping("/admin/points/products")
     public R<PointsProductDTO> createProduct(@RequestBody PointsProductDTO product) {
@@ -96,6 +118,64 @@ public class PointsController {
 
         public void setProductId(Long productId) {
             this.productId = productId;
+        }
+    }
+
+    /** 签到请求体 */
+    public static class CheckInRequest {
+
+        private Long userId;
+
+        public Long getUserId() {
+            return userId;
+        }
+
+        public void setUserId(Long userId) {
+            this.userId = userId;
+        }
+    }
+
+    /** 内部积分发放请求体 */
+    public static class AwardRequest {
+
+        private Long userId;
+
+        private Integer bizType;
+
+        private Integer points;
+
+        private String remark;
+
+        public Long getUserId() {
+            return userId;
+        }
+
+        public void setUserId(Long userId) {
+            this.userId = userId;
+        }
+
+        public Integer getBizType() {
+            return bizType;
+        }
+
+        public void setBizType(Integer bizType) {
+            this.bizType = bizType;
+        }
+
+        public Integer getPoints() {
+            return points;
+        }
+
+        public void setPoints(Integer points) {
+            this.points = points;
+        }
+
+        public String getRemark() {
+            return remark;
+        }
+
+        public void setRemark(String remark) {
+            this.remark = remark;
         }
     }
 }

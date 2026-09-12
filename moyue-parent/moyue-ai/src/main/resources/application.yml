@@ -1,0 +1,37 @@
+server:
+  port: 8097
+spring:
+  application:
+    name: moyue-ai
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/moyue?useUnicode=true&characterEncoding=utf8mb4&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: root
+    password: root
+  cloud:
+    nacos:
+      discovery:
+        server-addr: localhost:8848
+  mybatis-plus:
+    configuration:
+      map-underscore-to-camel-case: true
+    global-config:
+      db-config:
+        id-type: assign_id
+        logic-delete-field: isDeleted
+        logic-delete-value: 1
+        logic-not-delete-value: 0
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+
+# AI 回复引擎配置：keyword 为内置关键词规则引擎；
+# 后续接入真实大模型时切换 provider 并由对应实现接管（接口不变）
+moyue:
+  ai:
+    provider: keyword
+
+logging:
+  level:
+    com.moyue: INFO
