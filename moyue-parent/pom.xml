@@ -29,6 +29,7 @@
         <mybatis-plus.version>3.5.7</mybatis-plus.version>
         <jjwt.version>0.12.6</jjwt.version>
         <xxl-job.version>2.4.0</xxl-job.version>
+        <testcontainers.version>1.19.8</testcontainers.version>
     </properties>
 
     <!-- 子模块：通用 / API / 网关 / 鉴权 / 业务服务 / 任务调度 -->

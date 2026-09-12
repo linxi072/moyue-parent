@@ -1,0 +1,15 @@
+# 集成测试环境（moyue-blog）：
+# - 关闭 Nacos 注册与发现，测试上下文不依赖注册中心
+# - 数据源由 Testcontainers @ServiceConnection 注入（mysql:8.0 容器）
+# - Flyway 在容器 MySQL 上执行 moyue-common 的 V1–V6 迁移建全表
+# - Feign UserClient 由 @MockBean 替换，昵称解析走可预期路径
+spring:
+  cloud:
+    nacos:
+      discovery:
+        enabled: false
+    discovery:
+      enabled: false
+    service-registry:
+      auto-registration:
+        enabled: false

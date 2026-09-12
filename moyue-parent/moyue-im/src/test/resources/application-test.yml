@@ -1,0 +1,16 @@
+# 集成测试环境（moyue-im）：
+# - 关闭 Nacos 注册与发现，测试上下文不依赖注册中心
+# - 数据源由 Testcontainers @ServiceConnection 注入（mysql:8.0 容器）
+# - Flyway 在容器 MySQL 上执行 moyue-common 的 V1–V6 迁移建全表
+# - 使用 RANDOM_PORT 真实 Servlet 环境（兼容 WebSocket 基础设施），TestRestTemplate 走相对路径
+# - Feign UserClient 由 @MockBean 替换；WebSocket 广播失败安全降级，不影响断言
+spring:
+  cloud:
+    nacos:
+      discovery:
+        enabled: false
+    discovery:
+      enabled: false
+    service-registry:
+      auto-registration:
+        enabled: false

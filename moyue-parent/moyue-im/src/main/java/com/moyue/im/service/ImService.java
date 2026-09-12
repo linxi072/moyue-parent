@@ -168,8 +168,32 @@ public class ImService {
         return result;
     }
 
-    /** 发送消息：入库并同步更新会话最近消息预览与时间 */
+    /**
+     * 发送消息：先校验后入库，再同步更新会话最近消息预览与时间。
+     * 校验链：senderId 非空 → 会话存在（否则 20001）→ 发送人是会话成员（否则 10003）。
+     * 修复记录：此前为「先插消息、后查会话」，对不存在会话发消息会产生孤儿消息且仍返回 200。
+     */
     public MessageDTO sendMessage(Long conversationId, SendMessageRequest req) {
+        if (req.getSenderId() == null) {
+            throw new BizException(ResultCode.PARAM_ERROR, "发送人不能为空");
+        }
+        if (req.getContent() == null || req.getContent().isBlank()) {
+            throw new BizException(ResultCode.PARAM_ERROR, "消息内容不能为空");
+        }
+        // 会话必须存在：不存在直接拒绝，避免产生孤儿消息
+        ConversationEntity conv = conversationMapper.selectById(conversationId);
+        if (conv == null) {
+            throw new BizException(ResultCode.RESOURCE_NOT_FOUND, "会话不存在或已删除");
+        }
+        // 发送人必须是会话成员：非成员拒绝，防止越权写入他人会话
+        ConversationMemberEntity membership = conversationMemberMapper.selectOne(
+                new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<ConversationMemberEntity>()
+                        .eq("conversation_id", conversationId)
+                        .eq("user_id", req.getSenderId()));
+        if (membership == null) {
+            throw new BizException(ResultCode.FORBIDDEN, "非会话成员，无权发送消息");
+        }
+
         MessageEntity msg = new MessageEntity();
         msg.setConversationId(conversationId);
         msg.setSenderId(req.getSenderId());
@@ -178,13 +202,11 @@ public class ImService {
         msg.setStatus(0);
         messageMapper.insert(msg);
 
-        ConversationEntity conv = conversationMapper.selectById(conversationId);
-        if (conv != null) {
-            String preview = req.getContent() == null ? "" : truncate(req.getContent(), PREVIEW_MAX);
-            conv.setLastMessage(preview);
-            conv.setLastMessageTime(LocalDateTime.now());
-            conversationMapper.updateById(conv);
-        }
+        String preview = truncate(req.getContent(), PREVIEW_MAX);
+        conv.setLastMessage(preview);
+        conv.setLastMessageTime(LocalDateTime.now());
+        conversationMapper.updateById(conv);
+
         MessageDTO dto = toMessageDto(msg);
         // 消息已落库，向会话成员实时广播；WebSocket 不可用时安全降级，不影响本次发送结果
         broadcastToMembers(conversationId, dto);
