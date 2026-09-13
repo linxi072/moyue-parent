@@ -74,6 +74,12 @@
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
 
+        <!-- ============ 安全加密（后台用户 BCrypt 密码哈希，与 account 鉴权保持一致） ============ -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-crypto</artifactId>
+        </dependency>
+
         <!-- ============ XXL-Job 调度执行器（原 moyue-job 独有，必须保留） ============ -->
         <dependency>
             <groupId>com.xuxueli</groupId>

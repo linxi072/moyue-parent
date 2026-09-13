@@ -2,12 +2,17 @@ openapi: 3.0.3
 
 info:
   title: 墨阅小说网 API
-  version: 2.2.0
+  version: 2.3.0
   description: |
     免费读书网站「墨阅小说网」后端接口契约（OpenAPI 3.0）。
 
-    **本契约于 2026-09-12 与工程源码对齐**：共 104 个 REST 端点（另有 1 个 WebSocket
+    **    本契约于 2026-09-12 与工程源码对齐**：共 130 个 REST 端点（另有 1 个 WebSocket
     `/ws/im`），由脚本从全部 `*Controller.java` 静态提取并做双向差集校验（104 = 104），非计划值。
+
+    **本次（2.3.0）新增系统管理域**：moyue-platform 在 `/api/v1/admin/system/**` 下新增
+    25 个运营后台 RBAC 端点（部门 / 菜单 / 角色 / 用户四类 CRUD 及「角色-菜单」「用户-角色」
+    两组绑定），并在 `/api/v1/system/login` 新增 1 个网关白名单免鉴权端点（BCrypt 校验后
+    签发 role=3 令牌），合计 +26 → 130。以上为人工增量补充，未重跑静态提取脚本。
 
     **模块收敛提示**：工程经一次模块收敛重构，原有 21 个 Maven 模块合并为 9 个
     （3 个基础层 + 6 个业务域服务）。**HTTP 路径完全未变**，故本契约的 `paths` 不受影响；
@@ -62,6 +67,8 @@ tags:
     description: 站内信（moyue-social 8083）
   - name: admin
     description: 管理后台（需 X-User-Role=3）
+  - name: system
+    description: 系统管理 RBAC（moyue-platform 8086，运营后台）
   - name: search
     description: 书籍搜索（moyue-content 8082，Elasticsearch）
   - name: ai
@@ -952,6 +959,237 @@ paths:
       responses:
         "200": { $ref: "#/components/responses/Ok" }
 
+  # ---------------- 系统管理（RBAC 运营后台，需 X-User-Role=3，moyue-platform 8086） ----------------
+  /admin/system/depts:
+    get:
+      tags: [admin, system]
+      summary: 部门树（按 parent_id 递归组装，order_num 升序；叶子节点 children=[]）
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+    post:
+      tags: [admin, system]
+      summary: 新建部门（parent_id 为空则挂在根）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DeptReq" }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /admin/system/depts/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+    get:
+      tags: [admin, system]
+      summary: 部门详情
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+    put:
+      tags: [admin, system]
+      summary: 编辑部门（仅更新非空字段）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DeptReq" }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+    delete:
+      tags: [admin, system]
+      summary: 删除部门（存在子部门或已分配用户时拒绝，返回 10001）
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /admin/system/menus:
+    get:
+      tags: [admin, system]
+      summary: 菜单树（menu_type 0 目录 / 1 菜单 / 2 按钮，按 parent_id 递归，order_num 升序）
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+    post:
+      tags: [admin, system]
+      summary: 新建菜单（menu_type 0 目录 / 1 菜单 / 2 按钮）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MenuReq" }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /admin/system/menus/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+    get:
+      tags: [admin, system]
+      summary: 菜单详情
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+    put:
+      tags: [admin, system]
+      summary: 编辑菜单（仅更新非空字段）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MenuReq" }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+    delete:
+      tags: [admin, system]
+      summary: 删除菜单（存在子菜单时拒绝，返回 10001；同时清空 sys_role_menu 绑定）
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /admin/system/menus/current:
+    get:
+      tags: [admin, system]
+      summary: 当前管理员可见菜单树（读网关注入的 X-User-Id，推导 role→menu；未登录返回 10002）
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /admin/system/roles:
+    get:
+      tags: [admin, system]
+      summary: 角色列表（可选 status 过滤：0 禁用 / 1 正常）
+      parameters:
+        - { name: status, in: query, required: false, schema: { type: integer, enum: [0, 1] } }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+    post:
+      tags: [admin, system]
+      summary: 新建角色（role_key 唯一）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RoleReq" }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /admin/system/roles/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+    get:
+      tags: [admin, system]
+      summary: 角色详情
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+    put:
+      tags: [admin, system]
+      summary: 编辑角色（仅更新非空字段；role_key 不可与已有重复）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RoleReq" }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+    delete:
+      tags: [admin, system]
+      summary: 删除角色（已分配给用户时拒绝，返回 10001）
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /admin/system/roles/{roleId}/menus:
+    parameters:
+      - { name: roleId, in: path, required: true, schema: { type: integer, format: int64 } }
+    get:
+      tags: [admin, system]
+      summary: 角色已授权菜单 ID 列表
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+    put:
+      tags: [admin, system]
+      summary: 设置角色菜单（先清后插）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MenuBindReq" }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /admin/system/users:
+    get:
+      tags: [admin, system]
+      summary: 用户分页（可选 deptId / keyword 模糊匹配；列表含 deptName 与 roleIds）
+      parameters:
+        - { name: deptId, in: query, required: false, schema: { type: integer, format: int64 } }
+        - { name: keyword, in: query, required: false, schema: { type: string }, description: 昵称 / 账号模糊匹配 }
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/Size" }
+      responses:
+        "200": { $ref: "#/components/responses/OkPage" }
+    post:
+      tags: [admin, system]
+      summary: 新建用户（BCrypt 加密；username 唯一；roleIds 决定可访问菜单）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UserReq" }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /admin/system/users/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+    get:
+      tags: [admin, system]
+      summary: 用户详情（屏蔽 password 哈希）
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+    put:
+      tags: [admin, system]
+      summary: 编辑用户（password 为空则不改；roleIds 为空则不改动角色绑定）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UserReq" }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+    delete:
+      tags: [admin, system]
+      summary: 删除用户（逻辑删除）
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /admin/system/users/{userId}/roles:
+    parameters:
+      - { name: userId, in: path, required: true, schema: { type: integer, format: int64 } }
+    get:
+      tags: [admin, system]
+      summary: 用户已分配角色 ID 列表
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+    put:
+      tags: [admin, system]
+      summary: 设置用户角色（先清后插）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RoleBindReq" }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  # ---------------- 系统后台登录（网关白名单，免鉴权） ----------------
+  /system/login:
+    post:
+      tags: [system]
+      summary: 运营后台登录（白名单免网关鉴权）；BCrypt 校验 sys_user.password，成功签发 role=3 令牌
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AdminLoginReq" }
+      responses:
+        "200": { $ref: "#/components/responses/OkAdminLogin" }
+
   # ---------------- 服务间内部端点（不经网关） ----------------
   /internal/chapters/{chapterId}/audit:
     put:
@@ -1385,6 +1623,16 @@ components:
               - type: object
                 properties:
                   data: { $ref: "#/components/schemas/LoginVO" }
+    OkAdminLogin:
+      description: 统一响应，data 为后台登录令牌对（role 恒为 3）
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: "#/components/schemas/R"
+              - type: object
+                properties:
+                  data: { $ref: "#/components/schemas/AdminLoginVO" }
     OkUser:
       description: 统一响应，data 为用户资料
       content:
@@ -1594,4 +1842,139 @@ components:
       properties:
         bookId: { type: integer, format: int64 }
         chapterId: { type: integer, format: int64 }
+
+    # ---------------- 系统管理 RBAC 请求体 ----------------
+    DeptReq:
+      type: object
+      description: 部门请求体（字段均可选，编辑时仅更新非空字段）
+      properties:
+        parentId: { type: integer, format: int64, description: 父部门 ID，空则挂在根 }
+        deptName: { type: string, example: "技术部" }
+        orderNum: { type: integer, description: 排序号（同级升序） }
+        leader: { type: string, description: 负责人 }
+        phone: { type: string, description: 联系电话 }
+        email: { type: string, description: 邮箱 }
+        status: { type: integer, description: "0 禁用 / 1 正常", enum: [0, 1] }
+
+    MenuReq:
+      type: object
+      description: 菜单请求体（字段均可选）
+      properties:
+        parentId: { type: integer, format: int64, description: 父菜单 ID，空则挂在根目录 }
+        menuName: { type: string, example: "用户管理" }
+        menuType: { type: integer, description: "0 目录 / 1 菜单 / 2 按钮", enum: [0, 1, 2] }
+        path: { type: string, description: 路由路径（菜单/目录） }
+        component: { type: string, description: 前端组件路径（菜单） }
+        perms: { type: string, description: 权限标识（按钮，如 sys:user:add） }
+        icon: { type: string, description: 图标 }
+        orderNum: { type: integer, description: 排序号 }
+        status: { type: integer, description: "0 禁用 / 1 正常", enum: [0, 1] }
+
+    RoleReq:
+      type: object
+      description: 角色请求体（字段均可选）
+      properties:
+        roleName: { type: string, example: "内容运营" }
+        roleKey: { type: string, description: 角色标识（唯一，如 content_op） }
+        dataScope: { type: integer, description: "数据权限范围：1 全部 / 2 自定义部门", enum: [1, 2] }
+        deptIds: { type: string, description: 自定义数据范围部门 ID（逗号分隔，dataScope=2 时生效） }
+        status: { type: integer, description: "0 禁用 / 1 正常", enum: [0, 1] }
+
+    UserReq:
+      type: object
+      description: 用户请求体（编辑时 password 为空则不修改；roleIds 为空则不改动角色）
+      properties:
+        deptId: { type: integer, format: int64, description: 所属部门 ID }
+        username: { type: string, example: "admin_zhang" }
+        nickname: { type: string, example: "张老师" }
+        password: { type: string, format: password, description: 明文，落库前 BCrypt 加密 }
+        email: { type: string }
+        phone: { type: string }
+        status: { type: integer, description: "0 禁用 / 1 正常", enum: [0, 1] }
+        roleIds: { type: array, items: { type: integer, format: int64 }, description: 角色 ID 列表 }
+
+    MenuBindReq:
+      type: object
+      required: [menuIds]
+      properties:
+        menuIds: { type: array, items: { type: integer, format: int64 }, description: 授权的菜单 ID 列表 }
+
+    RoleBindReq:
+      type: object
+      required: [roleIds]
+      properties:
+        roleIds: { type: array, items: { type: integer, format: int64 }, description: 分配的角色 ID 列表 }
+
+    AdminLoginReq:
+      type: object
+      required: [username, password]
+      properties:
+        username: { type: string, example: "admin_zhang" }
+        password: { type: string, format: password, example: "Pass@1234" }
+
+    # ---------------- 系统管理 RBAC 响应视图 ----------------
+    SysDept:
+      type: object
+      description: 部门实体（含递归 children；is_deleted 软删字段不对外暴露）
+      properties:
+        id: { type: integer, format: int64 }
+        parentId: { type: integer, format: int64 }
+        deptName: { type: string }
+        orderNum: { type: integer }
+        leader: { type: string }
+        phone: { type: string }
+        email: { type: string }
+        status: { type: integer, description: "0 禁用 / 1 正常", enum: [0, 1] }
+        children: { type: array, items: { $ref: "#/components/schemas/SysDept" }, description: 子部门（仅树型响应填充） }
+
+    SysMenu:
+      type: object
+      description: 菜单实体（含递归 children）
+      properties:
+        id: { type: integer, format: int64 }
+        parentId: { type: integer, format: int64 }
+        menuName: { type: string }
+        menuType: { type: integer, description: "0 目录 / 1 菜单 / 2 按钮", enum: [0, 1, 2] }
+        path: { type: string }
+        component: { type: string }
+        perms: { type: string }
+        icon: { type: string }
+        orderNum: { type: integer }
+        status: { type: integer, description: "0 禁用 / 1 正常", enum: [0, 1] }
+        children: { type: array, items: { $ref: "#/components/schemas/SysMenu" }, description: 子菜单（仅树型响应填充） }
+
+    SysRole:
+      type: object
+      description: 角色实体
+      properties:
+        id: { type: integer, format: int64 }
+        roleName: { type: string }
+        roleKey: { type: string, description: 角色标识（唯一） }
+        dataScope: { type: integer, description: "1 全部 / 2 自定义部门", enum: [1, 2] }
+        deptIds: { type: string, description: 自定义数据范围部门 ID（逗号分隔） }
+        status: { type: integer, description: "0 禁用 / 1 正常", enum: [0, 1] }
+
+    SysUser:
+      type: object
+      description: 系统用户视图（屏蔽 password 哈希）
+      properties:
+        id: { type: integer, format: int64 }
+        deptId: { type: integer, format: int64 }
+        deptName: { type: string, description: 部门名称（服务层冗余填充） }
+        username: { type: string }
+        nickname: { type: string }
+        email: { type: string }
+        phone: { type: string }
+        status: { type: integer, description: "0 禁用 / 1 正常", enum: [0, 1] }
+        roleIds: { type: array, items: { type: integer, format: int64 }, description: 角色 ID 列表 }
+        createTime: { type: string, format: date-time }
+
+    AdminLoginVO:
+      type: object
+      description: 后台登录响应（签发 role=3 令牌）
+      properties:
+        accessToken: { type: string, description: 访问令牌（无状态，role=3） }
+        userId: { type: integer, format: int64, description: 用户 ID（sys_user.id，网关透传为 X-User-Id） }
+        nickname: { type: string }
+        role: { type: integer, description: "角色值，恒为 3（管理员）", enum: [3], example: 3 }
 

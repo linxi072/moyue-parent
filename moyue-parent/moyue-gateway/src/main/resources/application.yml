@@ -131,6 +131,17 @@ spring:
           predicates:
             - Path=/api/v1/rewards/**
 
+        # P5) 系统管理（RBAC 运营后台：部门 / 用户 / 角色 / 菜单，AdminRoleInterceptor 断言 role=3）
+        - id: moyue-system
+          uri: lb://moyue-platform
+          predicates:
+            - Path=/api/v1/admin/system/**
+        # P6) 系统后台登录（网关白名单免鉴权，签发 role=3 令牌）
+        - id: moyue-system-login
+          uri: lb://moyue-platform
+          predicates:
+            - Path=/api/v1/system/login
+
         # ===== ai（智能域：AI 智能客服，独立服务）=====
         - id: moyue-ai
           uri: lb://moyue-ai

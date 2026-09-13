@@ -20,7 +20,7 @@
 | moyue-content | 8082 | **内容域**（book + chapter + read + search）：书城分页 / 详情 / 我的作品 / 封面上传 / 完结申请审核 + 章节详情与目录 + 阅读书架 + 全文检索（Elasticsearch） | book / chapter / bookshelf |
 | moyue-social | 8083 | **社区域**（comment + blog + im + message）：评论查询与发表 + 博客文章 / 评论 / 点赞 + 即时通讯（单聊 / 群聊，WebSocket `/ws/im`）+ 站内通知 | comment / blog_post / blog_comment / blog_like / chat_conversation / chat_conversation_member / chat_message / notice |
 | moyue-commerce | 8084 | **商业域**（author + points + merch）：作者稿酬流水 + 积分账户 / 商品 / 兑换订单 + 周边商城商品与订单 | author_income / points_account / points_product / points_order / merch_product / merch_order |
-| moyue-platform | 8086 | **平台域**（audit + operation + stat + job）：待审任务查询与裁决 + 公告增删改查 / 打赏订单对账 + 全站聚合统计（admin，只读 `@Select`）+ XXL-Job 执行器（2.4.0，executor RPC 9099） | audit_task / reward_order / announcement / 聚合（多表） |
+| moyue-platform | 8086 | **平台域**（audit + operation + stat + job + **system**）：待审任务查询与裁决 + 公告增删改查 / 打赏订单对账 + 全站聚合统计（admin，只读 `@Select`）+ XXL-Job 执行器（2.4.0，executor RPC 9099）+ **系统管理 RBAC（部门 / 菜单 / 角色 / 用户四类 CRUD 及绑定，新增 `com.moyue.system`）** | audit_task / reward_order / announcement / 聚合（多表）/ **sys_dept / sys_user / sys_role / sys_menu / sys_user_role / sys_role_menu** |
 | moyue-ai | 8097 | **智能域**：AI 智能客服（独立能力域，便于单独扩容） | - |
 
 > 包名提示：`moyue-account` 内含 `com.moyue.auth` 与 `com.moyue.user`；`moyue-content` 内含 `com.moyue.book` / `com.moyue.chapter` / `com.moyue.read` / `com.moyue.search`；`moyue-social` 内含 `com.moyue.comment` / `com.moyue.blog` / `com.moyue.im` / `com.moyue.message`；`moyue-commerce` 内含 `com.moyue.author` / `com.moyue.points` / `com.moyue.merch`；`moyue-platform` 内含 `com.moyue.audit` / `com.moyue.operation` / `com.moyue.stat` / `com.moyue.job`。
@@ -97,7 +97,7 @@ chmod +x scripts/*.sh        # 首次使用需赋予可执行权限
     * 即时通讯：`chat_conversation`（会话：type 1=单聊 2=群聊）、`chat_conversation_member`（会话成员：role、last_read_message_id，唯一键 `uk_conv_user`）、`chat_message`（消息：sender_id / content / type / status）。
     * 积分商城：`points_account`（user_id 主键、balance / total_earned / total_spent）、`points_product`（name / description / image_url / cost_points / stock / status）、`points_order`（user_id / product_id / product_name / cost_points / status）。种子：演示用户 id=1 初始积分 500；3 件上架商品（id 2001/2002/2003）。
     * 博客空间：`blog_post`（author_id / title / cover_url / summary / content / status / like_count / comment_count / view_count）、`blog_comment`（post_id / user_id / content / like_count）、`blog_like`（post_id / user_id，唯一键 `uk_post_user`）。种子：演示用户 id=1 发布 1 篇示例文章（id 3001）。
-* 每个服务的 `application.yml` 均启用 `spring.flyway.enabled=true`（baseline-on-migrate）指向 `classpath:db/migration`。
+* 每个服务的 `application.yml` 均启用 `spring.flyway.enabled=true`（baseline-on-migrate）指向 `classpath:db/migration`。后续迁移随功能扩展持续追加（V5 评论点赞 / V6 公告与 reward_order 修复 / V7 积分商城 / V8 周边商城 / V9 AI 客服 / V10 审核意见落库 / V11 AI 会话 / **V12 系统管理 RBAC 六张 `sys_*` 表**），全部服务共享同一份迁移目录，版本号全局递增不重复。
 * 演示账号：`phone=13800000000`，`password=123456`，启动后由 `moyue-account` 以 BCrypt 写入 `user` 表（id 固定为 1，以对齐 V2/V4 种子的 `author_id`/`user_id` 引用）。
 
 ## 全链路验证
@@ -190,13 +190,34 @@ chmod +x scripts/*.sh        # 首次使用需赋予可执行权限
    curl -X POST http://localhost:8080/api/v1/blog/posts/3001/like \
      -H 'Authorization: Bearer <accessToken>' -H 'Content-Type: application/json' -d '{"userId":1}'
    ```
+9. **系统管理（RBAC 运营后台）**
+   ```bash
+   # 9.1 后台登录（网关白名单免鉴权，签发 role=3 令牌）
+   curl -X POST http://localhost:8080/api/v1/system/login \
+     -H 'Content-Type: application/json' \
+     -d '{"username":"admin","password":"admin123"}'
+   # 9.2 部门树（需 role=3；取 9.1 返回的 accessToken）
+   curl http://localhost:8080/api/v1/admin/system/depts -H 'Authorization: Bearer <adminToken>'
+   # 9.3 菜单树
+   curl http://localhost:8080/api/v1/admin/system/menus -H 'Authorization: Bearer <adminToken>'
+   # 9.4 当前管理员可见菜单（读网关注入 X-User-Id 推导 role→menu）
+   curl http://localhost:8080/api/v1/admin/system/menus/current -H 'Authorization: Bearer <adminToken>'
+   # 9.5 角色列表 + 用户分页
+   curl "http://localhost:8080/api/v1/admin/system/roles?status=1" -H 'Authorization: Bearer <adminToken>'
+   curl "http://localhost:8080/api/v1/admin/system/users?page=1&size=20" -H 'Authorization: Bearer <adminToken>'
+   # 9.6 新建部门（parentId 空则挂根）
+   curl -X POST http://localhost:8080/api/v1/admin/system/depts \
+     -H 'Authorization: Bearer <adminToken>' -H 'Content-Type: application/json' \
+     -d '{"deptName":"运营部","orderNum":1,"status":1}'
+   ```
 
 ## 路由与服务发现
 
 * 网关 `application.yml` 使用 `uri: lb://moyue-<svc>` 经 Nacos 解析实例；`discovery.locator.enabled=false`（显式路由更可控）。
 * **路由 id 保留原业务语义（便于日志排查），`uri` 统一指向承载它的合并后服务**——例如 `id: moyue-auth` / `id: moyue-user` 两条路由的 `uri` 现均为 `lb://moyue-account`。注意：这里的 `moyue-auth` / `moyue-user` **只是路由 id，已不存在同名服务**。
 * **关键顺序**：`id: moyue-auth` 路由同时含 `/api/v1/auth/**` 与 `/api/v1/users/me`，且**必须排在 `id: moyue-user` 的 `/api/v1/users/**` 之前**——否则 `/users/me` 会被后者截走导致 404。
-* 模块收敛后共 **6 个业务服务**：`moyue-account`（auth + user）、`moyue-content`（book + book-files + read + chapter + search）、`moyue-social`（comment + blog + message + im）、`moyue-commerce`（author + points + merch）、`moyue-platform`（audit + operation + stat + reward）、`moyue-ai`。
+* 模块收敛后共 **6 个业务服务**：`moyue-account`（auth + user）、`moyue-content`（book + book-files + read + chapter + search）、`moyue-social`（comment + blog + message + im）、`moyue-commerce`（author + points + merch）、`moyue-platform`（audit + operation + stat + reward + **system**）、`moyue-ai`。
+* 网关另含 **`moyue-system`**（`/api/v1/admin/system/**` → `lb://moyue-platform`）与 **`moyue-system-login`**（`/api/v1/system/login` → `lb://moyue-platform`，白名单免鉴权）两条路由，对应本次新增的 RBAC 系统管理域（`com.moyue.system`）。
 * 所有业务服务均声明 `@EnableDiscoveryClient` 向 Nacos 注册。
 
 ## 服务间调用（Feign）
@@ -250,3 +271,9 @@ chmod +x scripts/*.sh        # 首次使用需赋予可执行权限
   * `moyue-schema.sql` 由 8 表 → **20 表**当前状态快照，与 Flyway V1–V6 逐表对齐（`reward_order` 含 V6 补建的 `is_deleted`；`author_income` / `audit_task` 如实保持无 `is_deleted`）。文件头已标注「快照会 DROP 重建，权威来源为 Flyway 迁移」。
   * 校验结论：端点集合比对 **68 = 68、双向差集 0**；表集合比对 **20 = 20、缺失 0、多余 0**；YAML 可解析且 131 处 `$ref` 全部可解析、无悬空引用。
   * 剩余风险：仍为人工同步，未接入 `springdoc-openapi`；改动接口后需重跑比对。
+* 【新增·系统管理 RBAC 域】运营后台「用户管理 / 角色管理 / 部门管理 / 菜单管理」（2026-09-12，承载于 `moyue-platform`，包 `com.moyue.system`）：
+  * Flyway `V12__system_management.sql` 新建 6 张 `sys_*` 表（`sys_dept` / `sys_user` / `sys_role` / `sys_menu` / `sys_user_role` / `sys_role_menu`），InnoDB / utf8mb4 / 雪花 ID / 逻辑删除 `is_deleted`；`sys_user.password` 为 BCrypt 哈希（VARCHAR(72)）。
+  * **RBAC 与 C 端 `user` 表解耦**：后台运营人员走独立 `sys_*` 表；登录签发 `role=3` 令牌，复用既有 `AdminRoleInterceptor`（断言 `X-User-Role=3`）与 `JwtProvider`。
+  * 网关新增 2 条路由（`moyue-system` → `/api/v1/admin/system/**`、`moyue-system-login` → `/api/v1/system/login`）并把 `/api/v1/system/login` 加入白名单（免鉴权）；`SystemAdminController` 全套端点落在 `AdminRoleInterceptor` 保护范围内。
+  * 数据权限：`sys_role.data_scope`（1 全部 / 2 自定义部门）+ `dept_ids`（逗号分隔）字段承载，避免额外关联表。
+  * 端点：`POST /api/v1/system/login`（后台登录）+ 25 个 `/api/v1/admin/system/**` 端点（部门 / 菜单 / 角色 / 用户四类 CRUD + 「角色-菜单」「用户-角色」两组绑定 + `GET /menus/current` 当前管理员菜单树）。契约见 `deliverables/openapi.yaml` 2.3.0（tag `system` + `admin`，共 130 操作）。
