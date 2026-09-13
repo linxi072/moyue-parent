@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RequestParam;
  * 返回类型包裹 R&lt;T&gt;，与控制器实际响应结构一致；DTO 为实体的字段子集，
  * Jackson 默认忽略未知字段，可安全反序列化。
  */
-@FeignClient(name = "moyue-social")
+@FeignClient(name = "moyue-reader")
 public interface ImClient {
 
     /** 查询用户会话列表（单聊 + 群聊） */

@@ -47,5 +47,35 @@ services:
       timeout: 5s
       retries: 10
 
+  # Elasticsearch：检索域（moyue-search）全文检索索引 moyue_book（P2-13）
+  # 单节点、关闭安全认证，供本地开箱联调；生产请启用 xpack.security 并外置密钥。
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+    container_name: moyue-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - xpack.security.http.ssl.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - TZ=Asia/Shanghai
+    ports:
+      - "9200:9200"
+    volumes:
+      - moyue-es-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+
+  # MailHog：触达域（承载于 moyue-reader）本地邮件验证（SMTP 1025 / WebUI 8025）；生产由运维注入真实 SMTP。
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    container_name: moyue-mailhog
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
 volumes:
   moyue-mysql-data:
+  moyue-es-data:

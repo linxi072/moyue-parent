@@ -23,6 +23,9 @@ public final class CacheNames {
     /** 用户书架：建议 TTL 5 分钟（写较频繁：加/移书架、翻章更新进度） */
     public static final String READ_BOOKSHELF = "read:bookshelf";
 
+    /** 首页推荐位：建议 TTL 5 分钟（P2-13 推荐位 TopN，可选缓存；命中收益中等、容忍度较高） */
+    public static final String RECOMMEND = "recommend";
+
     private CacheNames() {
         // 常量类，禁止实例化
     }

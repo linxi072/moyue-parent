@@ -52,7 +52,7 @@ start_service moyue-gateway
 sleep 5
 
 # 3) 其余业务服务（顺序不限，均向 Nacos 注册；account 已在上面单独启动）
-for module in moyue-content moyue-social moyue-commerce moyue-platform moyue-ai; do
+for module in moyue-reader moyue-author moyue-admin moyue-ai; do
     start_service "$module"
     sleep 3
 done
@@ -60,8 +60,8 @@ done
 echo "============================================================"
 echo "[start] 全部服务已提交启动（后台 nohup 运行）"
 echo "[start] 日志目录：$LOG_DIR"
-echo "[start] 查看单个服务日志：tail -f $LOG_DIR/moyue-social.log"
-echo "[start] 提示 1：moyue-platform 依赖 XXL-Job 调度中心（默认 http://localhost:8088/xxl-job-admin）"
+echo "[start] 查看单个服务日志：tail -f $LOG_DIR/moyue-reader.log"
+echo "[start] 提示 1：moyue-admin 依赖 XXL-Job 调度中心（默认 http://localhost:8088/xxl-job-admin）"
 echo "[start]        未启动调度中心时日志会有连接报错，但不影响其余服务"
 echo "[start] 提示 2：Nacos 控制台 http://localhost:8848/nacos，确认全部服务已注册后再跑冒烟"
 echo "[start] 下一步：./scripts/smoke-test.sh"

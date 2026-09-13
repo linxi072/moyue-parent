@@ -27,11 +27,17 @@ public enum ResultCode {
     /** 资源不存在或已下架 */
     RESOURCE_NOT_FOUND(20001, "资源不存在或已下架"),
 
+    /** 内容命中敏感词被拦截（P2-15 内容安全，机审 REJECT） */
+    CONTENT_BLOCKED(20002, "内容包含违规信息，已拦截"),
+
     /** 请求频率超限（Sentinel 限流） */
     FREQUENCY_LIMIT(30001, "请求频率超限"),
 
     /** 服务内部异常 */
     INTERNAL_ERROR(40001, "服务内部异常"),
+
+    /** 服务熔断降级（Sentinel 熔断，P2-17） */
+    SERVICE_DEGRADED(40002, "服务暂时不可用，请稍后重试"),
 
     /** 支付失败 / 订单超时关闭 */
     PAYMENT_FAILED(50001, "支付失败或订单超时关闭");

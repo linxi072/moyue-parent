@@ -35,6 +35,18 @@
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-loadbalancer</artifactId>
         </dependency>
+        <!-- ===== 限流 / 熔断：Sentinel（P2-17，版本由 spring-cloud-alibaba BOM 管理，不写版本号） ===== -->
+        <!-- sentinel 核心（RuleConstant / DegradeRule / DegradeRuleManager 等） -->
+        <dependency>
+            <groupId>com.alibaba.cloud</groupId>
+            <artifactId>spring-cloud-starter-alibaba-sentinel</artifactId>
+        </dependency>
+        <!-- Sentinel 网关适配器：自动装配 SentinelGatewayFilter / SentinelGatewayBlockExceptionHandler，
+             并暴露 GatewayRuleManager / GatewayCallbackManager（自定义降级体 R<T>，HTTP 200） -->
+        <dependency>
+            <groupId>com.alibaba.cloud</groupId>
+            <artifactId>spring-cloud-alibaba-sentinel-gateway</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

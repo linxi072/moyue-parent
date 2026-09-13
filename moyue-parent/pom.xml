@@ -33,26 +33,28 @@
     </properties>
 
     <!--
-      子模块（9 个 = 3 基础 + 6 业务，按领域收敛）：
+      子模块（12 个 = 3 基础 + 9 业务，按领域收敛；P2-13~17 由 9 扩为 12）：
         基础层：common（公共）· api（跨服务契约）· gateway（网关）
         账号域 account  ：auth（认证）+ user（用户资料）
-        内容域 content  ：book（书城）+ chapter（章节）+ read（阅读书架）+ search（检索）
-        社区域 social   ：comment（评论）+ blog（博客）+ im（即时通讯）+ message（站内信）
+        内容域 content  ：book（书城）+ chapter（章节）+ read（阅读书架）
+        社区域 social   ：comment（评论）+ blog（博客）+ im（即时通讯）
         商业域 commerce ：points（积分）+ merch（周边商城）+ author（稿酬）
-        平台域 platform ：audit（审核）+ operation（运营）+ stat（统计）+ job（调度）
+        平台域 platform ：operation（运营）+ stat（统计）+ system（系统管理）+ job（调度）
         智能域 ai       ：AI 智能客服（独立能力域，便于单独扩容）
-      说明：各业务模块内部保留原 `com.moyue.<旧包名>` 子包不变，由启动类
-      `@ComponentScan("com.moyue")` 统一扫描。
+        检索域 search   ：全文检索 / 推荐（只读 Elasticsearch，端口 8085，P2-13 新增）
+        触达域 message  ：站内信 + 渠道分发 + 触达记录（端口 8087，P2-14 新增）
+        内容安全域 risk ：敏感词 + 机审 + 举报 + 人工审核（端口 8089，P2-15 新增）
+      说明：各业务模块内部保留原 `com.moyue.<旧包名>` 子包不变（模块 ≠ 包名），由启动类
+      `@ComponentScan("com.moyue")` 统一扫描；迁移时包名保持不变，HTTP 路径零变更。
     -->
-    <modules>
+                    <modules>
         <module>moyue-common</module>
         <module>moyue-api</module>
         <module>moyue-gateway</module>
         <module>moyue-account</module>
-        <module>moyue-content</module>
-        <module>moyue-social</module>
-        <module>moyue-commerce</module>
-        <module>moyue-platform</module>
+        <module>moyue-reader</module>
+        <module>moyue-author</module>
+        <module>moyue-admin</module>
         <module>moyue-ai</module>
     </modules>
 

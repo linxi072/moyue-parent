@@ -1,0 +1,3 @@
+# author test 环境
+# 敏感项（MYSQL_USERNAME / MYSQL_PASSWORD / MOYUE_JWT_SECRET 等）一律由环境变量注入，
+# 本文件不提供任何明文默认值；本地开发默认值见 application-dev.yml。

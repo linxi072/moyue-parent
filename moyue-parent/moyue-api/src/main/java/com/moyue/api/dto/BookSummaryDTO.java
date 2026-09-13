@@ -28,4 +28,7 @@ public class BookSummaryDTO implements Serializable {
     private String coverUrl;
 
     private String intro;
+
+    /** 点击量（P2-13 检索热度字段，向后兼容追加于末尾） */
+    private Long clickCount;
 }

@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RequestParam;
  * 章节服务 Feign 客户端（moyue-content）。
  * 返回类型包裹 R&lt;T&gt;，与控制器 {@code R<ChapterDTO>} 结构一致。
  */
-@FeignClient(name = "moyue-content")
+@FeignClient(name = "moyue-author")
 public interface ChapterClient {
 
     /** 章节正文 */

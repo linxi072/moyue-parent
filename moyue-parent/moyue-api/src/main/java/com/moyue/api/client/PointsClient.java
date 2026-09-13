@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RequestBody;
  * 积分服务 Feign 客户端（moyue-commerce）。
  * 返回类型包裹 R&lt;T&gt;，与控制器实际响应结构一致。
  */
-@FeignClient(name = "moyue-commerce")
+@FeignClient(name = "moyue-reader")
 public interface PointsClient {
 
     /** 查询用户积分账户 */

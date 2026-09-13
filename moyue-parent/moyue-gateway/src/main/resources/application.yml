@@ -22,8 +22,8 @@ spring:
             allowedHeaders: "*"
             allowCredentials: true
       # 服务发现路由：uri 使用 lb://<服务名>，由 Nacos 解析实例
-      # 模块收敛后仅 6 个业务服务：account / content / social / commerce / platform / ai
-      # 路由 id 保留原业务语义（便于日志排查），uri 指向承载它的合并后服务。
+      # 三端重构后共 5 个业务服务：account / reader（读者端 8091）/ author（作者端 8092）/ admin（管理端 8093）/ ai
+      # 路由 id 保留原业务语义（便于日志排查），uri 指向承载它的合并/拆分后服务。
       routes:
         # ===== account（账号域：鉴权 + 用户资料）=====
         # A1) 鉴权（含 /api/v1/users/me，必须排在 users 通配之前，
@@ -39,106 +39,123 @@ spring:
           predicates:
             - Path=/api/v1/users/**
 
-        # ===== content（内容域：书城 + 章节 + 阅读 + 检索 + 静态资源）=====
+        # ===== reader / author（内容域拆分：阅读/检索归 reader 8091，作品/章节/静态资源归 author 8092）=====
         # C1) 书城（含后台完结申请审核 /api/v1/admin/books/**）
         - id: moyue-book
-          uri: lb://moyue-content
+          uri: lb://moyue-author
           predicates:
             - Path=/api/v1/books/**
             - Path=/api/v1/admin/books/**
         # C2) 书城静态资源（封面等上传文件，公网只读，JwtAuthGlobalFilter 已加白名单）
         - id: moyue-book-files
-          uri: lb://moyue-content
+          uri: lb://moyue-author
           predicates:
             - Path=/api/v1/files/**
         # C3) 阅读 / 书架
         - id: moyue-read
-          uri: lb://moyue-content
+          uri: lb://moyue-reader
           predicates:
             - Path=/api/v1/read/**
         # C4) 章节
         - id: moyue-chapter
-          uri: lb://moyue-content
+          uri: lb://moyue-author
           predicates:
             - Path=/api/v1/chapters/**
-        # C5) 搜索引擎（书籍全文检索，Elasticsearch）
+        # C5) 搜索引擎（书籍全文检索 / 推荐位；归 moyue-reader，只读 Elasticsearch）
         - id: moyue-search
-          uri: lb://moyue-content
+          uri: lb://moyue-reader
           predicates:
             - Path=/api/v1/search/**
 
-        # ===== social（社区域：评论 + 博客 + 站内消息 + IM）=====
+        # ===== reader（读者端：评论 + 博客 + 站内消息 + IM）=====
         # S1) 评论
         - id: moyue-comment
-          uri: lb://moyue-social
+          uri: lb://moyue-reader
           predicates:
             - Path=/api/v1/comments/**
         # S2) 博客空间
         - id: moyue-blog
-          uri: lb://moyue-social
+          uri: lb://moyue-reader
           predicates:
             - Path=/api/v1/blog/**
-        # S3) 站内消息
+        # S3) 站内消息（归 moyue-reader）
         - id: moyue-message
-          uri: lb://moyue-social
+          uri: lb://moyue-reader
           predicates:
             - Path=/api/v1/messages/**
+        # S3b) 触达记录管理（admin，归 moyue-reader；AdminRoleInterceptor 断言 role=3）
+        - id: moyue-message-admin
+          uri: lb://moyue-reader
+          predicates:
+            - Path=/api/v1/admin/messages/**
         # S4) 即时通讯（单聊 / 群聊；WebSocket 端点 /ws/im 亦在此服务）
         - id: moyue-im
-          uri: lb://moyue-social
+          uri: lb://moyue-reader
           predicates:
             - Path=/api/v1/im/**
 
-        # ===== commerce（商业域：稿酬 + 积分 + 周边商城）=====
+        # ===== reader / author（商业域拆分：积分/商城归 reader，稿酬归 author）=====
         # M1) 作者稿酬
         - id: moyue-author
-          uri: lb://moyue-commerce
+          uri: lb://moyue-author
           predicates:
             - Path=/api/v1/author/**
         # M2) 积分商城
         - id: moyue-points
-          uri: lb://moyue-commerce
+          uri: lb://moyue-reader
           predicates:
             - Path=/api/v1/points/**
             - Path=/api/v1/admin/points/**
         # M3) 商城周边（含管理端商品维护，AdminRoleInterceptor 断言 role=3）
         - id: moyue-merch
-          uri: lb://moyue-commerce
+          uri: lb://moyue-reader
           predicates:
             - Path=/api/v1/merch/**
             - Path=/api/v1/admin/merch/**
 
-        # ===== platform（平台域：审核 + 公告订单 + 统计 + 打赏流水 + 定时任务）=====
-        # P1) 审核（admin，前缀较具体，排在公告 / 统计之前）
+        # ===== admin / reader（平台域拆分：审核/运营/统计/系统归 admin 8093，打赏归 reader）=====
+        # P1) 内容安全（admin，归 moyue-admin）
         - id: moyue-audit
-          uri: lb://moyue-platform
+          uri: lb://moyue-admin
           predicates:
             - Path=/api/v1/admin/audit/**
+        # P1b) 举报处理 / 敏感词管理（admin，归 moyue-admin）
+        - id: moyue-risk-admin
+          uri: lb://moyue-admin
+          predicates:
+            - Path=/api/v1/admin/reports/**
+            - Path=/api/v1/admin/risk/**
         # P2) 运营（公告 / 对账）
         - id: moyue-operation
-          uri: lb://moyue-platform
+          uri: lb://moyue-admin
           predicates:
             - Path=/api/v1/admin/announcements/**
             - Path=/api/v1/admin/orders/**
         # P3) 统计（admin）
         - id: moyue-stat
-          uri: lb://moyue-platform
+          uri: lb://moyue-admin
           predicates:
             - Path=/api/v1/admin/stats/**
-        # P4) 打赏（读者端；订单与稿酬表由 platform 持有）
+        # P4) 打赏（读者端，归 moyue-reader；打赏订单与稿酬流水由 reader 持有）
         - id: moyue-reward
-          uri: lb://moyue-platform
+          uri: lb://moyue-reader
           predicates:
             - Path=/api/v1/rewards/**
 
+        # P5) 举报提交 / 我的举报（归 moyue-admin）
+        - id: moyue-report
+          uri: lb://moyue-admin
+          predicates:
+            - Path=/api/v1/reports/**
+
         # P5) 系统管理（RBAC 运营后台：部门 / 用户 / 角色 / 菜单，AdminRoleInterceptor 断言 role=3）
         - id: moyue-system
-          uri: lb://moyue-platform
+          uri: lb://moyue-admin
           predicates:
             - Path=/api/v1/admin/system/**
         # P6) 系统后台登录（网关白名单免鉴权，签发 role=3 令牌）
         - id: moyue-system-login
-          uri: lb://moyue-platform
+          uri: lb://moyue-admin
           predicates:
             - Path=/api/v1/system/login
 
@@ -151,7 +168,8 @@ spring:
 # JWT 密钥：与 moyue-account 保持一致（共享密钥，网关与账号服务使用同一值）
 moyue:
   jwt:
-    secret: "moyue-jwt-dev-secret-key-0123456789abcdefghij"
+    # P2-17：密钥环境变量化（dev 保留本地默认值；test/prod 必须注入 MOYUE_JWT_SECRET，不带明文默认）
+    secret: ${MOYUE_JWT_SECRET:moyue-jwt-dev-secret-key-0123456789abcdefghij}
 
 logging:
   level:

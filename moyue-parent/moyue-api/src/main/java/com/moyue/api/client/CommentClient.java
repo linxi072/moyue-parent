@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RequestParam;
  * 返回类型包裹 R&lt;T&gt;，与控制器 {@code R<PageResult<CommentDTO>>} 结构一致。
  * CommentController 已在 CommentService.toDtoPage 做实体转换后返回 CommentDTO，与此处声明严格对齐。
  */
-@FeignClient(name = "moyue-social")
+@FeignClient(name = "moyue-reader")
 public interface CommentClient {
 
     /** 按书籍分页查询评论 */
