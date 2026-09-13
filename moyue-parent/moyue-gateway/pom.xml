@@ -24,11 +24,7 @@
         <!-- 通用模块（R&lt;T&gt; / JWT / 常量） -->
         <dependency>
             <groupId>com.moyue</groupId>
-            <artifactId>moyue-common-core</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.moyue</groupId>
-            <artifactId>moyue-common-security</artifactId>
+            <artifactId>moyue-common</artifactId>
         </dependency>
         <!-- 服务发现：解析 lb:// 路由目标（各业务服务注册到 Nacos） -->
         <dependency>

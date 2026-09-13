@@ -26,11 +26,7 @@
         </dependency>
         <dependency>
             <groupId>com.moyue</groupId>
-            <artifactId>moyue-common-core</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.moyue</groupId>
-            <artifactId>moyue-common-security</artifactId>
+            <artifactId>moyue-common</artifactId>
         </dependency>
         <dependency>
             <groupId>com.moyue</groupId>

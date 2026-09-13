@@ -26,24 +26,7 @@
         </dependency>
         <dependency>
             <groupId>com.moyue</groupId>
-            <artifactId>moyue-common-core</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.moyue</groupId>
-            <artifactId>moyue-common-security</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.moyue</groupId>
-            <artifactId>moyue-common-mybatis</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.moyue</groupId>
-            <artifactId>moyue-common-migration</artifactId>
-        </dependency>
-        <!-- 系统管理二期：Redis（在线用户会话 / 字典参数缓存 / 令牌黑名单） -->
-        <dependency>
-            <groupId>com.moyue</groupId>
-            <artifactId>moyue-common-redis</artifactId>
+            <artifactId>moyue-common</artifactId>
         </dependency>
         <!-- common-redis 中 data-redis 为 optional 不传递，须显式引入 -->
         <dependency>

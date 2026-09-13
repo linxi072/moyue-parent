@@ -13,15 +13,23 @@
     <artifactId>moyue-api</artifactId>
     <packaging>pom</packaging>
     <name>moyue-api</name>
-    <description>墨阅小说网 · 跨服务 Feign 契约聚合器（按目标服务拆分，全部客户端带 FallbackFactory 降级，对齐 RuoYi ruoyi-api 模式）</description>
+    <description>跨服务 Feign</description>
 
-    <modules>
-        <module>moyue-api-account</module>
-        <module>moyue-api-content</module>
-        <module>moyue-api-social</module>
-        <module>moyue-api-commerce</module>
-        <module>moyue-api-search</module>
-        <module>moyue-api-message</module>
-        <module>moyue-api-risk</module>
-    </modules>
+    <dependencies>
+        <!-- OpenFeign：@FeignClient 注解与编解码；消费者通过 @EnableFeignClients 扫描本包 -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-openfeign</artifactId>
+        </dependency>
+        <!-- 通用核心（R / ResultCode / PageResult） -->
+        <dependency>
+            <groupId>com.moyue</groupId>
+            <artifactId>moyue-common</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
 </project>

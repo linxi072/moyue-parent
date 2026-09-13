@@ -78,65 +78,14 @@
             <!-- 内部模块（聚合器 + 细粒度子模块，对齐 RuoYi 命名） -->
             <dependency>
                 <groupId>com.moyue</groupId>
-                <artifactId>moyue-common-core</artifactId>
+                <artifactId>moyue-common</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.moyue</groupId>
-                <artifactId>moyue-common-security</artifactId>
+                <artifactId>moyue-api</artifactId>
                 <version>${project.version}</version>
             </dependency>
-            <dependency>
-                <groupId>com.moyue</groupId>
-                <artifactId>moyue-common-redis</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.moyue</groupId>
-                <artifactId>moyue-common-mybatis</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.moyue</groupId>
-                <artifactId>moyue-common-migration</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.moyue</groupId>
-                <artifactId>moyue-api-account</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.moyue</groupId>
-                <artifactId>moyue-api-content</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.moyue</groupId>
-                <artifactId>moyue-api-social</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.moyue</groupId>
-                <artifactId>moyue-api-commerce</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.moyue</groupId>
-                <artifactId>moyue-api-search</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.moyue</groupId>
-                <artifactId>moyue-api-message</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.moyue</groupId>
-                <artifactId>moyue-api-risk</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
             <!-- MyBatis-Plus（Spring Boot 3 系必须使用 boot3 starter，否则拉到 mybatis-spring 2.x 与 Spring 6.1 不兼容） -->
             <dependency>
                 <groupId>com.baomidou</groupId>

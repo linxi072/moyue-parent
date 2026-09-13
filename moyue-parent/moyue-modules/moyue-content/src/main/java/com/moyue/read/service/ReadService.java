@@ -1,7 +1,7 @@
 package com.moyue.read.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.moyue.api.commerce.client.PointsClient;
+import com.moyue.api.commerce.PointsClient;
 import com.moyue.api.commerce.dto.PointsAwardDTO;
 import com.moyue.common.BizException;
 import com.moyue.common.ResultCode;

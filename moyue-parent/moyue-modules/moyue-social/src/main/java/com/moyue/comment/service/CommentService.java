@@ -2,7 +2,7 @@ package com.moyue.comment.service;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.moyue.api.commerce.client.PointsClient;
+import com.moyue.api.commerce.PointsClient;
 import com.moyue.api.social.dto.CommentDTO;
 import com.moyue.common.core.domain.PageResult;
 import com.moyue.api.commerce.dto.PointsAwardDTO;

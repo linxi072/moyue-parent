@@ -26,19 +26,11 @@
         </dependency>
         <dependency>
             <groupId>com.moyue</groupId>
-            <artifactId>moyue-common-core</artifactId>
+            <artifactId>moyue-common</artifactId>
         </dependency>
         <dependency>
             <groupId>com.moyue</groupId>
             <artifactId>moyue-api-account</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.moyue</groupId>
-            <artifactId>moyue-common-mybatis</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.moyue</groupId>
-            <artifactId>moyue-common-migration</artifactId>
         </dependency>
         <dependency>
             <groupId>com.baomidou</groupId>
