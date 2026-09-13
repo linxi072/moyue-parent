@@ -1,0 +1,64 @@
+package ${packageName}.service.impl;
+
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.moyue.common.BizException;
+import com.moyue.common.ResultCode;
+import ${packageName}.entity.${className}Entity;
+import ${packageName}.mapper.${className}Mapper;
+import ${packageName}.service.${className}Service;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+
+/**
+ * ${functionName}业务实现（由 moyue 代码生成器生成，生成时间：${dateTime}）。
+ *
+ * @author ${author}
+ */
+@Service
+public class ${className}ServiceImpl implements ${className}Service {
+
+    @Autowired
+    private ${className}Mapper ${classNameLower}Mapper;
+
+    @Override
+    public List<${className}Entity> listAll() {
+        return ${classNameLower}Mapper.selectList(Wrappers.<${className}Entity>lambdaQuery()
+                .orderByDesc(${className}Entity::get${pk.javaField.substring(0,1).toUpperCase()}${pk.javaField.substring(1)}));
+    }
+
+    @Override
+    public ${className}Entity getById(Long id) {
+        ${className}Entity entity = ${classNameLower}Mapper.selectById(id);
+        if (entity == null) {
+            throw new BizException(ResultCode.RESOURCE_NOT_FOUND, "${functionName}不存在");
+        }
+        return entity;
+    }
+
+    @Override
+    @Transactional
+    public ${className}Entity create(${className}Entity entity) {
+        ${classNameLower}Mapper.insert(entity);
+        return entity;
+    }
+
+    @Override
+    @Transactional
+    public ${className}Entity update(${className}Entity entity) {
+        if (${classNameLower}Mapper.selectById(entity.get${pk.javaField.substring(0,1).toUpperCase()}${pk.javaField.substring(1)}()) == null) {
+            throw new BizException(ResultCode.RESOURCE_NOT_FOUND, "${functionName}不存在");
+        }
+        ${classNameLower}Mapper.updateById(entity);
+        return entity;
+    }
+
+    @Override
+    @Transactional
+    public void delete(Long id) {
+        getById(id);
+        ${classNameLower}Mapper.deleteById(id);
+    }
+}

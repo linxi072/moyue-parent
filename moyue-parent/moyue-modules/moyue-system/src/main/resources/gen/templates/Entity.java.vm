@@ -1,0 +1,46 @@
+package ${packageName}.entity;
+
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableLogic;
+import com.baomidou.mybatisplus.annotation.TableName;
+import lombok.Data;
+
+import java.io.Serializable;
+#if($columns)
+#foreach($column in $columns)
+#if($column.javaType == "java.time.LocalDateTime" || $column.javaType == "java.time.LocalDate" || $column.javaType == "java.time.LocalTime")
+import ${column.javaType};
+#end
+#end
+#end
+
+/**
+ * ${functionName}实体，映射 ${tableName} 表。
+ * <p>由 moyue 代码生成器生成（生成时间：${dateTime}）。</p>
+ *
+ * @author ${author}
+ */
+@Data
+@TableName("${tableName}")
+public class ${className}Entity implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+#foreach($column in $columns)
+    /** ${column.columnComment} */
+#if($column.pk)
+    @TableId(type = IdType.ASSIGN_ID)
+    private ${column.javaType} ${column.javaField};
+#elseif($column.columnName == "is_deleted")
+    /** 逻辑删除：0 否 / 1 是 */
+    @TableLogic(value = "0", delval = "1")
+    @TableField("is_deleted")
+    private ${column.javaType} ${column.javaField};
+#else
+    private ${column.javaType} ${column.javaField};
+#end
+
+#end
+}

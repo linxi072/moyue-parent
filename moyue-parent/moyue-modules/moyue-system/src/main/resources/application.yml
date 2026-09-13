@@ -12,6 +12,12 @@ spring:
     # 账号口令不设明文默认值，强制由环境变量注入（dev 默认值下沉 application-dev.yml）
     username: ${{MYSQL_USERNAME}}
     password: ${{MYSQL_PASSWORD}}
+  data:
+    # 系统管理二期：在线用户会话 / 字典参数缓存 / 令牌黑名单（写法对齐 moyue-content）
+    redis:
+      host: ${{REDIS_HOST:localhost}}
+      port: ${{REDIS_PORT:6379}}
+      database: 0
   cloud:
     nacos:
       discovery:
@@ -25,11 +31,33 @@ moyue:
   cache:
     enabled: true
 
+# 运维观测：actuator 只暴露只读端点；生产关闭 API 文档
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+springdoc:
+  api-docs:
+    enabled: ${SPRINGDOC_ENABLED:true}
+  swagger-ui:
+    enabled: ${SPRINGDOC_ENABLED:true}
+
 # XXL-Job 执行器配置（执行器随 moyue-system 进程启动，RPC 端口 9099）
 xxl:
   job:
     admin:
       addresses: ${{XXL_JOB_ADMIN_ADDRESSES:http://localhost:8088/xxl-job-admin}}
+      # 任务管理代理（JobProxyService）登录 Admin 使用的账号，dev 默认 admin/123456
+      username: ${{XXL_JOB_ADMIN_USERNAME:admin}}
+      password: ${{XXL_JOB_ADMIN_PASSWORD:123456}}
     accessToken: ${{XXL_JOB_ACCESS_TOKEN:}}
     executor:
       appname: moyue-job

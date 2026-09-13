@@ -1,0 +1,66 @@
+package ${packageName}.controller;
+
+import com.moyue.common.R;
+import com.moyue.common.security.RequiresPermissions;
+import ${packageName}.entity.${className}Entity;
+import ${packageName}.service.${className}Service;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+
+/**
+ * ${functionName}接口（由 moyue 代码生成器生成，生成时间：${dateTime}）。
+ * 完整前缀 ${controllerBase}/${classNameLower}，写操作需 system:${classNameLower}:* 权限码。
+ *
+ * @author ${author}
+ */
+@RestController
+@RequestMapping("${controllerBase}/${classNameLower}")
+public class ${className}Controller {
+
+    @Autowired
+    private ${className}Service ${classNameLower}Service;
+
+    /** 查询全部：GET ${controllerBase}/${classNameLower} */
+    @GetMapping
+    public R<List<${className}Entity>> list() {
+        return R.ok(${classNameLower}Service.listAll());
+    }
+
+    /** 详情：GET ${controllerBase}/${classNameLower}/{id} */
+    @GetMapping("/{id}")
+    public R<${className}Entity> get(@PathVariable Long id) {
+        return R.ok(${classNameLower}Service.getById(id));
+    }
+
+    /** 新增：POST ${controllerBase}/${classNameLower} */
+    @PostMapping
+    @RequiresPermissions("system:${classNameLower}:add")
+    public R<${className}Entity> create(@RequestBody ${className}Entity entity) {
+        return R.ok(${classNameLower}Service.create(entity));
+    }
+
+    /** 修改：PUT ${controllerBase}/${classNameLower}/{id} */
+    @PutMapping("/{id}")
+    @RequiresPermissions("system:${classNameLower}:edit")
+    public R<${className}Entity> update(@PathVariable Long id, @RequestBody ${className}Entity entity) {
+        entity.set${pk.javaField.substring(0,1).toUpperCase()}${pk.javaField.substring(1)}(id);
+        return R.ok(${classNameLower}Service.update(entity));
+    }
+
+    /** 删除：DELETE ${controllerBase}/${classNameLower}/{id} */
+    @DeleteMapping("/{id}")
+    @RequiresPermissions("system:${classNameLower}:remove")
+    public R<Void> delete(@PathVariable Long id) {
+        ${classNameLower}Service.delete(id);
+        return R.ok();
+    }
+}

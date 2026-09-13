@@ -1,0 +1,28 @@
+package ${packageName}.service;
+
+import ${packageName}.entity.${className}Entity;
+
+import java.util.List;
+
+/**
+ * ${functionName}业务接口（由 moyue 代码生成器生成，生成时间：${dateTime}）。
+ *
+ * @author ${author}
+ */
+public interface ${className}Service {
+
+    /** 查询全部 */
+    List<${className}Entity> listAll();
+
+    /** 按 ID 查询 */
+    ${className}Entity getById(Long id);
+
+    /** 新增 */
+    ${className}Entity create(${className}Entity entity);
+
+    /** 修改 */
+    ${className}Entity update(${className}Entity entity);
+
+    /** 删除（按 ID） */
+    void delete(Long id);
+}

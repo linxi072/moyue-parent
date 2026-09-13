@@ -1,0 +1,14 @@
+-- ${functionName} 菜单种子（由 moyue 代码生成器生成，生成时间：${dateTime}）
+-- 对齐 V12 sys_menu 结构：menu_type 0 目录 / 1 菜单 / 2 按钮
+-- 使用前请替换占位菜单 ID（@parentId / @menuId）为实际雪花 ID
+
+-- 页面菜单
+INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_name`, `menu_type`, `path`, `component`, `perms`, `icon`, `order_num`, `status`) VALUES
+ (@menuId, @parentId, '${functionName}', 1, '${classNameLower}', '${classNameLower}/index', NULL, 'form', 1, 1);
+
+-- 按钮权限
+INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_name`, `menu_type`, `path`, `component`, `perms`, `icon`, `order_num`, `status`) VALUES
+ (@btnId1, @menuId, '${functionName}查询', 2, NULL, NULL, 'system:${classNameLower}:list',   NULL, 1, 1),
+ (@btnId2, @menuId, '${functionName}新增', 2, NULL, NULL, 'system:${classNameLower}:add',    NULL, 2, 1),
+ (@btnId3, @menuId, '${functionName}修改', 2, NULL, NULL, 'system:${classNameLower}:edit',   NULL, 3, 1),
+ (@btnId4, @menuId, '${functionName}删除', 2, NULL, NULL, 'system:${classNameLower}:remove', NULL, 4, 1);

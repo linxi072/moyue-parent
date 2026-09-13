@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${functionName}管理</title>
+    <!-- 由 moyue 代码生成器生成（生成时间：${dateTime}）；Vue3 + Element Plus CDN，单表 CRUD 页面 -->
+    <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <script src="https://unpkg.com/element-plus"></script>
+    <style>
+        body { margin: 0; background: #f5f7fa; }
+        #app { max-width: 1200px; margin: 24px auto; padding: 0 16px; }
+        .toolbar { display: flex; gap: 8px; margin-bottom: 16px; }
+    </style>
+</head>
+<body>
+<div id="app">
+    <el-card>
+        <template #header><b>${functionName}管理</b></template>
+
+        <div class="toolbar">
+            <el-input v-model="keyword" placeholder="关键字检索" clearable style="width: 220px"
+                      @keyup.enter="load"></el-input>
+            <el-button type="primary" @click="load">查询</el-button>
+            <el-button type="success" @click="openCreate">新增</el-button>
+        </div>
+
+        <el-table :data="rows" border stripe v-loading="loading">
+#foreach($column in $columns)
+            <el-table-column prop="${column.javaField}" label="${column.columnComment}"></el-table-column>
+#end
+            <el-table-column label="操作" width="160">
+                <template #default="scope">
+                    <el-button size="small" @click="openEdit(scope.row)">编辑</el-button>
+                    <el-button size="small" type="danger" @click="remove(scope.row)">删除</el-button>
+                </template>
+            </el-table-column>
+        </el-table>
+    </el-card>
+
+    <el-dialog v-model="dialogVisible" :title="form.${pk.javaField} ? '编辑${functionName}' : '新增${functionName}'" width="560px">
+        <el-form :model="form" label-width="120px">
+#foreach($column in $columns)
+#if(!$column.pk)
+            <el-form-item label="${column.columnComment}">
+#if($column.javaType == "String")
+                <el-input v-model="form.${column.javaField}"></el-input>
+#elseif($column.javaType == "Integer" || $column.javaType == "Long")
+                <el-input-number v-model="form.${column.javaField}"></el-input-number>
+#else
+                <el-date-picker v-model="form.${column.javaField}" type="datetime"></el-date-picker>
+#end
+            </el-form-item>
+#end
+#end
+        </el-form>
+        <template #footer>
+            <el-button @click="dialogVisible = false">取消</el-button>
+            <el-button type="primary" @click="save">保存</el-button>
+        </template>
+    </el-dialog>
+</div>
+
+<script>
+    const API_BASE = '${controllerBase}/${classNameLower}';
+
+    // 统一请求：携带后台登录令牌
+    async function request(url, options = {}) {
+        const headers = Object.assign({'Content-Type': 'application/json'}, options.headers || {});
+        const token = localStorage.getItem('moyue-token');
+        if (token) {
+            headers['Authorization'] = 'Bearer ' + token;
+        }
+        const resp = await fetch(url, Object.assign({}, options, {headers}));
+        const body = await resp.json();
+        if (body.code !== 0) {
+            ElementPlus.ElMessage.error(body.message || '请求失败');
+            throw new Error(body.message);
+        }
+        return body.data;
+    }
+
+    Vue.createApp({
+        data() {
+            return {
+                keyword: '',
+                rows: [],
+                loading: false,
+                dialogVisible: false,
+                form: {}
+            };
+        },
+        mounted() {
+            this.load();
+        },
+        methods: {
+            async load() {
+                this.loading = true;
+                try {
+                    const data = await request(API_BASE);
+                    const kw = (this.keyword || '').toLowerCase();
+                    this.rows = kw
+                        ? data.filter(r => JSON.stringify(r).toLowerCase().includes(kw))
+                        : data;
+                } finally {
+                    this.loading = false;
+                }
+            },
+            openCreate() {
+                this.form = {};
+                this.dialogVisible = true;
+            },
+            openEdit(row) {
+                this.form = Object.assign({}, row);
+                this.dialogVisible = true;
+            },
+            async save() {
+                const id = this.form.${pk.javaField};
+                if (id) {
+                    await request(API_BASE + '/' + id, {method: 'PUT', body: JSON.stringify(this.form)});
+                } else {
+                    await request(API_BASE, {method: 'POST', body: JSON.stringify(this.form)});
+                }
+                ElementPlus.ElMessage.success('保存成功');
+                this.dialogVisible = false;
+                this.load();
+            },
+            async remove(row) {
+                await ElementPlus.ElMessageBox.confirm('确认删除该记录？', '提示', {type: 'warning'});
+                await request(API_BASE + '/' + row.${pk.javaField}, {method: 'DELETE'});
+                ElementPlus.ElMessage.success('删除成功');
+                this.load();
+            }
+        }
+    }).use(ElementPlus).mount('#app');
+</script>
+</body>
+</html>

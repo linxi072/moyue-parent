@@ -1,0 +1,12 @@
+package ${packageName}.mapper;
+
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import ${packageName}.entity.${className}Entity;
+
+/**
+ * ${functionName} Mapper，继承 MyBatis-Plus 通用 BaseMapper。
+ *
+ * @author ${author}
+ */
+public interface ${className}Mapper extends BaseMapper<${className}Entity> {
+}

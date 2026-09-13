@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="${packageName}.mapper.${className}Mapper">
+
+    <!-- ${functionName} 通用结果映射（由 moyue 代码生成器生成，生成时间：${dateTime}） -->
+    <resultMap id="BaseResultMap" type="${packageName}.entity.${className}Entity">
+#foreach($column in $columns)
+        <result column="${column.columnName}" jdbcType="${column.jdbcType}" property="${column.javaField}"/>
+#end
+    </resultMap>
+
+    <!-- 通用查询条件（动态 SQL，可按需扩展） -->
+    <sql id="Base_Where_Clause">
+        <where>
+#foreach($column in $columns)
+#if($column.javaType == "String")
+            <if test="${column.javaField} != null and ${column.javaField} != ''">
+                AND ${column.columnName} = #{${column.javaField}}
+            </if>
+#else
+            <if test="${column.javaField} != null">
+                AND ${column.columnName} = #{${column.javaField}}
+            </if>
+#end
+#end
+        </where>
+    </sql>
+
+</mapper>
