@@ -1,225 +1,140 @@
-# 墨阅小说网 · 后端工程（moyue-parent）
+# 墨阅小说网（Moyue Novel）后端
 
-> Maven 多模块微服务：**基础层 3 模块 + 三端业务 5 服务**（共 **8 个 Maven 模块**）。
-> 技术栈：Spring Boot 3.2.12、Spring Cloud 2023.0.5、Spring Cloud Alibaba 2023.0.1.0（Nacos + Sentinel）、MyBatis-Plus 3.5.7、XXL-Job 2.4.0、jjwt 0.12.6、Java 17。
-> 依赖 MySQL 8 / Redis 7.2 / Nacos 2.3.2 / Elasticsearch 8.13 / MailHog（一键 `docker compose up -d`）。
-> 统一响应体 `R<T>`、错误码、鉴权头、BasePath 严格对齐[架构设计稿](../系统架构设计说明.md)。
+基于 **Spring Boot 3.2.12 + Spring Cloud 2023.0.5 + Spring Cloud Alibaba** 的微服务小说平台。
+工程组织对齐 [RuoYi-Cloud](https://github.com/yangzongzhuan/RuoYi-Cloud) 目录风格：common 细粒度拆分、api 契约模块化、独立认证服务、业务服务聚合于 `moyue-modules/`。
 
-## 三端架构（2026-09-13 重构）
+## 一、模块总览（聚合器 + 22 个 Maven 模块）
 
-> 工程经两次模块重构：21 → 9（领域收敛）→ **8（三端聚合）**。
-> 本次按**读者端 / 作者端 / 管理端**重新切分服务边界；合并只动 Maven 模块与网关路由目标，
-> **Java 包名与全部 HTTP 路径零变更**——各能力域仍保留原 `com.moyue.<域>` 包，
-> 由启动类 `@ComponentScan("com.moyue")` + `@MapperScan("com.moyue")` 统一扫描。
-
-| 模块 | 端口 | 端 | 承载能力域（Java 包） | 主表 |
-| --- | --- | --- | --- | --- |
-| moyue-parent | - | - | 父工程：版本与依赖 BOM 统一管理 | - |
-| moyue-common | - | - | 通用模块：`R<T>` / `ResultCode` / `BizException` / 全局异常 / `JwtProvider` / `AdminRoleInterceptor` / 缓存自动配置 + **Flyway 迁移 V1–V13** | - |
-| moyue-api | - | - | 共享 DTO + 10 个 Feign 客户端（服务名已对齐三端） | - |
-| moyue-gateway | 8080 | - | Spring Cloud Gateway：显式 `lb://` 路由 + JWT 统一鉴权 + 跨域 + **Sentinel 网关限流/熔断骨架** | - |
-| moyue-account | 8081 | 通用 | 认证中心（登录 / 注册 / 刷新）+ 用户资料 | user + refreshToken（Redis） |
-| **moyue-reader** | **8091** | **读者端** | 阅读书架 `read` · 评论 `comment` · 博客 `blog` · 即时通讯 `im`（WebSocket `/ws/im`）· 积分 `points` · 周边商城 `merch` · **搜索推荐 `search`（Elasticsearch 只读）** · **消息触达 `message`（渠道 SPI：站内信+邮件真实现，短信/推送桩）** · **打赏与稿酬 `operation`（Reward* + AuthorIncome*）** | bookshelf / comment / blog_* / chat_* / points_* / merch_* / notice / message_template / message_channel_record / reward_order / author_income |
-| **moyue-author** | **8092** | **作者端** | 作品管理 `book`（CRUD + 我的作品 + 完结申请）· 章节创作 `chapter`（草稿 / 发布 / 排序）· 作者稿酬账户 `author` · 封面文件 `content.config`（本地上传 `/api/v1/files/**`） | book / chapter / author_income |
-| **moyue-admin** | **8093** | **管理端** | 内容审核 `audit`（裁决经 Feign 回写）· 运营公告与对账 `operation`（Announcement* + 订单对账）· 全站统计 `stat` · 系统管理 RBAC `system`（部门/菜单/角色/用户）· **XXL-Job 执行器 `job`**（appname=moyue-job，RPC 9099） | audit_task / announcement / sys_* / 聚合只读 |
-| moyue-ai | 8097 | 通用 | AI 智能客服（独立能力域，便于单独扩容） | - |
-
-> 包名提示：`moyue-reader` 内含 `com.moyue.{read,comment,blog,im,points,merch,search,message,operation}`；
-> `moyue-author` 内含 `com.moyue.{book,chapter,author,content.config}`；
-> `moyue-admin` 内含 `com.moyue.{audit,operation,stat,system,job}`。
-> `com.moyue.operation` 按打赏/公告**拆分归属**：`Reward*` 与 `AuthorIncome*` 在 reader（写侧），
-> `Announcement*` 与订单对账在 admin；admin 侧另持一份 `RewardOrderEntity/Mapper` 只读对账
-> （与既有 `author_income` 双份共存的先例一致：同 FQN、不同服务、同一张表）。
-
-## 端口总览
-
-| 服务 | 端口 | 说明 |
-| --- | --- | --- |
-| 网关 gateway | 8080 | 前端唯一入口 |
-| 账号 account | 8081 | auth + user |
-| **读者端 reader** | **8091** | 阅读/社交/商业/搜索/触达/打赏 |
-| **作者端 author** | **8092** | 作品/章节/稿酬/文件 |
-| **管理端 admin** | **8093** | 审核/运营/统计/RBAC/调度（XXL-Job 执行器 RPC 9099） |
-| 智能 ai | 8097 | AI 客服 |
-| 前端 web | 5173 | Vue 3 |
-| MySQL / Redis / Nacos | 3306 / 6379 / 8848 | 基础设施 |
-| **Elasticsearch / MailHog** | **9200 / 1025(8025)** | 检索 / 邮件联调（docker-compose 提供） |
-| XXL-Job Admin（需单独启动） | 8088 | 调度中心 |
-
-## 本地启动
-
-### 1. 启动基础设施（MySQL / Redis / Nacos / Elasticsearch / MailHog）
-```bash
-cd ..            # 回到 moyue-parent 上级目录（docker-compose.yml 所在处）
-docker compose up -d
-# 健康检查：mysqladmin ping / redis-cli ping / curl http://localhost:8848/nacos/health/check
-# ES：curl http://localhost:9200 ；MailHog 界面：http://localhost:8025
+```
+moyue-parent
+├── moyue-common/                 # 通用模块聚合器（对齐 RuoYi ruoyi-common）
+│   ├── moyue-common-core         #   R<T> / ResultCode / BizException / Constants / PageResult / 全局异常
+│   ├── moyue-common-security     #   JWT 签发解析 / AdminRoleInterceptor / @RequiresRoles·@RequiresPermissions 切面 / HeaderInterceptor
+│   ├── moyue-common-redis        #   MoyueCacheAutoConfiguration（RedisCacheManager，前缀 moyue:）/ CacheNames
+│   ├── moyue-common-mybatis      #   MyBatis-Plus 分页插件自动装配
+│   └── moyue-common-migration    #   Flyway V1–V13（38 张表，全服务共享）
+├── moyue-api/                    # Feign 契约聚合器（对齐 RuoYi ruoyi-api，按目标服务拆分，全量 FallbackFactory）
+│   ├── moyue-api-account         #   UserClient → moyue-account
+│   ├── moyue-api-content         #   BookClient / ChapterClient → moyue-content
+│   ├── moyue-api-social          #   BlogClient / CommentClient / ImClient → moyue-social
+│   ├── moyue-api-commerce        #   PointsClient → moyue-commerce
+│   ├── moyue-api-search          #   SearchIndexClient 索引同步 → moyue-search
+│   ├── moyue-api-message         #   MessageDispatchClient 消息分发 → moyue-message
+│   └── moyue-api-risk            #   RiskClient 机审 → moyue-risk
+├── moyue-gateway/                # 网关 8080：JWT 鉴权 / 白名单配置化 / Sentinel 路由限流熔断
+├── moyue-auth/                   # 独立认证 8090：登录 / 注册 / 刷新令牌（对齐 RuoYi ruoyi-auth）
+└── moyue-modules/                # 业务服务聚合目录（对齐 RuoYi ruoyi-modules）
+    ├── moyue-content/            #   8082 内容域：书城 book / 章节 chapter / 阅读书架 read / 封面文件 files
+    ├── moyue-social/             #   8083 社区域：评论 comment / 博客 blog / 即时通讯 im（WebSocket /ws/im）
+    ├── moyue-commerce/           #   8084 商业域：积分 points / 商城 merch / 作者稿酬 author
+    ├── moyue-search/             #   8085 检索域：全文检索 / 热门推荐（只读 ES，索引 moyue_book）
+    ├── moyue-system/             #   8086 平台运营域：系统管理 RBAC system / 运营公告对账 operation / 统计 stat / XXL-Job job / 打赏 reward
+    ├── moyue-message/            #   8087 触达域：站内信 + 渠道 SPI（邮件真实现，短信/推送桩）+ 触达记录
+    ├── moyue-risk/               #   8089 内容安全域：人工审核 audit（敏感词/机审/举报 见 P2-15 规划）
+    ├── moyue-account/            #   8081 账号域：用户资料 user（认证已拆出）
+    └── moyue-ai/                 #   8097 智能域：AI 客服
 ```
 
-### 2. 环境变量（P2-17 配置治理）
+> **约定：模块 ≠ 包名。** 各模块内 Java 包保持 `com.moyue.<域>`，启动类统一
+> `@ComponentScan("com.moyue")` + `@MapperScan("com.moyue")` + `@EnableDiscoveryClient`；
+> 包名与 HTTP 路径在历次重构中零变更，前端契约不受影响。
 
-> 敏感项一律 `${ENV_VAR:dev默认}` 注入；**test / prod profile 不提供明文默认值，必须由环境变量注入**。
-> 样例见 `moyue-parent/.env.example`。
+## 二、环境要求
 
-| 变量 | 说明 | dev 默认 |
-| --- | --- | --- |
-| `MOYUE_JWT_SECRET` | JWT 共享密钥（gateway / account / common `JwtProvider`） | 本地开发默认值 |
-| `MYSQL_USERNAME` / `MYSQL_PASSWORD` | 数据库账号口令 | root / root（仅 dev yml） |
-| `ES_URIS` | Elasticsearch 地址 | http://localhost:9200 |
-| `MOYUE_MAIL_HOST/PORT/USERNAME/PASSWORD/FROM` | SMTP（dev 指向 MailHog，无认证） | localhost:1025 / 空 |
+| 组件 | 版本 | 说明 |
+|---|---|---|
+| JDK | 21（父 POM target 17） | 编译与运行 |
+| Maven | 3.9+ | 配合 `_bootstrap/settings.xml`（阿里云镜像） |
+| MySQL | 8.x | Flyway 自动迁移 V1–V13 |
+| Redis | 7.x | 缓存 / IM / refreshToken |
+| Nacos | 2.x | 注册中心（8848） |
+| Elasticsearch | 8.13.4 | 检索域（可选，docker-compose 提供） |
+| XXL-Job Admin | 2.4.0 | 调度中心（可选，8088） |
+
+## 三、环境变量（`.env.example`）
+
+| 变量 | 用途 | 默认（dev） |
+|---|---|---|
+| `MYSQL_HOST/PORT/DB/USERNAME/PASSWORD` | 数据源 | localhost:3306/moyue，dev 口令 root |
+| `REDIS_HOST/PORT` | Redis | localhost:6379 |
+| `NACOS_SERVER_ADDR` | 注册中心 | localhost:8848 |
+| `MOYUE_JWT_SECRET` | JWT 密钥（auth 与 gateway 必须一致） | dev 有默认值，**test/prod 必须注入** |
+| `ES_URIS` | Elasticsearch | http://localhost:9200 |
+| `MOYUE_MAIL_HOST/PORT/USERNAME/PASSWORD/FROM` | SMTP（触达域） | MailHog localhost:1025 |
+| `XXL_JOB_ADMIN_ADDRESSES` | 调度中心 | http://localhost:8088/xxl-job-admin |
 | `SPRING_PROFILES_ACTIVE` | dev / test / prod | dev |
 
-### 3. 构建全部模块
-```bash
-cd moyue-parent
-mvn clean package -DskipTests
-```
-
-### 4. 启动各服务（顺序不限，均向 Nacos 注册）
-```bash
-# 方式 A：直接跑 jar
-java -jar moyue-gateway/target/moyue-gateway-1.0.0-SNAPSHOT.jar
-java -jar moyue-account/target/moyue-account-1.0.0-SNAPSHOT.jar
-java -jar moyue-reader/target/moyue-reader-1.0.0-SNAPSHOT.jar
-java -jar moyue-author/target/moyue-author-1.0.0-SNAPSHOT.jar
-java -jar moyue-admin/target/moyue-admin-1.0.0-SNAPSHOT.jar
-java -jar moyue-ai/target/moyue-ai-1.0.0-SNAPSHOT.jar
-
-# 方式 B：Maven 直接跑（含依赖模块 -am）
-mvn -pl moyue-reader -am spring-boot:run
-```
-
-> 建议启动顺序：先 `moyue-account`（启动时以 BCrypt 写入演示用户 id=1），其余服务任意。
-> 全链路检索需 ES 运行且书籍索引已建（`POST /api/v1/internal/search/books/_index` 全量重建）；
-> 邮件触达在 dev 下落入 MailHog（http://localhost:8025 查看）。
-
-## 一键脚本（scripts/）
-
-> 三个脚本均为 **LF 换行**，请在 **Git Bash / macOS / Linux** 下执行；Windows 用户请用 Git Bash。
+## 四、构建与启动
 
 ```bash
-cd moyue-parent
-chmod +x scripts/*.sh        # 首次使用需赋予可执行权限
-
-./scripts/build.sh           # 1. 构建：mvn clean package -DskipTests
-./scripts/start-all.sh       # 2. 启动：先 account（播种用户 id=1）→ gateway → 其余业务服务
-./scripts/smoke-test.sh      # 3. 冒烟：经网关 :8080 跑全链路，任一用例失败则 exit 1
+mvn -s ../_bootstrap/settings.xml -DskipTests clean install   # 22 模块全量构建
+./scripts/build.sh && ./scripts/start-all.sh                  # 或脚本一键
 ```
 
-> 注意：`start-all.sh` 中的服务清单为旧 9 模块拓扑，三端重构后需按上方模块表调整
-> （reader / author / admin 替换原 content / social / commerce / platform）。
+启动顺序：**auth（播种演示账号）→ gateway → 其余 9 个业务服务**（`start-all.sh` 已编排）。
+基础设施：`docker compose up -d`（mysql / redis / nacos / elasticsearch / mailhog）。
 
-## 演示数据与 Flyway
+验证：`./scripts/smoke-test.sh`；Nacos 控制台 http://localhost:8848/nacos 确认 11 个服务注册。
 
-* `moyue-common/src/main/resources/db/migration/` 放置全部迁移（**所有服务共享同一份**）：
-  * `V1__init.sql`：8 张核心表（user / book / chapter / comment / reward_order / bookshelf / author_income / audit_task）。
-  * `V2__seed.sql`：5 本示例书（id 1001–1005，author_id=1）、3 章、2 条评论；用户由 `moyue-account` 启动时写入。
-  * `V3__message.sql`：站内信 `notice` 表。
-  * `V4__feature_im_points_blog.sql`：IM 3 张 + 积分商城 3 张 + 博客 3 张（+ 种子）。
-  * `V5` 评论点赞 / `V6` 公告与 reward_order 修复 / `V7` 积分商城 / `V8` 周边商城 / `V9` AI 客服 / `V10` 审核意见 / `V11` AI 会话 / `V12` 系统管理 RBAC 六张 `sys_*` 表。
-  * `V13__content_safety_and_reach.sql`（P2）：**敏感词 `sensitive_word` / 举报 `report` / 触达模板 `message_template` / 触达记录 `message_channel_record`**（+ 种子）。
-* 每个服务的 `application.yml` 均启用 `spring.flyway.enabled=true`（baseline-on-migrate）指向 `classpath:db/migration`；版本号全局递增不重复。
-* 演示账号：`phone=13800000000`，`password=123456`（id=1，对齐种子 `author_id`/`user_id` 引用）。
+## 五、网关路由（moyue-gateway）
 
-## 全链路验证
+统一入口 `http://localhost:8080`，`JwtAuthGlobalFilter` 校验 Bearer token 后注入 `X-User-Id` / `X-User-Role`；白名单已配置化：
 
-> 以下均经网关 `:8080` 访问；除登录/注册/刷新外，均需 `Authorization: Bearer <accessToken>`。
-> 路径与重构前完全一致，仅承载服务变化（括号内为现承载服务）。
+```yaml
+moyue:
+  auth:
+    whitelist: /api/v1/auth/login,/api/v1/auth/register,/api/v1/auth/refresh,/api/v1/system/login
+    whitelist-prefixes: /api/v1/files/
+```
 
-1. **登录拿 token**（白名单免鉴权）
-   ```bash
-   curl -X POST http://localhost:8080/api/v1/auth/login \
-     -H 'Content-Type: application/json' \
-     -d '{"phone":"13800000000","password":"123456"}'
-   ```
-2. **书籍分页 / 详情 / 章节**（author 8092；作者昵称经 Feign `UserClient` 解析）
-   ```bash
-   curl http://localhost:8080/api/v1/books -H 'Authorization: Bearer <accessToken>'
-   curl http://localhost:8080/api/v1/chapters/2001 -H 'Authorization: Bearer <accessToken>'
-   ```
-3. **阅读 / 书架**（reader 8091）
-   ```bash
-   curl http://localhost:8080/api/v1/read/bookshelf/1 -H 'Authorization: Bearer <accessToken>'
-   ```
-4. **搜索与推荐**（reader 8091，Elasticsearch；P2-13 支持 `categoryId` / `sort=relevance|hot|latest` / 推荐位）
-   ```bash
-   curl "http://localhost:8080/api/v1/search/books?keyword=剑&categoryId=1&sort=hot&page=1&size=10" -H 'Authorization: Bearer <accessToken>'
-   curl "http://localhost:8080/api/v1/search/recommend?limit=10" -H 'Authorization: Bearer <accessToken>'
-   ```
-5. **评论 / 博客 / IM / 积分 / 商城**（reader 8091）
-   ```bash
-   curl "http://localhost:8080/api/v1/comments?bookId=1001" -H 'Authorization: Bearer <accessToken>'
-   curl "http://localhost:8080/api/v1/points/accounts/1" -H 'Authorization: Bearer <accessToken>'
-   ```
-6. **消息与触达**（reader 8091；P2-14 渠道 SPI：站内信 + 邮件真实现 / 短信推送桩）
-   ```bash
-   curl http://localhost:8080/api/v1/messages/1 -H 'Authorization: Bearer <accessToken>'
-   curl -X POST http://localhost:8080/api/v1/internal/messages/dispatch -H 'Content-Type: application/json' -d '...'  # 服务间端点，不经网关
-   ```
-7. **打赏与稿酬**（reader 8091）
-   ```bash
-   curl http://localhost:8080/api/v1/rewards/income/1 -H 'Authorization: Bearer <accessToken>'
-   ```
-8. **管理端**（admin 8093：审核 / 公告 / 对账 / 统计 / RBAC）
-   ```bash
-   curl -X POST http://localhost:8080/api/v1/system/login -H 'Content-Type: application/json' \
-     -d '{"username":"admin","password":"admin123"}'
-   curl http://localhost:8080/api/v1/admin/audit/comments -H 'Authorization: Bearer <adminToken>'
-   curl "http://localhost:8080/api/v1/admin/announcements?page=1&size=20" -H 'Authorization: Bearer <adminToken>'
-   curl http://localhost:8080/api/v1/admin/stats/overview -H 'Authorization: Bearer <adminToken>'
-   curl http://localhost:8080/api/v1/admin/system/depts -H 'Authorization: Bearer <adminToken>'
-   ```
+| 路径前缀 | 服务 |
+|---|---|
+| `/api/v1/auth/**` | moyue-auth（8090） |
+| `/api/v1/users/**` | moyue-account（8081） |
+| `/api/v1/books/**` `/api/v1/chapters/**` `/api/v1/read/**` `/api/v1/files/**` | moyue-content（8082） |
+| `/api/v1/comments/**` `/api/v1/blog/**` `/api/v1/im/**` | moyue-social（8083） |
+| `/api/v1/points/**` `/api/v1/merch/**` `/api/v1/author/**` | moyue-commerce（8084） |
+| `/api/v1/search/**` | moyue-search（8085） |
+| `/api/v1/admin/announcements/**` `/api/v1/admin/orders/**` `/api/v1/admin/stats/**` `/api/v1/rewards/**` `/api/v1/admin/system/**` `/api/v1/system/login` | moyue-system（8086） |
+| `/api/v1/messages/**` | moyue-message（8087） |
+| `/api/v1/admin/audit/**` `/api/v1/reports/**` `/api/v1/admin/risk/**` | moyue-risk（8089） |
+| `/api/v1/ai/**` | moyue-ai（8097） |
 
-## 路由与服务发现
+Sentinel：网关路由级 QPS 限流（超限业务码 `30001`）+ 熔断降级（`40002`），规则编程式定义于 `SentinelGatewayConfig`。
 
-* 网关 `application.yml` 使用 `uri: lb://moyue-<svc>` 经 Nacos 解析实例；`discovery.locator.enabled=false`。
-* **路由 id 保留原业务语义（便于日志排查），`uri` 统一指向承载它的三端服务**——例如
-  `id: moyue-comment` / `id: moyue-points` / `id: moyue-reward` 的 `uri` 现均为 `lb://moyue-reader`。
-* 关键顺序不变：`id: moyue-auth`（含 `/api/v1/users/me`）必须排在 `id: moyue-user`（`/api/v1/users/**`）之前。
-* 三端后共 **5 个业务服务**：`moyue-account`（8081）、`moyue-reader`(8091)、`moyue-author`(8092)、`moyue-admin`(8093)、`moyue-ai`(8097)。
-* 网关已接入 **Sentinel**（P2-16 骨架）：路由级 QPS 限流 + RT 熔断，编程式规则（无需 Dashboard）；
-  熔断降级返回业务码 **40002**，限流返回 **30001**（HTTP 均为 200 承载）。
+## 六、鉴权体系（双层防线，对齐 RuoYi）
 
-## 服务间调用（Feign）
+1. **路径级默认拒绝**：`AdminRoleInterceptor` 拦截 `/api/v1/admin/**`（仅 role=3）；
+2. **注解级细粒度控制**（moyue-common-security）：
+   - `@RequiresRoles("3")` —— 角色校验（1=读者 2=作者 3=管理员）；
+   - `@RequiresPermissions("system:user:list")` —— 权限码校验，`*:*:*` 通配（RuoYi 惯例）；
+   - `HeaderInterceptor` 装配 `SecurityContextHolder`（ThreadLocal），切面 `PreAuthorizeAspect` 执行校验，失败抛 FORBIDDEN(10003)；
+   - 默认 `DefaultPermissionProvider`：role=3 授予 `*:*:*`；接入 RBAC 后替换为按用户查菜单权限的 Provider 即可。
 
-* `moyue-api` 定义 Feign 客户端，方法返回类型**包裹 `R<DTO>`**。
-* 调用方使用 `@EnableFeignClients("com.moyue")` + `spring-cloud-starter-loadbalancer`（**必须成对出现**）。
-* 目标服务名已随三端重构更新：`UserClient` → `moyue-account`；
-  `BookClient` / `ChapterClient` → `moyue-author`；
-  `CommentClient` / `ImClient` / `BlogClient` / `PointsClient` / `MessageDispatchClient` / `SearchIndexClient` → `moyue-reader`；
-  `RiskClient` → `moyue-admin`。
-* 典型链路：作品 CRUD（author）→ `SearchIndexClient` 同步检索索引（reader，失败降级不阻断）；
-  章节发布前 → `RiskClient` 机审（admin）；审核裁决（admin）→ Feign 回写章节（author）/ 评论（reader）状态；
-  XXL-Job 触达任务（admin）→ `MessageDispatchClient`（reader）。
+## 七、跨服务调用（moyue-api）
 
-## 任务调度（XXL-Job）
+全部 Feign 客户端带 `fallbackFactory`（`feign.sentinel.enabled: true`，Sentinel 托管），
+目标服务不可用时返回 `R.fail(40002)` 而非抛异常：
 
-1. 单独启动调度中心（官方镜像，需可访问 MySQL）：
-   ```bash
-   docker run -d --name xxl-job-admin -p 8088:8080 \
-     -e PARAMS="--spring.datasource.url=jdbc:mysql://mysql:3306/xxl_job?useUnicode=true&characterEncoding=utf8mb4&serverTimezone=Asia/Shanghai \
-     --spring.datasource.username=root --spring.datasource.password=root" \
-     xuxueli/xxl-job-admin:2.4.0
-   ```
-   > 首次使用需先建 `xxl_job` 库并执行官方 `tables_xxl_job.sql`。
-2. 在调度中心「执行器管理」新建执行器 `appname=moyue-job`（自动注册）。
-   > 执行器现随 **moyue-admin**（8093）进程启动，RPC 端口仍为 **9099**；`appname` 刻意保持 `moyue-job` 不变。
-3. 「任务管理」新增任务，ExecutorHandler 填：`demoJobHandler`（hello）、`messageDispatchJobHandler`（P2-14 触达分发，经 Feign 调 reader，目标服务未启动时不阻断）。
+```java
+@FeignClient(name = "moyue-search", fallbackFactory = SearchIndexClientFallbackFactory.class)
+public interface SearchIndexClient { ... }
+```
 
-## 统一约定（对齐设计稿）
+通用分页载体 `PageResult` 位于 `com.moyue.common.core.domain`（moyue-common-core）。
 
-* 响应体：`{ "code": 0, "message": "success", "data": ..., "traceId": "..." }`；HTTP 统一 200 承载，业务结果靠 `code` 表达。
-* 鉴权头：`Authorization: Bearer {accessToken}`；网关注入下游：`X-User-Id` / `X-User-Role`；`AdminRoleInterceptor` 保护 `/api/v1/admin/**`（role=3）。
-* BasePath：`/api/v1`。
-* 错误码：0 成功 / 10001 参数 / 10002 未登录 / 10003 无权限 / 20001 资源不存在 / **20002 内容被拦截（敏感词，预留）** / 30001 频率超限 / **40002 服务降级（Sentinel 熔断）** / 40001 内部异常 / 50001 支付失败。
+## 八、Flyway 迁移（moyue-common-migration）
 
-## 已知约定 / 遗留
+V1–V13 共 13 个脚本 / 38 张表，全服务共享（`classpath:db/migration`）。
+关键：V3 message / V7 points / V8 merch / V10 audit / V12 system(RBAC) / V13 sensitive_word+report+message_template+message_channel_record。
 
-* **P2-13~17 状态**：模块重构（三端聚合）✅；搜索分类/排序/热门推荐 ✅；渠道 SPI + 站内信/邮件 + 短信/推送桩 + 触达任务 ✅；网关 Sentinel 限流熔断骨架 ✅；Profiles + 环境变量 + JWT/DB 口令治理 ✅（test/prod 无明文默认）。
-* **T05 待做**：敏感词过滤 / 机审 / 举报闭环的业务代码（`com.moyue.risk`，落 moyue-admin）——V13 四表与种子已就绪，`RiskClient` 契约已定义；`BOOK_LIST`/`BOOK_DETAIL` 缓存名已定义待在书城读路径挂 `@Cacheable`。
-* 分类名为演示字典（`BookService.CATEGORY_NAMES`），生产可独立分类服务。
-* 所有服务共用同一 MySQL 库与 Nacos 命名空间（dev 演示），多环境隔离靠 profile + 环境变量。
-* WebSocket（IM）请**直连 8091**（`ws://localhost:8091/ws/im?userId={userId}`），不要走网关 8080——`JwtAuthGlobalFilter` 对非白名单路径要求 Bearer，握手会被判 10002。
-* 打赏支付为演示回调（`POST /api/v1/rewards/{orderNo}/pay`），真实渠道对接与退款未做。
-* `deliverables/openapi.yaml` / `moyue-schema.sql` 为快照式人工同步：本轮模块重构**未改任何对外路径**，契约无需变更；但后续 T05 新增端点后需重跑比对。
-* 集成测试 4 套（bookshelf / blog / im / points，Testcontainers MySQL）随域迁入 `moyue-reader/src/test`，运行需本机 Docker。
+## 九、路线图状态（P0→P2 已全部交付）
+
+| 项 | 状态 |
+|---|---|
+| P2-13 搜索与推荐 | ✅ ES 分类筛选 / relevance·hot·latest 排序 / 热门推荐位（moyue-search） |
+| P2-14 消息触达 | ✅ ChannelSender SPI + 站内信/邮件真实现 + 短信/推送桩 + XXL-Job 批量触达（moyue-message） |
+| P2-15 内容安全 | 🟡 人工审核已交付（moyue-risk）；敏感词/机审/举报的 V13 表与 RiskClient 契约就绪，业务代码待实现 |
+| P2-16 缓存与性能 | ✅ Redis 缓存基建 + Sentinel 网关限流熔断（BOOK_LIST/BOOK_DETAIL 缓存名待挂载读路径） |
+| P2-17 配置治理 | ✅ dev/test/prod 隔离 + JWT/DB 口令环境变量化 + 网关白名单配置化 |
+| RuoYi 化重构 | ✅ common 五拆 / api 七拆 + FallbackFactory / 独立 auth / 权限注解体系 / modules 聚合目录 |

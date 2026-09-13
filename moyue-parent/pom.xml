@@ -17,7 +17,7 @@
     <version>1.0.0-SNAPSHOT</version>
     <packaging>pom</packaging>
     <name>moyue-parent</name>
-    <description>墨阅小说网 · Maven 多模块父工程（网关 + 账号 / 内容 / 社交 / 商业 / 平台 / 智能 六大业务域）</description>
+    <description>墨阅小说网 · Maven 多模块父工程（RuoYi 目录风格：common 细拆 / api 契约 / gateway / auth / modules 业务聚合）</description>
 
     <properties>
         <java.version>17</java.version>
@@ -51,11 +51,8 @@
         <module>moyue-common</module>
         <module>moyue-api</module>
         <module>moyue-gateway</module>
-        <module>moyue-account</module>
-        <module>moyue-reader</module>
-        <module>moyue-author</module>
-        <module>moyue-admin</module>
-        <module>moyue-ai</module>
+        <module>moyue-auth</module>
+        <module>moyue-modules</module>
     </modules>
 
     <dependencyManagement>
@@ -78,15 +75,65 @@
                 <scope>import</scope>
             </dependency>
 
-            <!-- 内部模块 -->
+            <!-- 内部模块（聚合器 + 细粒度子模块，对齐 RuoYi 命名） -->
             <dependency>
                 <groupId>com.moyue</groupId>
-                <artifactId>moyue-common</artifactId>
+                <artifactId>moyue-common-core</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.moyue</groupId>
-                <artifactId>moyue-api</artifactId>
+                <artifactId>moyue-common-security</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.moyue</groupId>
+                <artifactId>moyue-common-redis</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.moyue</groupId>
+                <artifactId>moyue-common-mybatis</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.moyue</groupId>
+                <artifactId>moyue-common-migration</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.moyue</groupId>
+                <artifactId>moyue-api-account</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.moyue</groupId>
+                <artifactId>moyue-api-content</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.moyue</groupId>
+                <artifactId>moyue-api-social</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.moyue</groupId>
+                <artifactId>moyue-api-commerce</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.moyue</groupId>
+                <artifactId>moyue-api-search</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.moyue</groupId>
+                <artifactId>moyue-api-message</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.moyue</groupId>
+                <artifactId>moyue-api-risk</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

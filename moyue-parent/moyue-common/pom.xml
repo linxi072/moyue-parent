@@ -11,67 +11,15 @@
     </parent>
 
     <artifactId>moyue-common</artifactId>
-    <packaging>jar</packaging>
+    <packaging>pom</packaging>
     <name>moyue-common</name>
-    <description>墨阅小说网 · 通用模块：统一响应体 R&lt;T&gt; / 错误码 / 异常 / JWT / 常量</description>
+    <description>墨阅小说网 · 通用模块聚合器（core / security / redis / mybatis / migration，对齐 RuoYi ruoyi-common 细粒度拆分）</description>
 
-    <dependencies>
-        <!-- Jackson（序列化 R&lt;T&gt; 与 JSON 解析，网关 WebFlux 与 MVC 均兼容） -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-json</artifactId>
-        </dependency>
-        <!-- spring-web：提供 @RestControllerAdvice（仅接口，不引入 webmvc，避免与网关 WebFlux 冲突） -->
-        <dependency>
-            <groupId>org.springframework</groupId>
-            <artifactId>spring-web</artifactId>
-        </dependency>
-        <!-- spring-webmvc：仅用于编译 WebMvcConfig（@ConditionalOnWebApplication 保证仅在 servlet 环境加载，provided 不传递，避免污染网关 WebFlux） -->
-        <dependency>
-            <groupId>org.springframework</groupId>
-            <artifactId>spring-webmvc</artifactId>
-            <scope>provided</scope>
-        </dependency>
-        <!-- jakarta servlet-api：AdminRoleInterceptor / WebMvcConfig 编译所需（provided 由运行时容器提供） -->
-        <dependency>
-            <groupId>jakarta.servlet</groupId>
-            <artifactId>jakarta.servlet-api</artifactId>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.projectlombok</groupId>
-            <artifactId>lombok</artifactId>
-            <scope>provided</scope>
-        </dependency>
-        <!-- ===== P2-16 缓存基建 ===== -->
-        <!-- spring-boot-starter-cache：Spring Cache 抽象（@EnableCaching / CacheManager 契约） -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-cache</artifactId>
-        </dependency>
-        <!-- spring-data-redis：RedisCacheManager / RedisCacheWriter / JSON 序列化器。
-             optional=true：不传递给 moyue-gateway（WebFlux 网关无需 Redis），
-             需要缓存的业务服务（chapter / read / book 等）已在自身 pom 声明；
-             MoyueCacheAutoConfiguration 以 @ConditionalOnClass 做保护，缺失即自动关闭缓存。 -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-redis</artifactId>
-            <optional>true</optional>
-        </dependency>
-        <!-- JWT -->
-        <dependency>
-            <groupId>io.jsonwebtoken</groupId>
-            <artifactId>jjwt-api</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.jsonwebtoken</groupId>
-            <artifactId>jjwt-impl</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-        <dependency>
-            <groupId>io.jsonwebtoken</groupId>
-            <artifactId>jjwt-jackson</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-    </dependencies>
+    <modules>
+        <module>moyue-common-core</module>
+        <module>moyue-common-security</module>
+        <module>moyue-common-redis</module>
+        <module>moyue-common-mybatis</module>
+        <module>moyue-common-migration</module>
+    </modules>
 </project>

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.moyue</groupId>
+        <artifactId>moyue-api</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>moyue-api-risk</artifactId>
+    <packaging>jar</packaging>
+    <name>moyue-api-risk</name>
+    <description>墨阅小说网 · 内容安全域远程契约：RiskClient 机审（目标 moyue-risk）。本模块是接口/POJO 库，非可执行 jar。</description>
+
+    <dependencies>
+        <!-- OpenFeign：@FeignClient 注解与编解码；消费者通过 @EnableFeignClients 扫描本包 -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-openfeign</artifactId>
+        </dependency>
+        <!-- 通用核心（R / ResultCode / PageResult） -->
+        <dependency>
+            <groupId>com.moyue</groupId>
+            <artifactId>moyue-common-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+</project>

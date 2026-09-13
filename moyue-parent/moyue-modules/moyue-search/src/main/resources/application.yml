@@ -1,0 +1,28 @@
+server:
+  port: 8085
+
+spring:
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  application:
+    name: moyue-search
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${{NACOS_SERVER_ADDR:localhost:8848}}
+  # 检索：Elasticsearch（索引 moyue_book，只读）
+  elasticsearch:
+    uris: ${{ES_URIS:http://localhost:9200}}
+    connection-timeout: 5s
+    socket-timeout: 30s
+moyue:
+  # 检索域参数（与 com.moyue.search 配置类对应）
+  search:
+    index-name: ${{MOYUE_SEARCH_INDEX:moyue_book}}
+    default-page-size: ${{MOYUE_SEARCH_PAGE_SIZE:20}}
+    recommend:
+      max-limit: ${{MOYUE_SEARCH_RECOMMEND_MAX:50}}
+logging:
+  level:
+    com.moyue: INFO
+    org.springframework.data.elasticsearch: WARN
