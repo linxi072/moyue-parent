@@ -8,19 +8,7 @@
 ```
 moyue-parent
 ├── moyue-common/                 # 通用模块聚合器（对齐 RuoYi ruoyi-common）
-│   ├── moyue-common-core         #   R<T> / ResultCode / BizException / Constants / PageResult / 全局异常
-│   ├── moyue-common-security     #   JWT 签发解析 / AdminRoleInterceptor / @RequiresRoles·@RequiresPermissions 切面 / HeaderInterceptor
-│   ├── moyue-common-redis        #   MoyueCacheAutoConfiguration（RedisCacheManager，前缀 moyue:）/ CacheNames
-│   ├── moyue-common-mybatis      #   MyBatis-Plus 分页插件自动装配
-│   └── moyue-common-migration    #   Flyway V1–V13（38 张表，全服务共享）
 ├── moyue-api/                    # Feign 契约聚合器（对齐 RuoYi ruoyi-api，按目标服务拆分，全量 FallbackFactory）
-│   ├── moyue-api-account         #   UserClient → moyue-account
-│   ├── moyue-api-content         #   BookClient / ChapterClient → moyue-content
-│   ├── moyue-api-social          #   BlogClient / CommentClient / ImClient → moyue-social
-│   ├── moyue-api-commerce        #   PointsClient → moyue-commerce
-│   ├── moyue-api-search          #   SearchIndexClient 索引同步 → moyue-search
-│   ├── moyue-api-message         #   MessageDispatchClient 消息分发 → moyue-message
-│   └── moyue-api-risk            #   RiskClient 机审 → moyue-risk
 ├── moyue-gateway/                # 网关 8080：JWT 鉴权 / 白名单配置化 / Sentinel 路由限流熔断
 ├── moyue-auth/                   # 独立认证 8090：登录 / 注册 / 刷新令牌（对齐 RuoYi ruoyi-auth）
 └── moyue-modules/                # 业务服务聚合目录（对齐 RuoYi ruoyi-modules）

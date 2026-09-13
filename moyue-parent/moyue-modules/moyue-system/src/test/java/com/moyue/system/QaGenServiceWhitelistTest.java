@@ -1,6 +1,6 @@
 package com.moyue.system;
 
-import com.moyue.common.BizException;
+import com.moyue.common.exception.BizException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;

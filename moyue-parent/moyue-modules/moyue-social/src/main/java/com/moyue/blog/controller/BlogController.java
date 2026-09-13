@@ -4,7 +4,7 @@ import com.moyue.api.social.dto.BlogCommentDTO;
 import com.moyue.api.social.dto.BlogPostDTO;
 import com.moyue.common.core.domain.PageResult;
 import com.moyue.blog.service.BlogService;
-import com.moyue.common.R;
+import com.moyue.common.core.domain.R;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;

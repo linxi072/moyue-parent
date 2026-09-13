@@ -2,8 +2,8 @@ package com.moyue.message.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
-import com.moyue.common.BizException;
-import com.moyue.common.ResultCode;
+import com.moyue.common.exception.BizException;
+import com.moyue.common.core.domain.ResultCode;
 import com.moyue.message.entity.NoticeEntity;
 import com.moyue.message.mapper.NoticeMapper;
 import org.springframework.beans.factory.annotation.Autowired;

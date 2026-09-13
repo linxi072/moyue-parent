@@ -1,7 +1,7 @@
 package com.moyue.merch.controller;
 
 import com.moyue.common.core.domain.PageResult;
-import com.moyue.common.R;
+import com.moyue.common.core.domain.R;
 import com.moyue.merch.entity.MerchOrderEntity;
 import com.moyue.merch.entity.MerchProductEntity;
 import com.moyue.merch.service.MerchService;

@@ -1,7 +1,10 @@
 package com.moyue.common.security;
 
-import com.moyue.common.BizException;
-import com.moyue.common.ResultCode;
+import com.moyue.common.exception.BizException;
+import com.moyue.common.core.annotation.PermissionProvider;
+import com.moyue.common.core.annotation.RequiresPermissions;
+import com.moyue.common.core.annotation.RequiresRoles;
+import com.moyue.common.core.domain.ResultCode;
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Before;

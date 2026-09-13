@@ -2,8 +2,8 @@ package com.moyue.audit.controller;
 
 import com.moyue.audit.entity.AuditTaskEntity;
 import com.moyue.audit.service.AuditService;
-import com.moyue.common.Constants;
-import com.moyue.common.R;
+import com.moyue.common.core.constants.Constants;
+import com.moyue.common.core.domain.R;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;

@@ -1,4 +1,6 @@
-package com.moyue.common.cache;
+package com.moyue.common.core.constants;
+
+import com.moyue.common.cache.MoyueCacheAutoConfiguration;
 
 /**
  * 全服务共享的缓存名常量（P2-16 缓存基建）。

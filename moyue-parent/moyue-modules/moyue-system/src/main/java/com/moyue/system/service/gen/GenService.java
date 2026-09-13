@@ -1,7 +1,7 @@
 package com.moyue.system.service.gen;
 
-import com.moyue.common.BizException;
-import com.moyue.common.ResultCode;
+import com.moyue.common.exception.BizException;
+import com.moyue.common.core.domain.ResultCode;
 import lombok.Data;
 import org.apache.velocity.Template;
 import org.apache.velocity.VelocityContext;

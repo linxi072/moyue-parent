@@ -1,4 +1,4 @@
-package com.moyue.common;
+package com.moyue.common.core.domain;
 
 /**
  * 业务错误码枚举，严格对齐架构设计稿。

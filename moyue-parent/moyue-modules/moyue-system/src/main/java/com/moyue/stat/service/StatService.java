@@ -1,8 +1,8 @@
 package com.moyue.stat.service;
 
 import com.moyue.common.core.domain.PageResult;
-import com.moyue.common.BizException;
-import com.moyue.common.ResultCode;
+import com.moyue.common.exception.BizException;
+import com.moyue.common.core.domain.ResultCode;
 import com.moyue.stat.mapper.StatMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;

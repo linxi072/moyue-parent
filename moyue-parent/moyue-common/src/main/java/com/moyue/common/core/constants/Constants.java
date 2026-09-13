@@ -1,4 +1,4 @@
-package com.moyue.common;
+package com.moyue.common.core.constants;
 
 /**
  * 全局常量：鉴权头、用户上下文透传头、JWT 类型标识。

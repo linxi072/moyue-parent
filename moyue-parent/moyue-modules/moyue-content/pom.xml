@@ -38,19 +38,7 @@
         </dependency>
         <dependency>
             <groupId>com.moyue</groupId>
-            <artifactId>moyue-api-account</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.moyue</groupId>
-            <artifactId>moyue-api-commerce</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.moyue</groupId>
-            <artifactId>moyue-api-content</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.moyue</groupId>
-            <artifactId>moyue-api-search</artifactId>
+            <artifactId>moyue-api</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.cloud</groupId>

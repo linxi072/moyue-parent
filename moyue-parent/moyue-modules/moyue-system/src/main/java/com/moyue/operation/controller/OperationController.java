@@ -1,7 +1,7 @@
 package com.moyue.operation.controller;
 
 import com.moyue.common.core.domain.PageResult;
-import com.moyue.common.R;
+import com.moyue.common.core.domain.R;
 import com.moyue.operation.entity.RewardOrderEntity;
 import com.moyue.operation.service.OperationService;
 import org.springframework.beans.factory.annotation.Autowired;

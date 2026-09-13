@@ -1,7 +1,7 @@
 package com.moyue.chapter.controller;
 
 import com.moyue.chapter.service.ChapterService;
-import com.moyue.common.R;
+import com.moyue.common.core.domain.R;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;

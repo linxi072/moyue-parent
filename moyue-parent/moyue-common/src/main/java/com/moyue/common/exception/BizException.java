@@ -1,4 +1,6 @@
-package com.moyue.common;
+package com.moyue.common.exception;
+
+import com.moyue.common.core.domain.ResultCode;
 
 /**
  * 业务异常。携带业务错误码，由全局异常处理器统一转换为 R&lt;T&gt;。

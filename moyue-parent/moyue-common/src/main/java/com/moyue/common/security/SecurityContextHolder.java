@@ -1,5 +1,7 @@
 package com.moyue.common.security;
 
+import com.moyue.common.interceptor.HeaderInterceptor;
+
 /**
  * 请求级安全上下文（ThreadLocal，对齐 RuoYi SecurityContextHolder 模式）。
  *

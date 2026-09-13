@@ -2,7 +2,7 @@ package com.moyue.author.controller;
 
 import com.moyue.author.entity.AuthorIncomeEntity;
 import com.moyue.author.service.AuthorService;
-import com.moyue.common.R;
+import com.moyue.common.core.domain.R;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;

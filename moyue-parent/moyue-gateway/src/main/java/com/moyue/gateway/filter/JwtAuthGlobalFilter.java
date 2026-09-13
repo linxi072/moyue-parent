@@ -1,11 +1,11 @@
 package com.moyue.gateway.filter;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.moyue.common.BizException;
-import com.moyue.common.Constants;
-import com.moyue.common.JwtProvider;
-import com.moyue.common.R;
-import com.moyue.common.ResultCode;
+import com.moyue.common.exception.BizException;
+import com.moyue.common.core.constants.Constants;
+import com.moyue.common.utils.JwtProvider;
+import com.moyue.common.core.domain.R;
+import com.moyue.common.core.domain.ResultCode;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;

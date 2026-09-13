@@ -1,7 +1,7 @@
 package com.moyue.search.controller;
 
 import com.moyue.api.search.dto.BookIndexDTO;
-import com.moyue.common.R;
+import com.moyue.common.core.domain.R;
 import com.moyue.search.document.BookDocument;
 import com.moyue.search.service.SearchService;
 import org.springframework.beans.factory.annotation.Autowired;

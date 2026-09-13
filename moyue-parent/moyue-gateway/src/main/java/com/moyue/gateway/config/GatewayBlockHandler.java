@@ -2,8 +2,8 @@ package com.moyue.gateway.config;
 
 import com.alibaba.csp.sentinel.adapter.gateway.sc.callback.BlockRequestHandler;
 import com.alibaba.csp.sentinel.slots.block.degrade.DegradeException;
-import com.moyue.common.R;
-import com.moyue.common.ResultCode;
+import com.moyue.common.core.domain.R;
+import com.moyue.common.core.domain.ResultCode;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.reactive.function.server.ServerResponse;

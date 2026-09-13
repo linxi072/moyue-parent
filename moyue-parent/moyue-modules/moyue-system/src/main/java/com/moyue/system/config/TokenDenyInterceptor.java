@@ -1,9 +1,9 @@
 package com.moyue.system.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.moyue.common.Constants;
-import com.moyue.common.R;
-import com.moyue.common.ResultCode;
+import com.moyue.common.core.constants.Constants;
+import com.moyue.common.core.domain.R;
+import com.moyue.common.core.domain.ResultCode;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;

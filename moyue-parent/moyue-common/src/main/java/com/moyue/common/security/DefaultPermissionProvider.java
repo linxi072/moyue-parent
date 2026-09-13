@@ -1,6 +1,6 @@
 package com.moyue.common.security;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import com.moyue.common.core.annotation.PermissionProvider;
 import org.springframework.stereotype.Component;
 
 import java.util.Set;

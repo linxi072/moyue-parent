@@ -2,7 +2,7 @@ package com.moyue.message.controller;
 
 import com.moyue.api.message.dto.MessageDispatchDTO;
 import com.moyue.api.message.dto.MessageDispatchResultDTO;
-import com.moyue.common.R;
+import com.moyue.common.core.domain.R;
 import com.moyue.message.service.MessageDispatcher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PostMapping;

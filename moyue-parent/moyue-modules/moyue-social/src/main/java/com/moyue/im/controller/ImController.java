@@ -3,7 +3,7 @@ package com.moyue.im.controller;
 import com.moyue.api.social.dto.ConversationDTO;
 import com.moyue.api.social.dto.MessageDTO;
 import com.moyue.common.core.domain.PageResult;
-import com.moyue.common.R;
+import com.moyue.common.core.domain.R;
 import com.moyue.im.dto.CreateConversationRequest;
 import com.moyue.im.dto.SendMessageRequest;
 import com.moyue.im.service.ImService;

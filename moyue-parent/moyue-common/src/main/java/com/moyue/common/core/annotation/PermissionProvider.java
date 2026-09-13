@@ -1,4 +1,4 @@
-package com.moyue.common.security;
+package com.moyue.common.core.annotation;
 
 import java.util.Set;
 

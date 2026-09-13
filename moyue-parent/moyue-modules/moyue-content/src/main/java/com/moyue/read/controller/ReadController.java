@@ -1,9 +1,9 @@
 package com.moyue.read.controller;
 
-import com.moyue.common.BizException;
-import com.moyue.common.Constants;
-import com.moyue.common.R;
-import com.moyue.common.ResultCode;
+import com.moyue.common.exception.BizException;
+import com.moyue.common.core.constants.Constants;
+import com.moyue.common.core.domain.R;
+import com.moyue.common.core.domain.ResultCode;
 import com.moyue.read.entity.BookshelfEntity;
 import com.moyue.read.service.ReadService;
 import jakarta.servlet.http.HttpServletRequest;

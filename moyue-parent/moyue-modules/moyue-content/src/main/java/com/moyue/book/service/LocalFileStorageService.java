@@ -1,7 +1,7 @@
 package com.moyue.book.service;
 
-import com.moyue.common.BizException;
-import com.moyue.common.ResultCode;
+import com.moyue.common.exception.BizException;
+import com.moyue.common.core.domain.ResultCode;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;

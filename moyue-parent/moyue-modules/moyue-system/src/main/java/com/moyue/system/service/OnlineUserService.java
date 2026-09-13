@@ -3,8 +3,6 @@ package com.moyue.system.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.moyue.common.BizException;
-import com.moyue.common.ResultCode;
 import com.moyue.common.core.domain.PageResult;
 import com.moyue.system.vo.OnlineUserVO;
 import org.slf4j.Logger;
@@ -21,7 +19,6 @@ import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 /**

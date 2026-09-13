@@ -1,7 +1,7 @@
 package com.moyue.stat.controller;
 
 import com.moyue.common.core.domain.PageResult;
-import com.moyue.common.R;
+import com.moyue.common.core.domain.R;
 import com.moyue.stat.service.StatService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;

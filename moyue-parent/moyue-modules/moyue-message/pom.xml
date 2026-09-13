@@ -34,11 +34,7 @@
         </dependency>
         <dependency>
             <groupId>com.moyue</groupId>
-            <artifactId>moyue-api-account</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.moyue</groupId>
-            <artifactId>moyue-api-message</artifactId>
+            <artifactId>moyue-api</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.cloud</groupId>

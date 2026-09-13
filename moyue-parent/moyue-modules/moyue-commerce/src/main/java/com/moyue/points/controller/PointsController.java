@@ -4,7 +4,7 @@ import com.moyue.common.core.domain.PageResult;
 import com.moyue.api.commerce.dto.PointsAccountDTO;
 import com.moyue.api.commerce.dto.PointsOrderDTO;
 import com.moyue.api.commerce.dto.PointsProductDTO;
-import com.moyue.common.R;
+import com.moyue.common.core.domain.R;
 import com.moyue.points.entity.PointsFlowEntity;
 import com.moyue.points.service.PointsService;
 import org.springframework.beans.factory.annotation.Autowired;

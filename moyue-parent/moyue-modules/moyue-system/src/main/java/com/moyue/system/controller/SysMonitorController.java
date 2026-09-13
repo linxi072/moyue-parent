@@ -1,6 +1,6 @@
 package com.moyue.system.controller;
 
-import com.moyue.common.R;
+import com.moyue.common.core.domain.R;
 import com.moyue.system.service.MonitorService;
 import com.moyue.system.vo.DbPoolVO;
 import com.moyue.system.vo.ServerMonitorVO;

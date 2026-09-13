@@ -1,4 +1,4 @@
-package com.moyue.common;
+package com.moyue.common.core.domain;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 

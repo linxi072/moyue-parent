@@ -1,87 +1,52 @@
 -- =============================================================
---  V14: 系统管理二期：字典 / 参数 / 操作日志 / 登录日志 + 菜单种子
---  说明：
---   1. sys_notice 不新建（复用 announcement 表）；
---   2. sys_job / sys_job_log 不新建（XXL-Job Admin 库为真源，moyue-system 代理访问）；
---   3. 删除策略：仅 sys_dict_type 走逻辑删除（is_deleted）；sys_dict_data 随类型物理删除；
---      sys_config / sys_oper_log / sys_logininfor 均无逻辑删除标记、物理删除；
---   4. 菜单种子 ID 沿用 V13 段位习惯（93xx 固定雪花段），挂 /api/v1/admin/system 下。
+--  Flyway 迁移 V2：演示数据
+--  说明：用户(phone=13800000000)由 moyue-auth 启动时以 BCrypt 写入，
+--        避免在此硬编码密码哈希；以下仅填充作品/章节/评论演示数据。
+--  author_id / user_id 统一引用演示用户 id = 1。
 -- =============================================================
 
-CREATE TABLE IF NOT EXISTS `sys_dict_type` (
-  `id`          BIGINT       NOT NULL                COMMENT '字典类型主键（雪花 ID）',
-  `dict_name`   VARCHAR(50)  NOT NULL                COMMENT '字典名称，如 小说状态',
-  `dict_type`   VARCHAR(100) NOT NULL                COMMENT '字典类型编码，如 novel_status',
-  `status`      TINYINT      NOT NULL DEFAULT 1      COMMENT '状态：0 停用 / 1 启用',
-  `remark`      VARCHAR(255) DEFAULT NULL            COMMENT '备注',
-  `is_deleted`  TINYINT(1)   NOT NULL DEFAULT 0      COMMENT '逻辑删除：0 否 / 1 是',
-  `create_time` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `update_time` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_dict_type` (`dict_type`)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '字典类型表';
+INSERT INTO book (id, author_id, title, cover_url, category_id, tags, intro, status, word_count, click_count) VALUES
+(1001, 1, '万古剑尊', 'https://cover.moyue.com/1001.jpg', 1, '玄幻,热血', '少年持剑，踏碎凌霄，谱写一段热血传奇。', 1, 3280000, 102400),
+(1002, 1, '都市潜龙', 'https://cover.moyue.com/1002.jpg', 2, '都市', '隐世强者重归都市，笑看风云变幻。', 1, 1560000, 88110),
+(1003, 1, '医品风流', 'https://cover.moyue.com/1003.jpg', 2, '都市', '一手银针悬壶济世，一手妙手逆转乾坤。', 1, 980000, 55300),
+(1004, 1, '完美世界', 'https://cover.moyue.com/1004.jpg', 1, '玄幻', '一粒尘可填海，一根草斩尽日月星辰。', 2, 5200000, 230000),
+(1005, 1, '诡秘之主', 'https://cover.moyue.com/1005.jpg', 3, '悬疑', '蒸汽与机械的纪元，神秘与诡秘交织。', 1, 2400000, 176500);
 
-CREATE TABLE IF NOT EXISTS `sys_dict_data` (
-  `id`          BIGINT       NOT NULL                COMMENT '字典数据主键（雪花 ID）',
-  `dict_type`   VARCHAR(100) NOT NULL                COMMENT '所属字典类型编码 → sys_dict_type.dict_type',
-  `dict_label`  VARCHAR(100) NOT NULL                COMMENT '字典标签（展示用）',
-  `dict_value`  VARCHAR(100) NOT NULL                COMMENT '字典键值（存储用）',
-  `dict_sort`   INT          NOT NULL DEFAULT 0      COMMENT '显示顺序',
-  `is_default`  TINYINT      NOT NULL DEFAULT 0      COMMENT '是否默认：0 否 / 1 是',
-  `status`      TINYINT      NOT NULL DEFAULT 1      COMMENT '状态：0 停用 / 1 启用',
-  `remark`      VARCHAR(255) DEFAULT NULL            COMMENT '备注',
-  `create_time` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `update_time` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  PRIMARY KEY (`id`),
-  KEY `idx_dict_type` (`dict_type`)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '字典数据表';
+INSERT INTO chapter (id, book_id, chapter_no, title, content, word_count, status, publish_time) VALUES
+(2001, 1001, 1, '第一章 觉醒', '剑气纵横三万里，一剑光寒十九洲。', 1200, 2, NOW()),
+(2002, 1001, 2, '第二章 试炼', '山门前的石阶泛着寒光，少年拾级而上。', 1500, 2, NOW()),
+(2003, 1004, 1, '第一章 误入', '石村的孩子名叫石昊，自石毅出生后便与众不同。', 1800, 2, NOW());
 
-CREATE TABLE IF NOT EXISTS `sys_config` (
-  `id`           BIGINT       NOT NULL               COMMENT '参数主键（雪花 ID）',
-  `config_name`  VARCHAR(100) NOT NULL               COMMENT '参数名称，如 默认章节字数',
-  `config_key`   VARCHAR(100) NOT NULL               COMMENT '参数键名，如 system.chapter.word-count',
-  `config_value` VARCHAR(500) DEFAULT NULL           COMMENT '参数键值',
-  `is_system`    TINYINT      NOT NULL DEFAULT 0     COMMENT '是否内置参数：0 否 / 1 是（内置不可删除）',
-  `remark`       VARCHAR(255) DEFAULT NULL           COMMENT '备注',
-  `create_time`  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `update_time`  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_config_key` (`config_key`)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '系统参数配置表';
+INSERT INTO comment (id, user_id, book_id, content, status, like_count) VALUES
+(3001, 1, 1001, '开篇即燃，追定了！', 1, 128),
+(3002, 1, 1004, '辰东的脑洞永远在线。', 1, 256);
 
-CREATE TABLE IF NOT EXISTS `sys_oper_log` (
-  `id`            BIGINT      NOT NULL               COMMENT '日志主键（雪花 ID）',
-  `module`        VARCHAR(50) DEFAULT NULL           COMMENT '业务模块，如 字典管理',
-  `business_type` TINYINT     NOT NULL DEFAULT 0     COMMENT '业务类型：0 其它 / 1 新增 / 2 修改 / 3 删除 / 4 导出 / 5 强退 / 6 生成代码',
-  `request_method` VARCHAR(10) DEFAULT NULL          COMMENT 'HTTP 请求方式：GET/POST/PUT/DELETE',
-  `url`           VARCHAR(255) DEFAULT NULL          COMMENT '请求 URL',
-  `operator_id`   BIGINT      DEFAULT NULL           COMMENT '操作人员 ID → sys_user.id',
-  `operator_name` VARCHAR(50) DEFAULT NULL           COMMENT '操作人员名称',
-  `ip`            VARCHAR(64) DEFAULT NULL           COMMENT '操作 IP',
-  `param`         TEXT        DEFAULT NULL           COMMENT '请求参数（截断 2000 字符）',
-  `result`        TEXT        DEFAULT NULL           COMMENT '返回结果（截断 2000 字符）',
-  `status`        TINYINT     NOT NULL DEFAULT 0     COMMENT '操作状态：0 成功 / 1 失败',
-  `error_msg`     TEXT        DEFAULT NULL           COMMENT '错误信息',
-  `cost_ms`       INT         DEFAULT NULL           COMMENT '耗时（毫秒）',
-  `oper_time`     DATETIME    DEFAULT NULL           COMMENT '操作时间',
-  PRIMARY KEY (`id`),
-  KEY `idx_operator` (`operator_id`),
-  KEY `idx_module` (`module`),
-  KEY `idx_oper_time` (`oper_time`)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '操作日志表';
 
-CREATE TABLE IF NOT EXISTS `sys_logininfor` (
-  `id`          BIGINT      NOT NULL                COMMENT '日志主键（雪花 ID）',
-  `username`    VARCHAR(50) DEFAULT NULL           COMMENT '登录账号',
-  `ip`          VARCHAR(64) DEFAULT NULL           COMMENT '登录 IP',
-  `user_agent`  VARCHAR(255) DEFAULT NULL          COMMENT '浏览器 UA',
-  `status`      TINYINT     NOT NULL DEFAULT 0     COMMENT '登录状态：0 成功 / 1 失败',
-  `msg`         VARCHAR(255) DEFAULT NULL          COMMENT '提示信息，如 登录成功 / 账号或密码错误',
-  `login_time`  DATETIME    DEFAULT NULL           COMMENT '登录时间',
-  PRIMARY KEY (`id`),
-  KEY `idx_username` (`username`),
-  KEY `idx_login_time` (`login_time`)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '系统登录日志表';
+-- -------------------------------------------------------------
+-- 种子数据：演示积分账户 / 商品 / 博客
+-- -------------------------------------------------------------
+INSERT INTO `points_account` (`user_id`, `balance`, `total_earned`, `total_spent`) VALUES
+(1, 500, 500, 0);
+
+INSERT INTO `points_product` (`id`, `name`, `description`, `image_url`, `cost_points`, `stock`, `status`) VALUES
+(2001, '书币月卡', '赠送 300 书币，30 天有效', NULL, 200, 100, 1),
+(2002, '墨阅定制书签', '金属书签一套', NULL, 150, 50, 1),
+(2003, '作者月度推荐位', '作品首页推荐 7 天', NULL, 800, 10, 1);
+
+INSERT INTO `blog_post` (`id`, `author_id`, `title`, `cover_url`, `summary`, `content`, `status`, `like_count`, `comment_count`, `view_count`) VALUES
+(3001, 1, '我的写作心得：如何从零开始写一本小说', NULL, '分享三年创作路上的方法与踩坑。','写作是一场马拉松，与其追求一天写一万字，不如先养成每天稳定的输出节奏……（正文示例）',1, 12, 3, 240);
+
+-- 种子：敏感词（分级）
+INSERT IGNORE INTO `sensitive_word` (`id`,`word`,`level`,`category`) VALUES
+ (910000000000000001,'示例敏感词A',1,'政治'),
+ (910000000000000002,'示例敏感词B',1,'广告'),
+ (910000000000000003,'示例灰词C',2,'谩骂');
+
+-- 种子：消息模板
+INSERT IGNORE INTO `message_template` (`id`,`code`,`name`,`title_tpl`,`content_tpl`,`channels`) VALUES
+ (920000000000000001,'AUDIT_PASS','审核通过','{bizName}审核通过','您提交的{bizName}已通过审核。','1,2'),
+ (920000000000000002,'AUDIT_REJECT','审核驳回','{bizName}审核驳回','您提交的{bizName}未通过审核：{reason}','1,2'),
+ (920000000000000003,'REPORT_RESULT','举报处理结果','您的举报已处理','您对{targetDesc}的举报处理结果：{result}。','1,2');
 
 -- -------------------------------------------------------------
 -- 种子：系统参数（2 条内置示例）
@@ -168,3 +133,4 @@ INSERT IGNORE INTO `sys_menu` (`id`, `parent_id`, `menu_name`, `menu_type`, `pat
  (940000000000002171, 940000000000001301, '生成查询', 2, NULL, NULL, 'system:gen:list',     NULL, 1, 1),
  (940000000000002172, 940000000000001301, '生成预览', 2, NULL, NULL, 'system:gen:preview',  NULL, 2, 1),
  (940000000000002173, 940000000000001301, '生成下载', 2, NULL, NULL, 'system:gen:download', NULL, 3, 1);
+

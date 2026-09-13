@@ -1,4 +1,7 @@
-package com.moyue.common.security;
+package com.moyue.common.core.annotation;
+
+import com.moyue.common.security.DefaultPermissionProvider;
+import com.moyue.common.security.PreAuthorizeAspect;
 
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;

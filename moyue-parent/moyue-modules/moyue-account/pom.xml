@@ -30,7 +30,7 @@
         </dependency>
         <dependency>
             <groupId>com.moyue</groupId>
-            <artifactId>moyue-api-account</artifactId>
+            <artifactId>moyue-api</artifactId>
         </dependency>
         <dependency>
             <groupId>com.baomidou</groupId>

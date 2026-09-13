@@ -3,9 +3,10 @@ package com.moyue.read.service;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.moyue.api.commerce.PointsClient;
 import com.moyue.api.commerce.dto.PointsAwardDTO;
-import com.moyue.common.BizException;
-import com.moyue.common.ResultCode;
-import com.moyue.common.cache.CacheNames;
+import com.moyue.common.exception.BizException;
+import com.moyue.common.core.domain.R;
+import com.moyue.common.core.domain.ResultCode;
+import com.moyue.common.core.constants.CacheNames;
 import com.moyue.read.entity.BookshelfEntity;
 import com.moyue.read.mapper.BookshelfMapper;
 import org.slf4j.Logger;
@@ -134,7 +135,7 @@ public class ReadService {
             award.setBizType(BIZ_READ_DURATION);
             award.setPoints(points);
             award.setRemark("阅读时长奖励：" + minutes + " 分钟");
-            com.moyue.common.R<Integer> resp = pointsClient.award(award);
+            R<Integer> resp = pointsClient.award(award);
             // 关键：Feign 不抛业务异常（HTTP 200 + R.code != 0），必须显式校验 code
             if (resp == null || resp.getCode() != ResultCode.SUCCESS.getCode()) {
                 log.warn("[read] 阅读时长奖励发放失败（已忽略）：userId={}, resp={}", userId, resp);

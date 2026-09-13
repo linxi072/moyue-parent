@@ -1,8 +1,8 @@
 package com.moyue.system.controller;
 
 import com.moyue.common.core.domain.PageResult;
-import com.moyue.common.Constants;
-import com.moyue.common.R;
+import com.moyue.common.core.constants.Constants;
+import com.moyue.common.core.domain.R;
 import com.moyue.system.entity.SysDeptEntity;
 import com.moyue.system.entity.SysMenuEntity;
 import com.moyue.system.entity.SysRoleEntity;

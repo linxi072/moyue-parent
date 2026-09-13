@@ -3,7 +3,7 @@ package com.moyue.message.controller;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyue.common.core.domain.PageResult;
-import com.moyue.common.R;
+import com.moyue.common.core.domain.R;
 import com.moyue.message.entity.MessageChannelRecordEntity;
 import com.moyue.message.mapper.MessageChannelRecordMapper;
 import org.springframework.beans.factory.annotation.Autowired;

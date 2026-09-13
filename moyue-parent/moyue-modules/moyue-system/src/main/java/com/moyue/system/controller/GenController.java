@@ -1,7 +1,7 @@
 package com.moyue.system.controller;
 
-import com.moyue.common.R;
-import com.moyue.common.security.RequiresPermissions;
+import com.moyue.common.core.domain.R;
+import com.moyue.common.core.annotation.RequiresPermissions;
 import com.moyue.system.annotation.Log;
 import com.moyue.system.service.gen.GenService;
 import org.springframework.beans.factory.annotation.Autowired;

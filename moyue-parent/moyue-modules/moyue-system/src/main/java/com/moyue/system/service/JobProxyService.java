@@ -2,8 +2,8 @@ package com.moyue.system.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.moyue.common.BizException;
-import com.moyue.common.ResultCode;
+import com.moyue.common.exception.BizException;
+import com.moyue.common.core.domain.ResultCode;
 import com.moyue.common.core.domain.PageResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

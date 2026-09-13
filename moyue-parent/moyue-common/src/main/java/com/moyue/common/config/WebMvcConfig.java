@@ -1,6 +1,7 @@
-package com.moyue.common;
+package com.moyue.common.config;
 
-import com.moyue.common.security.HeaderInterceptor;
+import com.moyue.common.interceptor.AdminRoleInterceptor;
+import com.moyue.common.interceptor.HeaderInterceptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.context.annotation.Configuration;

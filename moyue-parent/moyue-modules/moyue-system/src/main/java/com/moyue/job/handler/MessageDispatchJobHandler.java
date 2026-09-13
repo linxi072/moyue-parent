@@ -3,7 +3,7 @@ package com.moyue.job.handler;
 import com.moyue.api.message.client.MessageDispatchClient;
 import com.moyue.api.message.dto.MessageDispatchDTO;
 import com.moyue.api.message.dto.MessageDispatchResultDTO;
-import com.moyue.common.R;
+import com.moyue.common.core.domain.R;
 import com.xxl.job.core.context.XxlJobHelper;
 import com.xxl.job.core.handler.annotation.XxlJob;
 import org.springframework.beans.factory.annotation.Autowired;

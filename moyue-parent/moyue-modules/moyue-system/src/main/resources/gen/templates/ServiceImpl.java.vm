@@ -1,8 +1,8 @@
 package ${packageName}.service.impl;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
-import com.moyue.common.BizException;
-import com.moyue.common.ResultCode;
+import com.moyue.common.exception.BizException;
+import com.moyue.common.core.domain.ResultCode;
 import ${packageName}.entity.${className}Entity;
 import ${packageName}.mapper.${className}Mapper;
 import ${packageName}.service.${className}Service;

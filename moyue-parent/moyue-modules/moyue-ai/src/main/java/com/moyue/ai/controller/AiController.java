@@ -4,7 +4,7 @@ import com.moyue.ai.entity.AiMessageEntity;
 import com.moyue.ai.entity.AiSessionEntity;
 import com.moyue.ai.service.AiService;
 import com.moyue.common.core.domain.PageResult;
-import com.moyue.common.R;
+import com.moyue.common.core.domain.R;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
