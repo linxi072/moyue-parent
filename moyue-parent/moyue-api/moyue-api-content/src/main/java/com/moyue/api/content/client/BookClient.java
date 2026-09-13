@@ -12,7 +12,14 @@ import org.springframework.web.bind.annotation.RequestParam;
  * 书城服务 Feign 客户端（moyue-content）。
  * 返回类型包裹 R&lt;T&gt;，与控制器 {@code R<BookSummaryDTO>} 结构一致。
  */
-@FeignClient(name = "moyue-content", fallbackFactory = BookClientFallbackFactory.class)
+/**
+ * 书籍服务 Feign 客户端（moyue-content）。
+ * 返回类型包裹 R&lt;T&gt;，与控制器 {@code R<BookSummaryDTO>} 结构一致。
+ *
+ * <p>contextId：与同服务的 ChapterClient（name 同为 moyue-content）区分注册，
+ * 避免 FeignClientSpecification 同名 bean 冲突（正解，替代 allow-bean-definition-overriding）。</p>
+ */
+@FeignClient(name = "moyue-content", contextId = "bookClient", fallbackFactory = BookClientFallbackFactory.class)
 public interface BookClient {
 
     /** 书籍详情 */

@@ -13,8 +13,11 @@ import org.springframework.web.bind.annotation.RequestParam;
  * 即时通讯服务 Feign 客户端（moyue-social）。
  * 返回类型包裹 R&lt;T&gt;，与控制器实际响应结构一致；DTO 为实体的字段子集，
  * Jackson 默认忽略未知字段，可安全反序列化。
+ *
+ * <p>contextId：与同服务的 BlogClient / CommentClient（name 同为 moyue-social）区分注册，
+ * 避免 FeignClientSpecification 同名 bean 冲突（正解，替代 allow-bean-definition-overriding）。</p>
  */
-@FeignClient(name = "moyue-social", fallbackFactory = ImClientFallbackFactory.class)
+@FeignClient(name = "moyue-social", contextId = "imClient", fallbackFactory = ImClientFallbackFactory.class)
 public interface ImClient {
 
     /** 查询用户会话列表（单聊 + 群聊） */

@@ -112,9 +112,21 @@ public class GenService {
         java.util.Properties props = new java.util.Properties();
         props.setProperty(RuntimeConstants.RESOURCE_LOADERS, "classpath");
         props.setProperty("resource.loader.classpath.class", ClasspathResourceLoader.class.getName());
+        // 40001 修复（P2-15 排查）防御项 1：兼容旧版属性名 resource.loader（Velocity 2.x 两个键均识别），
+        // 防止仅依赖新键时资源加载器装配失败 → getTemplate 抛 ResourceNotFoundException → 预览 40001
+        props.setProperty("resource.loader", "classpath");
+        props.setProperty("resource.loader.classpath.cache", "true");
+        // 40001 修复（P2-15 排查）防御项 2：固定使用 JDK 日志，避免 Velocity 默认尝试在
+        // 工作目录创建 velocity.log（容器只读文件系统 / 无写权限时初始化抛异常）
+        props.setProperty("runtime.log.logsystem.class", "org.apache.velocity.runtime.log.JdkLogChute");
         props.setProperty(RuntimeConstants.INPUT_ENCODING, StandardCharsets.UTF_8.name());
         this.velocityEngine = new VelocityEngine(props);
-        this.velocityEngine.init();
+        try {
+            this.velocityEngine.init();
+        } catch (Exception e) {
+            // 初始化失败在启动期暴露并给出可定位信息，避免运行期以 40001 未知错误呈现
+            throw new IllegalStateException("Velocity 模板引擎初始化失败，请检查 gen/templates 模板资源与依赖版本", e);
+        }
     }
 
     // ====================== 元数据查询 ======================
@@ -264,10 +276,16 @@ public class GenService {
         return meta;
     }
 
-    /** Velocity 渲染单个模板 */
+    /**
+     * Velocity 渲染单个模板。
+     * 40001 修复（P2-15 排查）防御项 3：模板缺失 / 解析失败是预览链路上唯一可能抛出
+     * 未受检异常的组件，此处显式区分「模板不存在」与「渲染失败」并在业务异常中携带
+     * 根因消息，避免 GlobalExceptionHandler 只能返回笼统的 40001「未知错误」。
+     */
     private String render(String templateName, GenTableMeta meta) {
+        String path = TEMPLATE_PATH + templateName;
         try {
-            Template template = velocityEngine.getTemplate(TEMPLATE_PATH + templateName, StandardCharsets.UTF_8.name());
+            Template template = velocityEngine.getTemplate(path, StandardCharsets.UTF_8.name());
             VelocityContext context = new VelocityContext();
             context.put("packageName", meta.getPackageName());
             context.put("className", meta.getClassName());
@@ -283,9 +301,14 @@ public class GenService {
                 template.merge(context, writer);
                 return writer.toString();
             }
+        } catch (org.apache.velocity.exception.ResourceNotFoundException e) {
+            log.error("[gen] 模板不存在：{}", path, e);
+            throw new BizException(ResultCode.INTERNAL_ERROR,
+                    "模板不存在：" + path + "（请确认构建产物包含 gen/templates 资源）");
         } catch (Exception e) {
-            log.error("[gen] 模板渲染失败：{}", templateName, e);
-            throw new BizException(ResultCode.INTERNAL_ERROR, "模板渲染失败：" + templateName);
+            log.error("[gen] 模板渲染失败：{}", path, e);
+            throw new BizException(ResultCode.INTERNAL_ERROR,
+                    "模板渲染失败：" + templateName + " - " + e.getMessage());
         }
     }
 

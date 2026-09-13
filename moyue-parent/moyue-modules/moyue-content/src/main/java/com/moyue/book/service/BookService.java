@@ -12,8 +12,12 @@ import com.moyue.book.entity.BookEntity;
 import com.moyue.book.mapper.BookMapper;
 import com.moyue.common.BizException;
 import com.moyue.common.ResultCode;
+import com.moyue.common.cache.CacheNames;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -32,6 +36,11 @@ import java.util.Objects;
  *
  * <p>P2-13 S-3：书籍创建 / 更新 / 删除后经 {@link SearchIndexClient} 同步 ES 索引，
  * Feign 调用失败仅记 warn、不阻断主流程（沿用既有降级风格）。</p>
+ *
+ * <p>P2-16 缓存挂载：列表读走 {@link CacheNames#BOOK_LIST}（TTL 5 分钟，key = page:size），
+ * 详情读走 {@link CacheNames#BOOK_DETAIL}（TTL 10 分钟，key = bookId）；写路径按
+ * 「BOOK_DETAIL 按 bookId 精确失效 + BOOK_LIST allEntries 整表失效」主动删除，
+ * 不缓存 null（基建 MoyueCacheAutoConfiguration 已禁 null 值）。</p>
  */
 @Slf4j
 @Service
@@ -66,7 +75,8 @@ public class BookService {
     @Autowired
     private FileStorage fileStorage;
 
-    /** 分页查询书籍 */
+    /** 分页查询书籍（P2-16：走 BOOK_LIST 缓存，key = page:size，TTL 5 分钟） */
+    @Cacheable(cacheNames = CacheNames.BOOK_LIST, key = "#page + ':' + #size")
     public PageResult<BookSummaryDTO> listBooks(int page, int size) {
         Page<BookEntity> p = new Page<>(page, size);
         bookMapper.selectPage(p, null);
@@ -83,7 +93,8 @@ public class BookService {
         return result;
     }
 
-    /** 书籍详情 */
+    /** 书籍详情（P2-16：走 BOOK_DETAIL 缓存，key = bookId，TTL 10 分钟；null 不缓存） */
+    @Cacheable(cacheNames = CacheNames.BOOK_DETAIL, key = "#bookId", unless = "#result == null")
     public BookSummaryDTO detail(Long bookId) {
         BookEntity e = bookMapper.selectById(bookId);
         return e == null ? null : toDto(e);
@@ -112,7 +123,8 @@ public class BookService {
         return result;
     }
 
-    /** 创建作品：authorId 取当前登录用户，初始连载中、字数与点击为 0 */
+    /** 创建作品：authorId 取当前登录用户，初始连载中、字数与点击为 0（P2-16：新书上架失效列表缓存） */
+    @CacheEvict(cacheNames = CacheNames.BOOK_LIST, allEntries = true)
     public BookSummaryDTO createBook(long userId, int role, String title, String coverUrl,
                                      Long categoryId, String tags, String intro) {
         requireAuthor(role);
@@ -137,7 +149,14 @@ public class BookService {
         return toDto(e);
     }
 
-    /** 编辑作品：仅作者本人或管理员；仅更新非空字段 */
+    /**
+     * 编辑作品：仅作者本人或管理员；仅更新非空字段。
+     * P2-16：失效该书详情缓存（含上下架状态变化）与列表缓存（列表展示状态/简介等）。
+     */
+    @Caching(evict = {
+            @CacheEvict(cacheNames = CacheNames.BOOK_DETAIL, key = "#bookId"),
+            @CacheEvict(cacheNames = CacheNames.BOOK_LIST, allEntries = true)
+    })
     public BookSummaryDTO updateBook(Long bookId, long userId, int role, String title, String coverUrl,
                                      Long categoryId, String tags, String intro, Integer status) {
         BookEntity e = bookMapper.selectById(bookId);
@@ -174,7 +193,12 @@ public class BookService {
     /**
      * 上传作品封面：作者本人 / 管理员。
      * 落盘与 URL 生成交由 {@link FileStorage}（当前为本地磁盘实现，生产可换 OSS，接口不变）。
+     * P2-16：封面同时出现在详情与列表，双缓存失效。
      */
+    @Caching(evict = {
+            @CacheEvict(cacheNames = CacheNames.BOOK_DETAIL, key = "#bookId"),
+            @CacheEvict(cacheNames = CacheNames.BOOK_LIST, allEntries = true)
+    })
     public BookSummaryDTO uploadCover(Long bookId, long userId, int role, MultipartFile file) {
         BookEntity e = bookMapper.selectById(bookId);
         if (e == null) {
@@ -191,7 +215,14 @@ public class BookService {
         return detail(bookId);
     }
 
-    /** 删除作品（全局逻辑删除：update is_deleted=1）；仅作者本人或管理员 */
+    /**
+     * 删除作品（全局逻辑删除：update is_deleted=1）；仅作者本人或管理员。
+     * P2-16：失效该书详情缓存与列表缓存。
+     */
+    @Caching(evict = {
+            @CacheEvict(cacheNames = CacheNames.BOOK_DETAIL, key = "#bookId"),
+            @CacheEvict(cacheNames = CacheNames.BOOK_LIST, allEntries = true)
+    })
     @Transactional
     public void deleteBook(Long bookId, long userId, int role) {
         BookEntity e = bookMapper.selectById(bookId);

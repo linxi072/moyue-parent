@@ -48,9 +48,19 @@
             <groupId>com.moyue</groupId>
             <artifactId>moyue-api-content</artifactId>
         </dependency>
+        <!-- P2-15：本服务是 RiskClient 契约的服务端实现，ModerationRequest/ResultDTO 在此定义 -->
+        <dependency>
+            <groupId>com.moyue</groupId>
+            <artifactId>moyue-api-risk</artifactId>
+        </dependency>
         <dependency>
             <groupId>com.moyue</groupId>
             <artifactId>moyue-api-social</artifactId>
+        </dependency>
+        <!-- P2-15 举报闭环：处理结果按 REPORT_RESULT 模板触达举报人 -->
+        <dependency>
+            <groupId>com.moyue</groupId>
+            <artifactId>moyue-api-message</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.cloud</groupId>
@@ -74,6 +84,12 @@
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <scope>provided</scope>
+        </dependency>
+        <!-- QA 验证：单测（JUnit 5 / Mockito / AssertJ），不参与发布产物 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 

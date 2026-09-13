@@ -64,6 +64,11 @@
             <groupId>com.moyue</groupId>
             <artifactId>moyue-api-content</artifactId>
         </dependency>
+        <!-- P2-15 章节机审 hook：提交/发布前经 RiskClient 送 moyue-risk 机审 -->
+        <dependency>
+            <groupId>com.moyue</groupId>
+            <artifactId>moyue-api-risk</artifactId>
+        </dependency>
         <dependency>
             <groupId>com.moyue</groupId>
             <artifactId>moyue-api-search</artifactId>

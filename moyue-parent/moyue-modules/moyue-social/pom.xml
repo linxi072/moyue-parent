@@ -56,6 +56,11 @@
             <groupId>com.moyue</groupId>
             <artifactId>moyue-api-social</artifactId>
         </dependency>
+        <!-- P2-15 评论机审 hook：发表前经 RiskClient 送 moyue-risk 机审 -->
+        <dependency>
+            <groupId>com.moyue</groupId>
+            <artifactId>moyue-api-risk</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-openfeign</artifactId>

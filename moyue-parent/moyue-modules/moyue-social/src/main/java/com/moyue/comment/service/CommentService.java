@@ -1,8 +1,12 @@
 package com.moyue.comment.service;
 
+import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyue.api.commerce.client.PointsClient;
+import com.moyue.api.risk.client.RiskClient;
+import com.moyue.api.risk.dto.ModerationRequestDTO;
+import com.moyue.api.risk.dto.ModerationResultDTO;
 import com.moyue.api.social.dto.CommentDTO;
 import com.moyue.common.core.domain.PageResult;
 import com.moyue.api.commerce.dto.PointsAwardDTO;
@@ -26,6 +30,10 @@ import java.util.Objects;
  * 评论业务：按书籍分页查询评论、发表评论（默认待审）、删除（本人 / 管理员）、点赞切换。
  * 发表评论的 userId 一律由调用方从网关注入头取得，绝不信任请求体。
  * 发表成功后发评论奖励积分（P1-10 生产者侧，bizType=3）；奖励失败不阻断评论主流程。
+ *
+ * <p>P2-15 机审 hook：评论发表落库前经 {@link RiskClient} 送 moyue-risk 机审——
+ * REJECT 抛 CONTENT_BLOCKED(20002) 阻断落库；REVIEW 照常落库保持待审（status=0，
+ * audit_task 由 moyue-risk 写入转人工）；机审客户端不可用时安全降级不阻断评论。</p>
  */
 @Service
 public class CommentService {
@@ -40,6 +48,9 @@ public class CommentService {
     /** 评论奖励 bizType（与 points_flow.biz_type 注释对齐） */
     private static final int BIZ_COMMENT_AWARD = 3;
 
+    /** 机审结论：命中拦截级敏感词（RiskClient 契约） */
+    private static final String DECISION_REJECT = "REJECT";
+
     @Autowired
     private CommentMapper commentMapper;
 
@@ -49,6 +60,10 @@ public class CommentService {
     /** 积分服务客户端；不可用时评论主流程不受影响（奖励降级跳过） */
     @Autowired(required = false)
     private PointsClient pointsClient;
+
+    /** 内容安全服务客户端（P2-15 机审 hook）；risk 未注册时安全降级 */
+    @Autowired(required = false)
+    private RiskClient riskClient;
 
     /** 按 book_id 分页查询评论，按创建时间倒序 */
     public PageResult<CommentEntity> listByBook(Long bookId, int page, int size) {
@@ -117,9 +132,45 @@ public class CommentService {
         e.setStatus(0);
         e.setLikeCount(0);
         e.setIsDeleted(0);
+        // P2-15 机审：预生成雪花 ID 并在落库前送审（REJECT 抛 20002 阻断，不产生脏数据；
+        // REVIEW 保持待审 status=0，audit_task 已由 moyue-risk 写入转人工）
+        e.setId(IdWorker.getId());
+        moderateOrThrow(e.getId(), content);
         commentMapper.insert(e);
         awardCommentPoints(userId, e.getId());
         return e;
+    }
+
+    /**
+     * P2-15 机审 hook（落库前）：送 moyue-risk 机审。
+     * REJECT → 抛 CONTENT_BLOCKED(20002)；PASS / REVIEW → 放行（评论本就默认待审）；
+     * 机审客户端未注册 / 熔断降级（fallback 返回 R.code=40002）/ 调用异常 → 不阻断业务（安全降级）。
+     */
+    private void moderateOrThrow(Long commentId, String content) {
+        if (riskClient == null) {
+            return;
+        }
+        try {
+            ModerationRequestDTO req = new ModerationRequestDTO();
+            req.setBizType(2);
+            req.setBizId(commentId);
+            req.setContent(content);
+            R<ModerationResultDTO> resp = riskClient.moderate(req);
+            // fallback 降级 / 业务失败：视为机审不可用，放行并告警
+            if (resp == null || resp.getCode() != ResultCode.SUCCESS.getCode() || resp.getData() == null) {
+                log.warn("[comment] 机审客户端降级，跳过机审：commentId={}, code={}",
+                        commentId, resp == null ? "无响应" : resp.getCode());
+                return;
+            }
+            if (DECISION_REJECT.equals(resp.getData().getDecision())) {
+                throw new BizException(ResultCode.CONTENT_BLOCKED);
+            }
+        } catch (BizException ex) {
+            // 机审拦截属业务结论，原样上抛
+            throw ex;
+        } catch (Exception ex) {
+            log.warn("[comment] 机审调用异常，跳过机审：commentId={}, err={}", commentId, ex.getMessage());
+        }
     }
 
     /**

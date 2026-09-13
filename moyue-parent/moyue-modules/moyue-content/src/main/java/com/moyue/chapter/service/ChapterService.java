@@ -1,10 +1,14 @@
 package com.moyue.chapter.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyue.api.content.client.BookClient;
 import com.moyue.api.content.dto.BookSummaryDTO;
 import com.moyue.api.content.dto.ChapterDTO;
+import com.moyue.api.risk.client.RiskClient;
+import com.moyue.api.risk.dto.ModerationRequestDTO;
+import com.moyue.api.risk.dto.ModerationResultDTO;
 import com.moyue.common.core.domain.PageResult;
 import com.moyue.chapter.entity.ChapterEntity;
 import com.moyue.chapter.mapper.ChapterMapper;
@@ -12,6 +16,8 @@ import com.moyue.common.BizException;
 import com.moyue.common.R;
 import com.moyue.common.ResultCode;
 import com.moyue.common.cache.CacheNames;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -27,18 +33,38 @@ import java.util.Objects;
 /**
  * 章节业务：章节详情、目录分页，以及作者写作链路（草稿箱、增删改、定时发布、排序）。
  * 归属校验通过 Feign BookClient 取 book.authorId；客户端不可用时降级为仅角色校验，不阻断创作。
+ *
+ * <p>P2-15 机审 hook：章节提交（创建）与发布前经 {@link RiskClient} 送 moyue-risk 机审——
+ * REJECT 抛 CONTENT_BLOCKED(20002) 阻断落库；REVIEW 照常落库但标记审核中（status=1，
+ * audit_task 由 moyue-risk 写入转人工）；机审客户端不可用时安全降级不阻断创作。</p>
  */
 @Service
 public class ChapterService {
 
+    private static final Logger log = LoggerFactory.getLogger(ChapterService.class);
+
     private static final int ROLE_AUTHOR = 2;
     private static final int ROLE_ADMIN = 3;
+
+    /** 机审结论：命中拦截级敏感词（RiskClient 契约） */
+    private static final String DECISION_REJECT = "REJECT";
+    /** 机审结论：命中告警级敏感词，转人工 */
+    private static final String DECISION_REVIEW = "REVIEW";
+
+    /** 章节状态：审核中（机审 REVIEW / 定时未到点时承载「转人工」语义） */
+    private static final int STATUS_REVIEWING = 1;
+    /** 章节状态：已发布 */
+    private static final int STATUS_PUBLISHED = 2;
 
     @Autowired
     private ChapterMapper chapterMapper;
 
     @Autowired(required = false)
     private BookClient bookClient;
+
+    /** 内容安全服务客户端（P2-15 机审 hook）；risk 未注册时安全降级 */
+    @Autowired(required = false)
+    private RiskClient riskClient;
 
     /**
      * 按 ID 查询章节（含正文）。
@@ -186,13 +212,16 @@ public class ChapterService {
             throw new BizException(ResultCode.RESOURCE_NOT_FOUND);
         }
         checkBookOwner(e.getBookId(), userId, role);
+        // P2-15 机审：发布前送审，REJECT 抛 20002 阻断发布
+        String decision = moderateOrThrow(chapterId, e.getTitle(), e.getContent());
         LocalDateTime now = LocalDateTime.now();
         if (publishTime == null || !publishTime.isAfter(now)) {
-            e.setStatus(2);
+            // 机审 REVIEW（命中告警词转人工）：置审核中由人工裁决，不直接发布
+            e.setStatus(DECISION_REVIEW.equals(decision) ? STATUS_REVIEWING : STATUS_PUBLISHED);
             e.setPublishTime(now);
         } else {
             // TODO: 定时到点由 1→2 需调度器（当前无 XXL-Job，超出本次范围）
-            e.setStatus(1);
+            e.setStatus(STATUS_REVIEWING);
             e.setPublishTime(publishTime);
         }
         chapterMapper.updateById(e);
@@ -294,6 +323,47 @@ public class ChapterService {
     }
 
     // ------------------------------ 内部工具 ------------------------------
+
+    /**
+     * P2-15 机审 hook（落库前）：送 moyue-risk 机审，按结论决定放行 / 阻断。
+     * <ul>
+     *   <li>REJECT → 抛 CONTENT_BLOCKED(20002)，调用方事务内不落库；</li>
+     *   <li>REVIEW → 返回 REVIEW，调用方标记审核中（audit_task 已由 moyue-risk 写入转人工）；</li>
+     *   <li>PASS → 返回 PASS；</li>
+     *   <li>机审客户端未注册 / 熔断降级（fallback 返回 R.code=40002）/ 调用异常 → 返回 null，
+     *       不阻断业务（安全降级约定：内容安全故障不得拖垮创作主链路）。</li>
+     * </ul>
+     */
+    private String moderateOrThrow(Long chapterId, String title, String content) {
+        if (riskClient == null) {
+            return null;
+        }
+        try {
+            ModerationRequestDTO req = new ModerationRequestDTO();
+            req.setBizType(1);
+            req.setBizId(chapterId);
+            req.setTitle(title);
+            req.setContent(content);
+            R<ModerationResultDTO> resp = riskClient.moderate(req);
+            // fallback 降级 / 业务失败：视为机审不可用，放行并告警
+            if (resp == null || resp.getCode() != ResultCode.SUCCESS.getCode() || resp.getData() == null) {
+                log.warn("[chapter] 机审客户端降级，跳过机审：chapterId={}, code={}",
+                        chapterId, resp == null ? "无响应" : resp.getCode());
+                return null;
+            }
+            String decision = resp.getData().getDecision();
+            if (DECISION_REJECT.equals(decision)) {
+                throw new BizException(ResultCode.CONTENT_BLOCKED);
+            }
+            return decision;
+        } catch (BizException ex) {
+            // 机审拦截属业务结论，原样上抛
+            throw ex;
+        } catch (Exception ex) {
+            log.warn("[chapter] 机审调用异常，跳过机审：chapterId={}, err={}", chapterId, ex.getMessage());
+            return null;
+        }
+    }
 
     /** 取下一位章节序号 = 当前最大序号 +1（全局逻辑删除会自动过滤已删章节） */
     private int nextChapterNo(Long bookId) {

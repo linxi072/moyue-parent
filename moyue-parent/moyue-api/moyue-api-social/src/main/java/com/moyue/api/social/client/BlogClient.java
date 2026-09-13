@@ -10,8 +10,11 @@ import org.springframework.web.bind.annotation.RequestParam;
 /**
  * 博客服务 Feign 客户端（moyue-social）。
  * 返回类型包裹 R&lt;T&gt;，与控制器实际响应结构一致。
+ *
+ * <p>contextId：与同服务的 CommentClient / ImClient（name 同为 moyue-social）区分注册，
+ * 避免 FeignClientSpecification 同名 bean 冲突（正解，替代 allow-bean-definition-overriding）。</p>
  */
-@FeignClient(name = "moyue-social", fallbackFactory = BlogClientFallbackFactory.class)
+@FeignClient(name = "moyue-social", contextId = "blogClient", fallbackFactory = BlogClientFallbackFactory.class)
 public interface BlogClient {
 
     /** 按作者分页查询博客文章 */

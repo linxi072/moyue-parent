@@ -14,7 +14,15 @@ import org.springframework.web.bind.annotation.RequestParam;
  * 返回类型包裹 R&lt;T&gt;，与控制器 {@code R<PageResult<CommentDTO>>} 结构一致。
  * CommentController 已在 CommentService.toDtoPage 做实体转换后返回 CommentDTO，与此处声明严格对齐。
  */
-@FeignClient(name = "moyue-social", fallbackFactory = CommentClientFallbackFactory.class)
+/**
+ * 评论服务 Feign 客户端（moyue-social）。
+ * 返回类型包裹 R&lt;T&gt;，与控制器 {@code R<PageResult<CommentDTO>>} 结构一致。
+ * CommentController 已在 CommentService.toDtoPage 做实体转换后返回 CommentDTO，与此处声明严格对齐。
+ *
+ * <p>contextId：与同服务的 BlogClient / ImClient（name 同为 moyue-social）区分注册，
+ * 避免 FeignClientSpecification 同名 bean 冲突（正解，替代 allow-bean-definition-overriding）。</p>
+ */
+@FeignClient(name = "moyue-social", contextId = "commentClient", fallbackFactory = CommentClientFallbackFactory.class)
 public interface CommentClient {
 
     /** 按书籍分页查询评论 */

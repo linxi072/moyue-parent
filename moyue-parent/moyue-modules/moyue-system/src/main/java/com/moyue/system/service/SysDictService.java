@@ -11,6 +11,8 @@ import com.moyue.system.entity.SysDictDataEntity;
 import com.moyue.system.entity.SysDictTypeEntity;
 import com.moyue.system.mapper.SysDictDataMapper;
 import com.moyue.system.mapper.SysDictTypeMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -28,6 +30,8 @@ import java.util.List;
  */
 @Service
 public class SysDictService {
+
+    private static final Logger log = LoggerFactory.getLogger(SysDictService.class);
 
     /** 字典缓存名（对齐 moyue:system:dict:* key 规约） */
     public static final String CACHE_DICT = "system:dict";
