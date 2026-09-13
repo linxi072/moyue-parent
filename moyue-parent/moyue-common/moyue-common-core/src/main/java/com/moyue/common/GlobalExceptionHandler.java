@@ -1,5 +1,7 @@
 package com.moyue.common;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -10,6 +12,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     /** 业务异常 -> 对应业务码 */
     @ExceptionHandler(BizException.class)
@@ -26,9 +30,10 @@ public class GlobalExceptionHandler {
         return R.fail(ResultCode.PARAM_ERROR.getCode(), message);
     }
 
-    /** 其余未捕获异常 -> 40001 内部异常 */
+    /** 其余未捕获异常 -> 40001 内部异常（记录完整堆栈，便于排障） */
     @ExceptionHandler(Exception.class)
     public R<Void> handleException(Exception e) {
+        log.error("[unhandled] 未捕获异常：", e);
         return R.fail(ResultCode.INTERNAL_ERROR.getCode(), ResultCode.INTERNAL_ERROR.getMessage());
     }
 }

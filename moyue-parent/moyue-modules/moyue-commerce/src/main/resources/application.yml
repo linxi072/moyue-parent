@@ -8,14 +8,14 @@ spring:
     name: moyue-commerce
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://${{MYSQL_HOST:localhost}}:${{MYSQL_PORT:3306}}/${{MYSQL_DB:moyue}}?useUnicode=true&characterEncoding=utf8mb4&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/${MYSQL_DB:moyue}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
     # 账号口令不设明文默认值，强制由环境变量注入（dev 默认值下沉 application-dev.yml）
-    username: ${{MYSQL_USERNAME}}
-    password: ${{MYSQL_PASSWORD}}
+    username: ${MYSQL_USERNAME}
+    password: ${MYSQL_PASSWORD}
   cloud:
     nacos:
       discovery:
-        server-addr: ${{NACOS_SERVER_ADDR:localhost:8848}}
+        server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
   flyway:
     enabled: true
     baseline-on-migrate: true

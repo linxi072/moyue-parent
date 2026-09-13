@@ -137,10 +137,10 @@
                 <version>${project.version}</version>
             </dependency>
 
-            <!-- MyBatis-Plus -->
+            <!-- MyBatis-Plus（Spring Boot 3 系必须使用 boot3 starter，否则拉到 mybatis-spring 2.x 与 Spring 6.1 不兼容） -->
             <dependency>
                 <groupId>com.baomidou</groupId>
-                <artifactId>mybatis-plus-boot-starter</artifactId>
+                <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
                 <version>${mybatis-plus.version}</version>
             </dependency>
 

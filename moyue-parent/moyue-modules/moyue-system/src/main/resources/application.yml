@@ -8,20 +8,20 @@ spring:
     name: moyue-system
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://${{MYSQL_HOST:localhost}}:${{MYSQL_PORT:3306}}/${{MYSQL_DB:moyue}}?useUnicode=true&characterEncoding=utf8mb4&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/${MYSQL_DB:moyue}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
     # 账号口令不设明文默认值，强制由环境变量注入（dev 默认值下沉 application-dev.yml）
-    username: ${{MYSQL_USERNAME}}
-    password: ${{MYSQL_PASSWORD}}
+    username: ${MYSQL_USERNAME}
+    password: ${MYSQL_PASSWORD}
   data:
     # 系统管理二期：在线用户会话 / 字典参数缓存 / 令牌黑名单（写法对齐 moyue-content）
     redis:
-      host: ${{REDIS_HOST:localhost}}
-      port: ${{REDIS_PORT:6379}}
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
       database: 0
   cloud:
     nacos:
       discovery:
-        server-addr: ${{NACOS_SERVER_ADDR:localhost:8848}}
+        server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
   flyway:
     enabled: true
     baseline-on-migrate: true
@@ -54,11 +54,11 @@ springdoc:
 xxl:
   job:
     admin:
-      addresses: ${{XXL_JOB_ADMIN_ADDRESSES:http://localhost:8088/xxl-job-admin}}
+      addresses: ${XXL_JOB_ADMIN_ADDRESSES:http://localhost:8088/xxl-job-admin}
       # 任务管理代理（JobProxyService）登录 Admin 使用的账号，dev 默认 admin/123456
-      username: ${{XXL_JOB_ADMIN_USERNAME:admin}}
-      password: ${{XXL_JOB_ADMIN_PASSWORD:123456}}
-    accessToken: ${{XXL_JOB_ACCESS_TOKEN:}}
+      username: ${XXL_JOB_ADMIN_USERNAME:admin}
+      password: ${XXL_JOB_ADMIN_PASSWORD:123456}
+    accessToken: ${XXL_JOB_ACCESS_TOKEN:}
     executor:
       appname: moyue-job
       address: ""
