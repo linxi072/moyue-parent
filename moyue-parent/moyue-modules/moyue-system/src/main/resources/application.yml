@@ -49,6 +49,19 @@ springdoc:
     enabled: ${SPRINGDOC_ENABLED:true}
   swagger-ui:
     enabled: ${SPRINGDOC_ENABLED:true}
+    # 契约文档聚合：经网关相对路径列全部 10 个服务；浏览器仅访问 8080，规避 CORS
+    # urls 相对 swagger-ui.html 所在路径 /api/v1/docs/system/，.. 回退到 /api/v1/docs/<svc>/
+    urls:
+      - { url: ../system/v3/api-docs,   name: "moyue-system 平台运营(8086)" }
+      - { url: ../auth/v3/api-docs,     name: "moyue-auth 认证(8090)" }
+      - { url: ../account/v3/api-docs,  name: "moyue-account 账号(8081)" }
+      - { url: ../content/v3/api-docs,  name: "moyue-content 内容(8082)" }
+      - { url: ../social/v3/api-docs,   name: "moyue-social 社交(8083)" }
+      - { url: ../commerce/v3/api-docs, name: "moyue-commerce 商业(8084)" }
+      - { url: ../search/v3/api-docs,   name: "moyue-search 检索(8085)" }
+      - { url: ../message/v3/api-docs,  name: "moyue-message 触达(8087)" }
+      - { url: ../risk/v3/api-docs,     name: "moyue-risk 安全(8089)" }
+      - { url: ../ai/v3/api-docs,       name: "moyue-ai 智能(8097)" }
 
 # XXL-Job 执行器配置（执行器随 moyue-system 进程启动，RPC 端口 9099）
 xxl:

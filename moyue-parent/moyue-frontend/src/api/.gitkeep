@@ -1,0 +1,2 @@
+# 该文件仅用于占位，保证 src/api/ 目录被纳入 git 跟踪。
+# 真正内容由 `mvn -pl moyue-contract generate-sources` 生成到 src/api/<service>/ 子目录。

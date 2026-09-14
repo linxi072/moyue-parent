@@ -31,5 +31,11 @@
             <artifactId>lombok</artifactId>
             <scope>provided</scope>
         </dependency>
+        <!-- springdoc-openapi API：仅用于自动配置装配 OpenAPI 元信息（optional，避免该依赖经 common-core 透传进 WebFlux 网关） -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-api</artifactId>
+            <optional>true</optional>
+        </dependency>
     </dependencies>
 </project>
