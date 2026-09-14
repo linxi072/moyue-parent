@@ -3,7 +3,7 @@
 # 墨阅小说网 · 全链路冒烟测试（全部经网关 :8080）
 # 覆盖：登录取 token -> IM 会话/消息 -> 积分商城（含 2 个失败场景）-> 博客（含点赞幂等）
 # 前置：
-#   1) docker compose up -d（MySQL / Redis / Nacos）
+#   1) 原生启动 MySQL / Redis / Nacos（项目硬性约束：禁用 Docker，见 docs/不可忽视条件.md）
 #   2) ./scripts/build.sh
 #   3) ./scripts/start-all.sh，并在 Nacos 确认服务已注册
 # 用法（Git Bash / macOS / Linux）：

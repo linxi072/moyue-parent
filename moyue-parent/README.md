@@ -72,7 +72,7 @@ mvn -s ../_bootstrap/settings.xml -DskipTests clean install   # 22 模块全量�
 ```
 
 启动顺序：**auth（播种演示账号）→ gateway → 其余 9 个业务服务**（`start-all.sh` 已编排）。
-基础设施：`docker compose up -d`（mysql / redis / nacos / elasticsearch / mailhog）。
+基础设施：**原生安装**（MySQL / Redis / Nacos / Elasticsearch / MailHog）。⚠️ 项目硬性约束：**禁用 Docker**，详见 [docs/不可忽视条件.md](docs/不可忽视条件.md)。
 
 验证：`./scripts/smoke-test.sh`；Nacos 控制台 http://localhost:8848/nacos 确认 11 个服务注册。
 

@@ -20,10 +20,8 @@ mkdir -p "$LOG_DIR"
 
 echo "============================================================"
 echo "[start] 基础设施提示"
-echo "[start] docker-compose.yml 位于：$COMPOSE_DIR"
-echo "[start] 若 MySQL / Redis / Nacos 尚未启动，请先执行："
-echo "[start]   cd \"$COMPOSE_DIR\" && docker compose up -d"
-echo "[start] 并确认就绪：mysql 3306 / redis 6379 / nacos 8848"
+echo "[start] 项目硬性约束：禁用 Docker（见 docs/不可忽视条件.md），基础设施须原生部署"
+echo "[start] 请确认已原生启动并就绪：mysql 3306 / redis 6379 / nacos 8848"
 echo "============================================================"
 echo "[start] 5 秒后继续启动服务（如需先起基础设施，请按 Ctrl+C 中止）"
 sleep 5
