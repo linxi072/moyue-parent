@@ -60,11 +60,11 @@ spring:
           predicates:
             - Path=/api/v1/chapters/**
 
-        # ===== search（检索域：全文检索 / 推荐位，只读 ES）=====
+        # ===== search（检索域：全文检索 / 推荐位，只读 ES；含管理端客服知识检索与索引重建）=====
         - id: moyue-search
           uri: lb://moyue-search
           predicates:
-            - Path=/api/v1/search/**
+            - Path=/api/v1/search/**,/api/v1/admin/search/**
 
         # ===== social（社区域：评论 / 博客 / IM）=====
         - id: moyue-comment

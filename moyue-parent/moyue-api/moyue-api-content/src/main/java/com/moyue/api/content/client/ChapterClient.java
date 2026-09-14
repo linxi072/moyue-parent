@@ -1,7 +1,9 @@
 package com.moyue.api.content.client;
 
 import com.moyue.api.content.dto.ChapterDTO;
+import com.moyue.api.search.dto.ChapterIndexDTO;
 import com.moyue.common.R;
+import com.moyue.common.core.domain.PageResult;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -33,4 +35,13 @@ public interface ChapterClient {
     @PutMapping("/api/v1/internal/chapters/{chapterId}/audit")
     R<Void> auditChapter(@PathVariable("chapterId") Long chapterId,
                          @RequestParam("status") Integer status);
+
+    /**
+     * 分页拉取全量已发布章节（内部端点，不经网关，仅服务间调用）：
+     * 返回含正文（已截断至前 20000 字符）的索引载荷，按 chapter.id 升序；
+     * 供 moyue-search 管理端全量重建 moyue-chapter 索引。
+     */
+    @GetMapping("/api/v1/internal/chapter/page")
+    R<PageResult<ChapterIndexDTO>> pageChapters(@RequestParam("page") int page,
+                                                @RequestParam("size") int size);
 }

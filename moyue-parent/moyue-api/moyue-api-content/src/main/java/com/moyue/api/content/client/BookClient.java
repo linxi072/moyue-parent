@@ -1,6 +1,7 @@
 package com.moyue.api.content.client;
 
 import com.moyue.api.content.dto.BookSummaryDTO;
+import com.moyue.api.search.dto.BookIndexDTO;
 import com.moyue.common.core.domain.PageResult;
 import com.moyue.common.R;
 import org.springframework.cloud.openfeign.FeignClient;
@@ -29,4 +30,11 @@ public interface BookClient {
     /** 分页查询书籍 */
     @GetMapping("/api/v1/books")
     R<PageResult<BookSummaryDTO>> listBooks(@RequestParam("page") int page, @RequestParam("size") int size);
+
+    /**
+     * 分页拉取全量书籍索引载荷（内部端点，不经网关，仅服务间调用）：按 book.id 升序；
+     * 供 moyue-search 管理端全量重建 moyue_book 索引。
+     */
+    @GetMapping("/api/v1/internal/book/page")
+    R<PageResult<BookIndexDTO>> pageBooks(@RequestParam("page") int page, @RequestParam("size") int size);
 }

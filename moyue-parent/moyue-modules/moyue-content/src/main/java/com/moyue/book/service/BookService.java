@@ -259,27 +259,55 @@ public class BookService {
             return;
         }
         try {
-            long clickCount = e.getClickCount() == null ? 0L : e.getClickCount();
-            long favoriteCount = 0L;
-            BookIndexDTO dto = new BookIndexDTO();
-            dto.setBookId(e.getId());
-            dto.setTitle(e.getTitle());
-            dto.setCategoryId(e.getCategoryId());
-            dto.setCategoryName(CATEGORY_NAMES.getOrDefault(e.getCategoryId(), "未知"));
-            dto.setAuthorName(resolveAuthor(e.getAuthorId()));
-            dto.setCoverUrl(e.getCoverUrl());
-            dto.setDescription(e.getIntro());
-            dto.setStatus(e.getStatus());
-            dto.setClickCount(clickCount);
-            dto.setFavoriteCount(favoriteCount);
-            dto.setHotScore(clickCount + favoriteCount * 3);
-            // 以变更时刻作为更新时间，保证 latest 排序反映最新变更
-            dto.setUpdateTime(LocalDateTime.now());
-            searchIndexClient.indexBook(dto);
+            searchIndexClient.indexBook(toIndexDto(e));
         } catch (Exception ex) {
             // 检索服务未注册 / 不可用：安全降级，不阻断书城主流程
             log.warn("同步书籍索引失败 bookId={}, err={}", e.getId(), ex.getMessage());
         }
+    }
+
+    /**
+     * 实体 → 索引载荷 DTO（syncIndex 与管理端全量重建分页拉取复用）。
+     * 热度分 {@code hotScore = clickCount × 1 + favoriteCount × 3}；内容域暂不持有收藏数，以 0 兜底。
+     */
+    public BookIndexDTO toIndexDto(BookEntity e) {
+        long clickCount = e.getClickCount() == null ? 0L : e.getClickCount();
+        long favoriteCount = 0L;
+        BookIndexDTO dto = new BookIndexDTO();
+        dto.setBookId(e.getId());
+        dto.setTitle(e.getTitle());
+        dto.setCategoryId(e.getCategoryId());
+        dto.setCategoryName(CATEGORY_NAMES.getOrDefault(e.getCategoryId(), "未知"));
+        dto.setAuthorName(resolveAuthor(e.getAuthorId()));
+        dto.setCoverUrl(e.getCoverUrl());
+        dto.setDescription(e.getIntro());
+        dto.setStatus(e.getStatus());
+        dto.setClickCount(clickCount);
+        dto.setFavoriteCount(favoriteCount);
+        dto.setHotScore(clickCount + favoriteCount * 3);
+        // 以变更时刻作为更新时间，保证 latest 排序反映最新变更
+        dto.setUpdateTime(LocalDateTime.now());
+        return dto;
+    }
+
+    /**
+     * 分页拉取书籍索引载荷（内部端点专用，不经网关）：按 book.id 升序，
+     * 供 moyue-search 管理端全量重建 moyue_book 索引。
+     */
+    public PageResult<BookIndexDTO> pageForIndex(int page, int size) {
+        Page<BookEntity> p = new Page<>(page, size);
+        bookMapper.selectPage(p, null);
+
+        PageResult<BookIndexDTO> result = new PageResult<>();
+        result.setTotal(p.getTotal());
+        result.setPage((int) p.getCurrent());
+        result.setSize((int) p.getSize());
+        List<BookIndexDTO> records = new ArrayList<>();
+        for (BookEntity e : p.getRecords()) {
+            records.add(toIndexDto(e));
+        }
+        result.setRecords(records);
+        return result;
     }
 
     /** P2-13 S-3：删除书籍索引（删除后调用）；失败仅记 warn */

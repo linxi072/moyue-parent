@@ -36,6 +36,15 @@
             <groupId>com.moyue</groupId>
             <artifactId>moyue-api-search</artifactId>
         </dependency>
+        <!-- 管理端全量重建：经 Feign 从内容域 / AI 域分页拉全量数据 -->
+        <dependency>
+            <groupId>com.moyue</groupId>
+            <artifactId>moyue-api-content</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.moyue</groupId>
+            <artifactId>moyue-api-ai</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-openfeign</artifactId>
@@ -62,6 +71,12 @@
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <scope>provided</scope>
+        </dependency>
+        <!-- QA 验证：JUnit 5 / Mockito / AssertJ / ReflectionTestUtils，test 生命周期独占 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 

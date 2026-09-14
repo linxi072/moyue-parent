@@ -3,6 +3,8 @@ package com.moyue.search.controller;
 import com.moyue.common.core.domain.PageResult;
 import com.moyue.common.R;
 import com.moyue.search.document.BookDocument;
+import com.moyue.search.dto.ChapterSearchResultDTO;
+import com.moyue.search.service.ChapterSearchService;
 import com.moyue.search.service.RecommendService;
 import com.moyue.search.service.SearchService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,6 +31,9 @@ public class SearchController {
     private SearchService searchService;
 
     @Autowired
+    private ChapterSearchService chapterSearchService;
+
+    @Autowired
     private RecommendService recommendService;
 
     /**
@@ -47,6 +52,22 @@ public class SearchController {
                                                    @RequestParam(defaultValue = "1") int page,
                                                    @RequestParam(defaultValue = "20") int size) {
         return R.ok(searchService.search(keyword, categoryId, sort, page, size));
+    }
+
+    /**
+     * 章节全文检索：章节标题（^2）/ 正文 multi_match 命中，返回正文高亮片段。
+     *
+     * @param keyword 关键词（必填）
+     * @param bookId  作品 ID（可选，限定在单部作品内搜章节）
+     * @param page    页码（默认 1）
+     * @param size    每页大小（默认 20）
+     */
+    @GetMapping("/search/chapters")
+    public R<PageResult<ChapterSearchResultDTO>> searchChapters(@RequestParam String keyword,
+                                                                @RequestParam(required = false) Long bookId,
+                                                                @RequestParam(defaultValue = "1") int page,
+                                                                @RequestParam(defaultValue = "20") int size) {
+        return R.ok(chapterSearchService.search(keyword, bookId, page, size));
     }
 
     /**

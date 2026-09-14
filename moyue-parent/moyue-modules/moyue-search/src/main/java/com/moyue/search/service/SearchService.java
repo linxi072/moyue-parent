@@ -1,5 +1,6 @@
 package com.moyue.search.service;
 
+import co.elastic.clients.elasticsearch._types.SortOrder;
 import com.moyue.common.core.domain.PageResult;
 import com.moyue.search.config.SearchProperties;
 import com.moyue.search.constant.SearchSort;
@@ -7,12 +8,11 @@ import com.moyue.search.document.BookDocument;
 import com.moyue.search.repository.BookSearchRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
+import org.springframework.data.elasticsearch.client.elc.NativeQuery;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
-import org.springframework.data.elasticsearch.core.query.Criteria;
-import org.springframework.data.elasticsearch.core.query.CriteriaQuery;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -22,14 +22,17 @@ import java.util.List;
  * 书籍检索业务：
  *  - index：文档写入（幂等，bookId 为 _id 覆盖更新）
  *  - remove：下架同步（物理删文档）
- *  - search：title / authorName / categoryName / description 任一命中即返回，
- *    仅返回 status ∈ {1,2}（连载中 / 已完结）；可选 categoryId term 过滤；
- *    支持 sort：{@code relevance}（默认，_score 降序）/ {@code hot}（hotScore 降序）/
- *    {@code latest}（updateTime 降序）。
- * ES 不可用时连接异常自然抛出，由全局异常处理器统一转 40001。
+ *  - search：title（^3）/ authorName（^2）/ categoryName / description 全文匹配
+ *    （minimum_should_match 75%），仅返回 status ∈ {1,2}（连载中 / 已完结）；
+ *    可选 categoryId term 过滤；支持 sort：{@code relevance}（默认，_score 降序）/
+ *    {@code hot}（hotScore 降序）/ {@code latest}（updateTime 降序）。
  *
- * <p>P2-13 由 moyue-content 整包迁入 moyue-search，包名零变更；T04 增强
- * categoryId 过滤与 sort 排序。</p>
+ * <p>提效改造（T41）：CriteriaQuery → NativeQuery（Lambda DSL）。status 白名单与 categoryId
+ * 过滤从原来的 query context（参与打分）移入 bool <b>filter context</b>——filter 不算分且其
+ * 结果可被 ES 节点级 filter cache 缓存复用；全文匹配合并为单条 multi_match，减少一次查询重构。
+ * 对外行为零变更：默认 relevance、hot / latest 排序、status 白名单。</p>
+ *
+ * <p>ES 不可用时连接异常自然抛出，由全局异常处理器统一转 40001。</p>
  */
 @Service
 public class SearchService {
@@ -63,10 +66,11 @@ public class SearchService {
     }
 
     /**
-     * 关键词检索：四字段任一 contains 命中；可选 categoryId 过滤；分页 page 从 1 起；
+     * 关键词检索：四字段 multi_match（minimum_should_match 75%）任一命中即返回；
+     * status 白名单与可选 categoryId 过滤走 filter context；分页 page 从 1 起；
      * 排序按 {@code sort} 装配（非法值回退 relevance）。
      *
-     * @param keyword    关键词（必填，四字段 OR 匹配）
+     * @param keyword    关键词（必填，四字段匹配）
      * @param categoryId 分类 ID，非空时追加 term 过滤
      * @param sort       排序方式：relevance / hot / latest
      * @param page       页码，从 1 起（小于 1 时按 1 处理）
@@ -77,32 +81,40 @@ public class SearchService {
         int safePage = Math.max(page, 1);
         int safeSize = size > 0 ? size : searchProperties.getDefaultPageSize();
 
-        Criteria criteria = new Criteria("title").contains(keyword)
-                .or(new Criteria("authorName").contains(keyword))
-                .or(new Criteria("categoryName").contains(keyword))
-                .or(new Criteria("description").contains(keyword))
-                // 仅连载中(1) / 已完结(2)参与检索；下架同步延迟时在查询层兜底
-                .and(new Criteria("status").in(STATUS_ONGOING, STATUS_FINISHED));
-        if (categoryId != null) {
-            criteria = criteria.and(new Criteria("categoryId").is(categoryId));
-        }
+        NativeQueryBuilder queryBuilder = NativeQuery.builder()
+                // 全文匹配（query context 计分）+ 过滤条件（filter context：不计分、可缓存）
+                .withQuery(q -> q.bool(b -> {
+                    b.must(m -> m.multiMatch(mm -> mm
+                            .query(keyword)
+                            .fields("title^3", "authorName^2", "categoryName", "description")
+                            .minimumShouldMatch("75%")));
+                    // 仅连载中(1) / 已完结(2)参与检索，OR 语义：filter 内嵌 should bool（下架同步延迟时查询层兜底）
+                    b.filter(f -> f.bool(fb -> {
+                        fb.should(sh -> sh.term(t -> t.field("status").value(STATUS_ONGOING)));
+                        fb.should(sh -> sh.term(t -> t.field("status").value(STATUS_FINISHED)));
+                        fb.minimumShouldMatch("1");
+                        return fb;
+                    }));
+                    if (categoryId != null) {
+                        b.filter(f -> f.term(t -> t.field("categoryId").value(categoryId)));
+                    }
+                    return b;
+                }))
+                .withPageable(PageRequest.of(safePage - 1, safeSize));
+        applySort(queryBuilder, SearchSort.fromValue(sort));
 
-        CriteriaQuery query = new CriteriaQuery(criteria);
-        query.setPageable(PageRequest.of(safePage - 1, safeSize));
-        applySort(query, SearchSort.fromValue(sort));
-
-        SearchHits<BookDocument> hits = elasticsearchOperations.search(query, BookDocument.class);
+        SearchHits<BookDocument> hits = elasticsearchOperations.search(queryBuilder.build(), BookDocument.class);
         return toPageResult(hits, safePage, safeSize);
     }
 
     /** 按排序方式装配 ES 排序；relevance 不显式排序，走 ES 默认 _score 降序 */
-    private void applySort(CriteriaQuery query, SearchSort sort) {
+    private void applySort(NativeQueryBuilder queryBuilder, SearchSort sort) {
         switch (sort) {
             case HOT:
-                query.addSort(Sort.by(Sort.Direction.DESC, FIELD_HOT_SCORE));
+                queryBuilder.withSort(s -> s.field(f -> f.field(FIELD_HOT_SCORE).order(SortOrder.Desc)));
                 break;
             case LATEST:
-                query.addSort(Sort.by(Sort.Direction.DESC, FIELD_UPDATE_TIME));
+                queryBuilder.withSort(s -> s.field(f -> f.field(FIELD_UPDATE_TIME).order(SortOrder.Desc)));
                 break;
             case RELEVANCE:
             default:

@@ -9,6 +9,8 @@ import com.moyue.api.content.dto.ChapterDTO;
 import com.moyue.api.risk.client.RiskClient;
 import com.moyue.api.risk.dto.ModerationRequestDTO;
 import com.moyue.api.risk.dto.ModerationResultDTO;
+import com.moyue.api.search.client.SearchIndexClient;
+import com.moyue.api.search.dto.ChapterIndexDTO;
 import com.moyue.common.core.domain.PageResult;
 import com.moyue.chapter.entity.ChapterEntity;
 import com.moyue.chapter.mapper.ChapterMapper;
@@ -27,6 +29,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -65,6 +68,13 @@ public class ChapterService {
     /** 内容安全服务客户端（P2-15 机审 hook）；risk 未注册时安全降级 */
     @Autowired(required = false)
     private RiskClient riskClient;
+
+    /** 检索服务客户端（章节索引同步 hook）；search 未注册时安全降级 */
+    @Autowired(required = false)
+    private SearchIndexClient searchIndexClient;
+
+    /** 章节正文入索引的最大长度：超过部分截断（防单条 ES 文档过大拖垮索引与查询） */
+    private static final int CONTENT_INDEX_MAX = 20000;
 
     /**
      * 按 ID 查询章节（含正文）。
@@ -182,6 +192,8 @@ public class ChapterService {
         } catch (DuplicateKeyException ex) {
             throw new BizException(ResultCode.PARAM_ERROR, "章节序号已存在");
         }
+        // 索引同步 hook：编辑直达已发布（如审核改发布）时同步章节索引
+        syncChapterIndexIfPublished(e);
         return e;
     }
 
@@ -198,6 +210,8 @@ public class ChapterService {
         }
         checkBookOwner(e.getBookId(), userId, role);
         chapterMapper.deleteById(chapterId);
+        // 索引同步 hook：章节删除 → 物理删除 ES 索引文档
+        removeChapterIndex(chapterId);
     }
 
     /** 发布 / 定时发布：到点时间未到则置 status=1（审核中，待调度器到点转 2） */
@@ -225,6 +239,8 @@ public class ChapterService {
             e.setPublishTime(publishTime);
         }
         chapterMapper.updateById(e);
+        // 索引同步 hook：发布成功（含机审放行直接发布）→ 同步章节索引；定时发布置审核中不入索引
+        syncChapterIndexIfPublished(e);
         return e;
     }
 
@@ -275,6 +291,101 @@ public class ChapterService {
             e.setPublishTime(LocalDateTime.now());
         }
         chapterMapper.updateById(e);
+        // 索引同步 hook：审核通过发布 → 同步章节索引；驳回不入索引
+        syncChapterIndexIfPublished(e);
+    }
+
+    // ------------------------------ 章节索引同步 hook ------------------------------
+
+    /**
+     * 章节已发布时同步索引到 moyue-search（发布 / 审核通过 / 编辑直达已发布后调用）。
+     * Feign 调用失败仅记 warn、不阻断主流程（沿用既有降级风格，可经管理端全量重建补偿）。
+     */
+    private void syncChapterIndexIfPublished(ChapterEntity e) {
+        if (searchIndexClient == null || e == null || e.getId() == null
+                || !Integer.valueOf(STATUS_PUBLISHED).equals(e.getStatus())) {
+            return;
+        }
+        try {
+            searchIndexClient.indexChapter(toIndexDto(e));
+        } catch (Exception ex) {
+            // 检索服务未注册 / 不可用：安全降级，不阻断章节主流程
+            log.warn("同步章节索引失败 chapterId={}, err={}", e.getId(), ex.getMessage());
+        }
+    }
+
+    /** 章节删除同步：物理删除 ES 索引文档；失败仅记 warn */
+    private void removeChapterIndex(Long chapterId) {
+        if (searchIndexClient == null || chapterId == null) {
+            return;
+        }
+        try {
+            searchIndexClient.removeChapter(chapterId);
+        } catch (Exception ex) {
+            log.warn("删除章节索引失败 chapterId={}, err={}", chapterId, ex.getMessage());
+        }
+    }
+
+    /**
+     * 实体 → 索引载荷 DTO（索引同步与全量重建分页拉取复用）。
+     * 正文超过 {@value #CONTENT_INDEX_MAX} 字符时截断；作品名经 BookClient 解析（不可用时空串兜底）。
+     */
+    public ChapterIndexDTO toIndexDto(ChapterEntity e) {
+        ChapterIndexDTO dto = new ChapterIndexDTO();
+        dto.setChapterId(e.getId());
+        dto.setBookId(e.getBookId());
+        dto.setBookTitle(resolveBookTitle(e.getBookId()));
+        dto.setChapterTitle(e.getTitle());
+        dto.setContent(truncateForIndex(e.getContent()));
+        dto.setStatus(e.getStatus());
+        dto.setPublishTime(e.getPublishTime());
+        return dto;
+    }
+
+    /**
+     * 分页拉取已发布章节索引载荷（内部端点专用，不经网关）：按 chapter.id 升序，
+     * 供 moyue-search 管理端全量重建 moyue-chapter 索引（含截断后的正文）。
+     */
+    public PageResult<ChapterIndexDTO> pageForIndex(int page, int size) {
+        Page<ChapterEntity> p = new Page<>(page, size);
+        QueryWrapper<ChapterEntity> qw = new QueryWrapper<>();
+        qw.eq("status", STATUS_PUBLISHED);
+        qw.orderByAsc("id");
+        chapterMapper.selectPage(p, qw);
+
+        PageResult<ChapterIndexDTO> result = new PageResult<>();
+        result.setTotal(p.getTotal());
+        result.setPage((int) p.getCurrent());
+        result.setSize((int) p.getSize());
+        List<ChapterIndexDTO> records = new ArrayList<>();
+        for (ChapterEntity e : p.getRecords()) {
+            records.add(toIndexDto(e));
+        }
+        result.setRecords(records);
+        return result;
+    }
+
+    /** 正文截断：超过索引上限（20000 字符）时截取前缀，null 安全 */
+    private String truncateForIndex(String content) {
+        if (content == null) {
+            return "";
+        }
+        return content.length() > CONTENT_INDEX_MAX ? content.substring(0, CONTENT_INDEX_MAX) : content;
+    }
+
+    /** 解析作品名：经 BookClient 取书名；客户端未注册 / 不可用时空串兜底（不阻断索引同步） */
+    private String resolveBookTitle(Long bookId) {
+        if (bookClient == null || bookId == null) {
+            return "";
+        }
+        try {
+            R<BookSummaryDTO> resp = bookClient.getBook(bookId);
+            BookSummaryDTO book = resp == null ? null : resp.getData();
+            return book == null || book.getTitle() == null ? "" : book.getTitle();
+        } catch (Exception ex) {
+            // 书籍服务不可用：降级为空作品名，索引同步不受阻
+            return "";
+        }
     }
 
     // ------------------------------ 实体 → DTO 转换 ------------------------------
