@@ -92,6 +92,11 @@
             <groupId>com.moyue</groupId>
             <artifactId>moyue-api-social</artifactId>
         </dependency>
+        <!-- P0-1：结算单 DTO 供本服务内部 Feign 端点返回（SettlementClient 契约同模块） -->
+        <dependency>
+            <groupId>com.moyue</groupId>
+            <artifactId>moyue-api-system</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-openfeign</artifactId>

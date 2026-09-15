@@ -24,5 +24,6 @@
         <module>moyue-api-message</module>
         <module>moyue-api-risk</module>
         <module>moyue-api-ai</module>
+        <module>moyue-api-system</module>
     </modules>
 </project>

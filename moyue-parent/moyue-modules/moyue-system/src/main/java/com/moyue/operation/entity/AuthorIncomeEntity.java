@@ -30,7 +30,7 @@ public class AuthorIncomeEntity {
     /** 来源订单号（打赏分成） */
     private String orderNo;
 
-    /** 类型：1 订阅 / 2 打赏分成 / 3 全勤奖 */
+    /** 类型：1 订阅 / 2 打赏分成 / 3 全勤奖 / 4 买断分成（P0-1 新增，100% 入账） */
     private Integer incomeType;
 
     /** 金额（元） */
@@ -38,6 +38,12 @@ public class AuthorIncomeEntity {
 
     /** 结算月份 YYYY-MM */
     private String settleMonth;
+
+    /**
+     * 关联结算单 ID（V16 新增）。
+     * 非空表示该流水已被纳入某张 settlement_order，避免重复结算；查到为 null 的流水方可进入结算聚合。
+     */
+    private Long settlementId;
 
     /** 创建时间 */
     private LocalDateTime createTime;

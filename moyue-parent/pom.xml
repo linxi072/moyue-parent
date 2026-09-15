@@ -143,6 +143,11 @@
                 <artifactId>moyue-api-ai</artifactId>
                 <version>${project.version}</version>
             </dependency>
+            <dependency>
+                <groupId>com.moyue</groupId>
+                <artifactId>moyue-api-system</artifactId>
+                <version>${project.version}</version>
+            </dependency>
 
             <!-- MyBatis-Plus（Spring Boot 3 系必须使用 boot3 starter，否则拉到 mybatis-spring 2.x 与 Spring 6.1 不兼容） -->
             <dependency>

@@ -43,6 +43,9 @@ public class RewardService {
     /** 稿酬流水类型：2 打赏分成 */
     private static final int INCOME_REWARD_SHARE = 2;
 
+    /** 稿酬流水类型：4 买断分成（无真实付费域，由管理端手工录入，100% 入账） */
+    private static final int INCOME_BUYOUT_SHARE = 4;
+
     /** 作者分成比例（70%） */
     private static final BigDecimal AUTHOR_SHARE_RATIO = new BigDecimal("0.70");
 
@@ -153,6 +156,16 @@ public class RewardService {
         return summary;
     }
 
+    /**
+     * 录入买断稿酬流水（管理端手工录入，incomeType=4）。
+     * 买断无分成比例，全额入账；settleMonth 取运营指定的结算月份 period。
+     *
+     * @return 已插入的稿酬流水实体
+     */
+    public AuthorIncomeEntity recordBuyoutIncome(Long authorId, Long bookId, BigDecimal amount, String period) {
+        return settleBuyoutIncome(authorId, bookId, amount, period);
+    }
+
     /** 按条件聚合稿酬金额；typeFilter 为空时统计全部类型 */
     private BigDecimal sumIncome(Long userId, String month) {
         com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<AuthorIncomeEntity> qw =
@@ -252,6 +265,28 @@ public class RewardService {
         income.setAmount(order.getAmount().multiply(AUTHOR_SHARE_RATIO).setScale(2, RoundingMode.HALF_UP));
         income.setSettleMonth(LocalDateTime.now().format(MONTH_FORMATTER));
         authorIncomeMapper.insert(income);
+    }
+
+    /** 生成买断稿酬流水：incomeType=4，金额全额入账，settleMonth=period */
+    private AuthorIncomeEntity settleBuyoutIncome(Long authorId, Long bookId, BigDecimal amount, String period) {
+        if (authorId == null) {
+            throw new BizException(ResultCode.PARAM_ERROR, "作者 ID 不能为空");
+        }
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BizException(ResultCode.PARAM_ERROR, "买断稿酬金额必须大于 0");
+        }
+        if (period == null || period.isBlank()) {
+            throw new BizException(ResultCode.PARAM_ERROR, "结算月份不能为空");
+        }
+        AuthorIncomeEntity income = new AuthorIncomeEntity();
+        income.setAuthorId(authorId);
+        income.setBookId(bookId);
+        income.setOrderNo(null);
+        income.setIncomeType(INCOME_BUYOUT_SHARE);
+        income.setAmount(amount.setScale(2, RoundingMode.HALF_UP));
+        income.setSettleMonth(period);
+        authorIncomeMapper.insert(income);
+        return income;
     }
 
     /** 经 Feign 取书籍作者 ID；失败或非法时返回 null（降级，不阻断支付） */

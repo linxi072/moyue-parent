@@ -29,7 +29,7 @@ public class AuthorIncomeEntity {
     /** 来源订单号（打赏分成，可为空） */
     private String orderNo;
 
-    /** 类型：1 订阅 / 2 打赏分成 / 3 全勤奖 */
+    /** 类型：1 订阅 / 2 打赏分成 / 3 全勤奖 / 4 买断分成（P0-1 新增，100% 入账） */
     private Integer incomeType;
 
     /** 金额（元） */
@@ -37,6 +37,12 @@ public class AuthorIncomeEntity {
 
     /** 结算月份 YYYY-MM */
     private String settleMonth;
+
+    /**
+     * 关联结算单 ID（V16 新增，只读标记）。
+     * 由 system 服务在生成结算单时回写；commerce 仅作展示标记，不参与写。
+     */
+    private Long settlementId;
 
     /** 创建时间 */
     private LocalDateTime createTime;

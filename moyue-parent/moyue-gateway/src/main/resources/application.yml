@@ -144,6 +144,15 @@ spring:
           predicates:
             - Path=/api/v1/system/login
 
+        # ===== system（P0-1 稿酬结算打款闭环）=====
+        # 作者端结算单发起 / 管理端审核打款 / 运营买断稿酬录入，均路由到 moyue-system。
+        # 注意：同一 route 下多个 - Path= 断言是 AND 关系（互斥路径永不匹配），
+        # 多路径必须写在同一条断言内用逗号分隔（OR），与 moyue-search 写法一致。
+        - id: moyue-settlement
+          uri: lb://moyue-system
+          predicates:
+            - Path=/api/v1/settlements/**,/api/v1/admin/settlements/**,/api/v1/admin/author-incomes/**
+
         # ===== ai（智能域：AI 智能客服，独立服务）=====
         - id: moyue-ai
           uri: lb://moyue-ai
