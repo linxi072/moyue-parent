@@ -2,6 +2,7 @@ package com.moyue.chapter.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyue.api.content.client.BookClient;
 import com.moyue.api.content.dto.BookSummaryDTO;
@@ -58,6 +59,12 @@ public class ChapterService {
     private static final int STATUS_REVIEWING = 1;
     /** 章节状态：已发布 */
     private static final int STATUS_PUBLISHED = 2;
+    /**
+     * 章节状态：定时待发布（P0-2 新增）。
+     * 修正原实现把「定时未到点」也置为 STATUS_REVIEWING(1) 的语义混淆——
+     * 若与人工审核同值，定时调度器扫描 status=1 会误激活待人工审核的章节。
+     */
+    private static final int STATUS_SCHEDULED = 4;
 
     @Autowired
     private ChapterMapper chapterMapper;
@@ -234,14 +241,53 @@ public class ChapterService {
             e.setStatus(DECISION_REVIEW.equals(decision) ? STATUS_REVIEWING : STATUS_PUBLISHED);
             e.setPublishTime(now);
         } else {
-            // TODO: 定时到点由 1→2 需调度器（当前无 XXL-Job，超出本次范围）
-            e.setStatus(STATUS_REVIEWING);
+            // P0-2：定时发布置「定时待发布(4)」，到点由 ChapterPublishJobHandler 激活为已发布(2)
+            e.setStatus(STATUS_SCHEDULED);
             e.setPublishTime(publishTime);
         }
         chapterMapper.updateById(e);
-        // 索引同步 hook：发布成功（含机审放行直接发布）→ 同步章节索引；定时发布置审核中不入索引
+        // 索引同步 hook：仅已发布(2) 入索引；定时待发布(4) 与人工审核中(1) 均不入索引
         syncChapterIndexIfPublished(e);
         return e;
+    }
+
+    /**
+     * P0-2：激活到点的定时章节——扫描 status=4 且 publish_time <= now 的章节，
+     * 逐条条件更新为已发布(2) 并复用 {@link #syncChapterIndexIfPublished} 同步 ES 索引。
+     *
+     * <p>幂等：更新条件自带 {@code status=4} 限定，已发布(2) 自然跳过，
+     * 重复调度既不重复改状态也不重复建索引；多实例并发下由数据库条件更新保证只成功一次。</p>
+     *
+     * @return 本次实际激活的章节条数
+     */
+    @Caching(evict = {
+            @CacheEvict(cacheNames = CacheNames.CHAPTER_CONTENT, allEntries = true),
+            @CacheEvict(cacheNames = CacheNames.CHAPTER_CATALOG, allEntries = true)
+    })
+    @Transactional
+    public int activateScheduledChapters() {
+        LocalDateTime now = LocalDateTime.now();
+        List<ChapterEntity> pending = chapterMapper.selectList(Wrappers.<ChapterEntity>lambdaQuery()
+                .eq(ChapterEntity::getStatus, STATUS_SCHEDULED)
+                .le(ChapterEntity::getPublishTime, now));
+        int activated = 0;
+        for (ChapterEntity e : pending) {
+            int rows = chapterMapper.update(null, Wrappers.<ChapterEntity>lambdaUpdate()
+                    .eq(ChapterEntity::getId, e.getId())
+                    .eq(ChapterEntity::getStatus, STATUS_SCHEDULED)
+                    .set(ChapterEntity::getStatus, STATUS_PUBLISHED));
+            if (rows <= 0) {
+                // 已被其它实例/上一轮调度激活，跳过，避免重复建索引
+                continue;
+            }
+            e.setStatus(STATUS_PUBLISHED);
+            syncChapterIndexIfPublished(e);
+            activated++;
+        }
+        if (activated > 0) {
+            log.info("定时章节激活完成，本次激活 {} 条", activated);
+        }
+        return activated;
     }
 
     /** 章节排序：修改序号（uk_book_no 冲突转为参数错误） */

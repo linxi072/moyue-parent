@@ -74,6 +74,12 @@
             <artifactId>lombok</artifactId>
             <scope>provided</scope>
         </dependency>
+        <!-- 测试：JUnit5 + Mockito + AssertJ（项目禁用 Docker/Testcontainers，一律纯 Mockito 单测） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
         <!-- springdoc-openapi：契约元信息（版本由根 POM BOM 管理，经 common-core 自动配置生效） -->
         <dependency>
             <groupId>org.springdoc</groupId>

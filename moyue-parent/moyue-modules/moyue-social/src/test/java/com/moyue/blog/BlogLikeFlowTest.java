@@ -2,20 +2,15 @@ package com.moyue.blog;
 
 import com.moyue.api.account.client.UserClient;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
-import org.testcontainers.containers.MySQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -23,19 +18,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * 博客点赞链路集成测试（P0-2 核心靶标）。
- * Testcontainers MySQL + 真实 Flyway V1–V6 建表；UserClient 由 @MockBean 替换。
+ * H2 内存库（MySQL 兼容模式）+ Flyway 全量建表；UserClient 由 @MockBean 替换。
  * 覆盖：点赞 → 计数 1、再点 → 取消计数 0（逻辑删除行保留）、非成员文章 20001、
  * 双用户并发计数正确、点赞记录不重复。
+ * profile 固定为 {@code test}，数据源/ Flyway 配置见 {@code src/test/resources/application-test.yml}。
  */
-@SpringBootTest
+@SpringBootTest(classes = com.moyue.social.SocialApplication.class)
 @AutoConfigureMockMvc
-@Disabled("项目硬性约束：禁用 Docker/Testcontainers（见 docs/不可忽视条件.md）。本用例改造为 H2 或原生 MySQL 集成后再启用。")
-@Testcontainers
+@ActiveProfiles("test")
 class BlogLikeFlowTest {
-
-    @Container
-    @ServiceConnection
-    static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.0.36");
 
     @Autowired
     private MockMvc mockMvc;

@@ -1,42 +1,34 @@
 package com.moyue.points;
 
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
-import org.testcontainers.containers.MySQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * 积分兑换链路集成测试（P0-2 核心靶标）。
- * Testcontainers MySQL + 真实 Flyway V1–V6 建表，无 Mock 数据层。
+ * H2 内存库（MySQL 兼容模式）+ Flyway 全量建表，无 Mock 数据层。
  * 覆盖：兑换成功（余额扣减 / 库存扣减 / 订单落库联动）、积分不足（含无账户用户）、商品下架、库存售罄。
  * 校验基线：业务码 0 成功 / 10001 参数 / 20001 资源不存在；HTTP 统一 200 承载。
  *
  * 合并说明：moyue-points 并入 moyue-commerce 后，本测试由 moyue-commerce 的
- * CommerceApplication 承载（@SpringBootTest 自动回溯包路径查找启动类）。
+ * CommerceApplication 承载（包路径不在其祖先目录，故显式指定 classes）。
+ * profile 固定为 {@code test}，数据源/ Flyway 配置见 {@code src/test/resources/application-test.yml}。
  */
-@SpringBootTest
+@SpringBootTest(classes = com.moyue.commerce.CommerceApplication.class)
 @AutoConfigureMockMvc
-@Disabled("项目硬性约束：禁用 Docker/Testcontainers（见 docs/不可忽视条件.md）。本用例改造为 H2 或原生 MySQL 集成后再启用。")
-@Testcontainers
+@ActiveProfiles("test")
 class PointsOrderFlowTest {
-
-    @Container
-    @ServiceConnection
-    static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.0.36");
 
     @Autowired
     private MockMvc mockMvc;
@@ -89,8 +81,10 @@ class PointsOrderFlowTest {
     }
 
     @Test
-    void createOrder_userWithoutAccount_autoCreatesThenRejectsInsufficient() throws Exception {
-        // 7002 无账户：先自动建户（余额 0），条件扣减失败 → 积分不足
+    void createOrder_userWithoutAccount_rejectedAndNoSideEffect() throws Exception {
+        // 7002 无账户：兑换事务内先懒建户（余额 0），随后条件扣减影响 0 行 → 抛「积分不足」，
+        // 该异常使整个 @Transactional 回滚。因此失败路径必须零副作用：
+        // 账户行 / 库存 / 订单都不留痕（懒建户只是为了让条件扣减这条 SQL 有落点，不是业务产物）。
         mockMvc.perform(post("/api/v1/points/orders")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"userId\":7002,\"productId\":9001}"))
@@ -98,8 +92,22 @@ class PointsOrderFlowTest {
                 .andExpect(jsonPath("$.code").value(10001))
                 .andExpect(jsonPath("$.message").value("积分不足"));
 
+        assertThat(queryInt("SELECT COUNT(*) FROM points_account WHERE user_id = 7002")).isZero();
+        assertThat(queryInt("SELECT stock FROM points_product WHERE id = 9001")).isEqualTo(5);
+        assertThat(queryInt("SELECT COUNT(*) FROM points_order WHERE user_id = 7002")).isZero();
+    }
+
+    @Test
+    void getAccount_userWithoutAccount_autoCreatesZeroBalance() throws Exception {
+        // 账户懒初始化走的是独立只读接口（非事务，无回滚），不存在则建户并返回余额 0
+        mockMvc.perform(get("/api/v1/points/accounts/{userId}", 7002L))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data.userId").value(7002))
+                .andExpect(jsonPath("$.data.balance").value(0));
+
         assertThat(queryInt("SELECT COUNT(*) FROM points_account WHERE user_id = 7002")).isEqualTo(1);
-        assertThat(queryInt("SELECT balance FROM points_account WHERE user_id = 7002")).isEqualTo(0);
+        assertThat(queryInt("SELECT balance FROM points_account WHERE user_id = 7002")).isZero();
     }
 
     @Test

@@ -1,19 +1,14 @@
 package com.moyue.read;
 
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
-import org.testcontainers.containers.MySQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -23,23 +18,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * 书架链路集成测试（P0-2 核心靶标）。
- * Testcontainers MySQL + 真实 Flyway V1–V6 建表。
+ * H2 内存库（MySQL 兼容模式）+ Flyway 全量建表，无 Mock 数据层。
  * 覆盖：加入书架幂等（含逻辑删除行复活）、移出书架（重复移出 20001）、未带头 10002、
  * bookId 为空 10001、阅读进度更新落库。
  * 网关未参与，直接注入 X-User-Id 头模拟网关鉴权透传。
  * <p>三端重构后本测试随阅读域迁入 moyue-reader，包名 {@code com.moyue.read} 保持不变；
- * 应用上下文由唯一启动类 {@code com.moyue.content.ContentApplication} 装配
- * （见 {@code src/test/resources/application-test.yml}）。</p>
+ * 应用上下文由唯一启动类 {@code com.moyue.content.ContentApplication} 装配。
+ * profile 固定为 {@code test}，数据源/ Flyway 配置见 {@code src/test/resources/application-test.yml}。</p>
  */
 @SpringBootTest(classes = com.moyue.content.ContentApplication.class)
 @AutoConfigureMockMvc
-@Disabled("项目硬性约束：禁用 Docker/Testcontainers（见 docs/不可忽视条件.md）。本用例改造为 H2 或原生 MySQL 集成后再启用。")
-@Testcontainers
+@ActiveProfiles("test")
 class BookshelfFlowTest {
-
-    @Container
-    @ServiceConnection
-    static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.0.36");
 
     @Autowired
     private MockMvc mockMvc;

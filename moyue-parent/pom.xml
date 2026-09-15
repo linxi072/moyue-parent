@@ -29,7 +29,6 @@
         <mybatis-plus.version>3.5.7</mybatis-plus.version>
         <jjwt.version>0.12.6</jjwt.version>
         <xxl-job.version>2.4.0</xxl-job.version>
-        <testcontainers.version>1.19.8</testcontainers.version>
         <springdoc.version>2.3.0</springdoc.version>
     </properties>
 

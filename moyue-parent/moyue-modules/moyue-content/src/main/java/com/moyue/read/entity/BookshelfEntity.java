@@ -2,6 +2,7 @@ package com.moyue.read.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
@@ -28,6 +29,7 @@ public class BookshelfEntity {
     private Long lastChapterId;
 
     /** 逻辑删除：0 否 / 1 是 */
+    @TableLogic(value = "0", delval = "1")
     private Integer isDeleted;
 
     /** 加入书架时间 */

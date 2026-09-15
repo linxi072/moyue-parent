@@ -1,6 +1,8 @@
 package com.moyue.chapter;
 
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.moyue.api.content.client.BookClient;
 import com.moyue.api.content.dto.BookSummaryDTO;
 import com.moyue.api.risk.client.RiskClient;
@@ -13,12 +15,15 @@ import com.moyue.chapter.service.ChapterService;
 import com.moyue.common.BizException;
 import com.moyue.common.R;
 import com.moyue.common.ResultCode;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
@@ -27,6 +32,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -37,6 +43,18 @@ import static org.mockito.Mockito.when;
  * indexChapter / removeChapter 的触发与不触发边界。
  */
 class ChapterServiceIndexHookTest {
+
+    /**
+     * 预热 MyBatis-Plus 的 lambda 列名缓存。
+     * 本测试是纯 Mockito 单测、不启动 Spring 容器，TableInfo 从未被 MyBatis 初始化，
+     * 因此 activateScheduledChapters 内部的 Wrappers.lambdaQuery/lambdaUpdate 会抛
+     * "can not find lambda cache for this entity"。手动注册实体即可。
+     */
+    @BeforeAll
+    static void warmUpMybatisPlusLambdaCache() {
+        TableInfoHelper.initTableInfo(
+                new MapperBuilderAssistant(new MybatisConfiguration(), ""), ChapterEntity.class);
+    }
 
     private final ChapterMapper chapterMapper = mock(ChapterMapper.class);
     private final BookClient bookClient = mock(BookClient.class);
@@ -119,15 +137,75 @@ class ChapterServiceIndexHookTest {
     }
 
     @Test
-    @DisplayName("publish 定时发布（未来时间）：status=1 审核中，不入索引")
+    @DisplayName("publish 定时发布（未来时间）：status=4 定时待发布（不再与人工审核 1 混淆），不入索引")
     void publishShouldNotIndexWhenScheduled() {
         stubOwnerOk();
         stubModeration("PASS");
 
         ChapterEntity e = service.publish(1L, USER_ID, ROLE_AUTHOR, LocalDateTime.now().plusDays(1));
 
-        assertThat(e.getStatus()).isEqualTo(1);
+        assertThat(e.getStatus()).isEqualTo(4);
         verify(searchIndexClient, never()).indexChapter(any());
+    }
+
+    // ------------------------------ activateScheduledChapters（P0-2 定时发布闭环） ------------------------------
+
+    private ChapterEntity scheduled(long id) {
+        ChapterEntity e = draft();
+        e.setId(id);
+        e.setStatus(4);
+        e.setPublishTime(LocalDateTime.now().minusMinutes(1));
+        return e;
+    }
+
+    @Test
+    @DisplayName("P0-2 到点章节激活：status 4 → 2 并逐个入索引，返回激活条数")
+    void activateShouldPublishDueChaptersAndIndex() {
+        ChapterEntity a = scheduled(101L);
+        ChapterEntity b = scheduled(102L);
+        when(chapterMapper.selectList(any())).thenReturn(List.of(a, b));
+        when(chapterMapper.update(any(), any())).thenReturn(1);
+
+        int activated = service.activateScheduledChapters();
+
+        assertThat(activated).isEqualTo(2);
+        assertThat(a.getStatus()).isEqualTo(2);
+        assertThat(b.getStatus()).isEqualTo(2);
+        verify(searchIndexClient, times(2)).indexChapter(any(ChapterIndexDTO.class));
+    }
+
+    @Test
+    @DisplayName("P0-2 幂等：条件更新 0 行（已被其它实例激活）→ 不计数、不重复建索引")
+    void activateShouldSkipWhenUpdateAffectsNoRow() {
+        when(chapterMapper.selectList(any())).thenReturn(List.of(scheduled(101L), scheduled(102L)));
+        when(chapterMapper.update(any(), any())).thenReturn(0).thenReturn(1);
+
+        int activated = service.activateScheduledChapters();
+
+        assertThat(activated).isEqualTo(1);
+        verify(searchIndexClient, times(1)).indexChapter(any(ChapterIndexDTO.class));
+    }
+
+    @Test
+    @DisplayName("P0-2 无到点章节：不触发条件更新，索引客户端不被调用")
+    void activateShouldNoopWhenNothingDue() {
+        when(chapterMapper.selectList(any())).thenReturn(List.of());
+
+        assertThat(service.activateScheduledChapters()).isZero();
+        verify(chapterMapper, never()).update(any(), any());
+        verify(searchIndexClient, never()).indexChapter(any());
+    }
+
+    @Test
+    @DisplayName("P0-2 索引同步失败：仅 warn 不阻断激活，状态仍为已发布")
+    void activateShouldNotBlockWhenIndexFails() {
+        ChapterEntity a = scheduled(101L);
+        when(chapterMapper.selectList(any())).thenReturn(List.of(a));
+        when(chapterMapper.update(any(), any())).thenReturn(1);
+        doThrow(new RuntimeException("connection refused")).when(searchIndexClient).indexChapter(any());
+
+        assertThatCode(() -> service.activateScheduledChapters()).doesNotThrowAnyException();
+        assertThat(a.getStatus()).isEqualTo(2);
     }
 
     @Test

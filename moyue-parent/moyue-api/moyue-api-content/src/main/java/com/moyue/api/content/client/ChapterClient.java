@@ -44,4 +44,14 @@ public interface ChapterClient {
     @GetMapping("/api/v1/internal/chapter/page")
     R<PageResult<ChapterIndexDTO>> pageChapters(@RequestParam("page") int page,
                                                 @RequestParam("size") int size);
+
+    /**
+     * 激活到点的定时章节（内部端点，不经网关）：status 4（定时待发布）→ 2（已发布）并同步 ES 索引（P0-2）。
+     * 供 {@code ChapterPublishJobHandler}（moyue-system）周期调用；
+     * 幂等——条件更新自带 status=4 限定，已发布章节自然跳过，重复调度不重复建索引。
+     *
+     * @return 本次实际激活的章节条数
+     */
+    @PutMapping("/api/v1/internal/chapters/activate-scheduled")
+    R<Integer> activateScheduledChapters();
 }

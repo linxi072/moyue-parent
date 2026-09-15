@@ -4,39 +4,31 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.moyue.api.account.client.UserClient;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.test.web.client.TestRestTemplate;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.testcontainers.containers.MySQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-
+import org.springframework.test.context.ActiveProfiles;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * IM 收发链路集成测试（P0-2 核心靶标 + 孤儿消息缺陷回归）。
- * RANDOM_PORT 真实 Servlet 环境（兼容 WebSocket 基础设施）+ Testcontainers MySQL。
+ * RANDOM_PORT 真实 Servlet 环境（兼容 WebSocket 基础设施）+ H2 内存库（MySQL 兼容模式）。
  * 覆盖：创建单聊 → 成员发消息 → 会话预览更新 → 消息可拉取；
  * 回归：对不存在会话发消息必须 20001（修复前为孤儿消息落库 200）；
  * 非会话成员发消息必须 10003。
+ * profile 固定为 {@code test}，数据源/ Flyway 配置见 {@code src/test/resources/application-test.yml}。
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Disabled("项目硬性约束：禁用 Docker/Testcontainers（见 docs/不可忽视条件.md）。本用例改造为 H2 或原生 MySQL 集成后再启用。")
-@Testcontainers
+@SpringBootTest(classes = com.moyue.social.SocialApplication.class,
+        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@ActiveProfiles("test")
 class ImMessageFlowTest {
-
-    @Container
-    @ServiceConnection
-    static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.0.36");
 
     @Autowired
     private TestRestTemplate restTemplate;

@@ -38,4 +38,15 @@ public class ChapterInternalController {
                                                        @RequestParam(defaultValue = "100") int size) {
         return R.ok(chapterService.pageForIndex(page, size));
     }
+
+    /**
+     * P0-2：激活到点的定时章节（定时待发布 4 → 已发布 2，并同步 ES 索引）。
+     * 由 moyue-system 的 chapterPublishJob 周期调用；接口幂等，重复调用不重复激活。
+     *
+     * @return 本次激活的章节条数
+     */
+    @PutMapping("/chapters/activate-scheduled")
+    public R<Integer> activateScheduled() {
+        return R.ok(chapterService.activateScheduledChapters());
+    }
 }

@@ -42,8 +42,7 @@ spring:
         - id: moyue-book
           uri: lb://moyue-content
           predicates:
-            - Path=/api/v1/books/**
-            - Path=/api/v1/admin/books/**
+            - Path=/api/v1/books/**,/api/v1/admin/books/**
         # C2) 书城静态资源（封面等上传文件，公网只读，白名单前缀放行）
         - id: moyue-book-files
           uri: lb://moyue-content
@@ -95,16 +94,16 @@ spring:
           uri: lb://moyue-commerce
           predicates:
             - Path=/api/v1/author/**
+        # 注意：同一 route 下多条 - Path= 断言是 AND 关系（互斥路径永不匹配），
+        # 多路径必须写在同一条断言内用逗号分隔（OR）。以下路由均按此规则修正。
         - id: moyue-points
           uri: lb://moyue-commerce
           predicates:
-            - Path=/api/v1/points/**
-            - Path=/api/v1/admin/points/**
+            - Path=/api/v1/points/**,/api/v1/admin/points/**
         - id: moyue-merch
           uri: lb://moyue-commerce
           predicates:
-            - Path=/api/v1/merch/**
-            - Path=/api/v1/admin/merch/**
+            - Path=/api/v1/merch/**,/api/v1/admin/merch/**
 
         # ===== risk（内容安全域：审核 / 举报 / 敏感词）=====
         - id: moyue-audit
@@ -114,8 +113,7 @@ spring:
         - id: moyue-risk-admin
           uri: lb://moyue-risk
           predicates:
-            - Path=/api/v1/admin/reports/**
-            - Path=/api/v1/admin/risk/**
+            - Path=/api/v1/admin/reports/**,/api/v1/admin/risk/**
         - id: moyue-report
           uri: lb://moyue-risk
           predicates:
@@ -125,8 +123,7 @@ spring:
         - id: moyue-operation
           uri: lb://moyue-system
           predicates:
-            - Path=/api/v1/admin/announcements/**
-            - Path=/api/v1/admin/orders/**
+            - Path=/api/v1/admin/announcements/**,/api/v1/admin/orders/**
         - id: moyue-stat
           uri: lb://moyue-system
           predicates:

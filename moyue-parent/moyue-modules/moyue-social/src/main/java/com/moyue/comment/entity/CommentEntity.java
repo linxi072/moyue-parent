@@ -2,6 +2,7 @@ package com.moyue.comment.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
@@ -43,6 +44,7 @@ public class CommentEntity {
     private Integer likeCount;
 
     /** 逻辑删除：0 否 / 1 是 */
+    @TableLogic(value = "0", delval = "1")
     private Integer isDeleted;
 
     /** 创建时间 */
