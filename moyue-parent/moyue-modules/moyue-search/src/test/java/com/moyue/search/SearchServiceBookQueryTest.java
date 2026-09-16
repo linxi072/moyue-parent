@@ -9,6 +9,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.moyue.search.document.BookDocument;
 import com.moyue.search.repository.BookSearchRepository;
 import com.moyue.search.service.SearchService;
+import com.moyue.search.service.SynonymExpander;
+import com.moyue.search.service.SpellCorrector;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -19,6 +21,7 @@ import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -46,6 +49,12 @@ class SearchServiceBookQueryTest {
         ReflectionTestUtils.setField(s, "bookSearchRepository", mock(BookSearchRepository.class));
         ReflectionTestUtils.setField(s, "elasticsearchOperations", operations);
         ReflectionTestUtils.setField(s, "searchProperties", new com.moyue.search.config.SearchProperties());
+        // P1-5：search() 依赖同义词扩展；此处透传原词，保持字段权重 / status 白名单回归不变
+        SynonymExpander synonymExpander = mock(SynonymExpander.class);
+        SpellCorrector spellCorrector = mock(SpellCorrector.class);
+        when(synonymExpander.expand(any())).thenAnswer(inv -> Set.of((String) inv.getArgument(0)));
+        ReflectionTestUtils.setField(s, "synonymExpander", synonymExpander);
+        ReflectionTestUtils.setField(s, "spellCorrector", spellCorrector);
         return s;
     }
 
@@ -100,7 +109,7 @@ class SearchServiceBookQueryTest {
         service.search("剑来", null, "relevance", 1, 10);
         JsonNode json = lastQueryJson();
 
-        JsonNode multiMatch = json.path("bool").path("must").get(0).path("multi_match");
+        JsonNode multiMatch = json.path("bool").path("must").get(0).path("bool").path("should").get(0).path("multi_match");
         assertThat(multiMatch.path("query").asText()).isEqualTo("剑来");
         List<String> fields = new java.util.ArrayList<>();
         multiMatch.path("fields").forEach(f -> fields.add(f.asText()));

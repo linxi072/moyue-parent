@@ -3,6 +3,7 @@ package com.moyue.search.controller;
 import com.moyue.common.core.domain.PageResult;
 import com.moyue.common.R;
 import com.moyue.search.document.BookDocument;
+import com.moyue.search.dto.BookSearchResult;
 import com.moyue.search.dto.ChapterSearchResultDTO;
 import com.moyue.search.service.ChapterSearchService;
 import com.moyue.search.service.RecommendService;
@@ -52,6 +53,25 @@ public class SearchController {
                                                    @RequestParam(defaultValue = "1") int page,
                                                    @RequestParam(defaultValue = "20") int size) {
         return R.ok(searchService.search(keyword, categoryId, sort, page, size));
+    }
+
+    /**
+     * 书籍检索（P1-5 纠错增强）：主检索无命中时自动按编辑距离取最近词二次召回，
+     * 结果 {@link BookSearchResult#getCorrectedKeyword()} 非 null 即给出纠错建议。
+     *
+     * @param keyword    关键词（必填）
+     * @param categoryId 分类 ID（可选）
+     * @param sort       排序：relevance（默认）/ hot / latest
+     * @param page       页码（默认 1）
+     * @param size       每页大小（默认 20）
+     */
+    @GetMapping("/search/corrected")
+    public R<BookSearchResult> searchBooksCorrected(@RequestParam String keyword,
+                                                     @RequestParam(required = false) Long categoryId,
+                                                     @RequestParam(required = false, defaultValue = "relevance") String sort,
+                                                     @RequestParam(defaultValue = "1") int page,
+                                                     @RequestParam(defaultValue = "20") int size) {
+        return R.ok(searchService.searchWithCorrection(keyword, categoryId, sort, page, size));
     }
 
     /**
