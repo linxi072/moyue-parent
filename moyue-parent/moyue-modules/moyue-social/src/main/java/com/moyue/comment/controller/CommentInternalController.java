@@ -1,8 +1,10 @@
 package com.moyue.comment.controller;
 
 import com.moyue.comment.service.CommentService;
+import com.moyue.api.social.dto.CommentDTO;
 import com.moyue.common.R;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -25,5 +27,11 @@ public class CommentInternalController {
     public R<Void> audit(@PathVariable Long commentId, @RequestParam Integer status) {
         commentService.auditComment(commentId, status);
         return R.ok();
+    }
+
+    /** 按 ID 查询单条评论（供 moyue-risk 解析归属人；不存在返回 data=null） */
+    @GetMapping("/comments/{commentId}")
+    public R<CommentDTO> getComment(@PathVariable Long commentId) {
+        return R.ok(CommentService.toDto(commentService.getById(commentId)));
     }
 }

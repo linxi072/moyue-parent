@@ -254,6 +254,14 @@ public class CommentService {
      * 审核回写（内部端点专用，不经网关）：status 1=已通过 / 2=已驳回。
      * 由 moyue-audit 审核裁决后经 Feign 调用。
      */
+    /** 按 ID 查询评论实体（供内部端点 / 归属人解析；不存在返回 null，由调用方降级） */
+    public CommentEntity getById(Long commentId) {
+        if (commentId == null) {
+            return null;
+        }
+        return commentMapper.selectById(commentId);
+    }
+
     @Transactional
     public void auditComment(Long commentId, Integer status) {
         if (status == null || (status != 1 && status != 2)) {

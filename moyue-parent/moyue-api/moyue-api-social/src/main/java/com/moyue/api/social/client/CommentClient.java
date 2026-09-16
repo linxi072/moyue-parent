@@ -38,4 +38,11 @@ public interface CommentClient {
     @PutMapping("/api/v1/internal/comments/{commentId}/audit")
     R<Void> auditComment(@PathVariable("commentId") Long commentId,
                          @RequestParam("status") Integer status);
+
+    /**
+     * 按 ID 查询单条评论（内部端点，不经网关）：供 moyue-risk 解析举报/审核评论归属人。
+     * 返回 CommentDTO（含 userId）；评论不存在返回 data=null（调用方据此降级跳过）。
+     */
+    @GetMapping("/api/v1/internal/comments/{commentId}")
+    R<CommentDTO> getComment(@PathVariable("commentId") Long commentId);
 }

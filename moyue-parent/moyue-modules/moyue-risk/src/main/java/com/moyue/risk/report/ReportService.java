@@ -4,10 +4,14 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.moyue.api.content.client.BookClient;
 import com.moyue.api.content.client.ChapterClient;
+import com.moyue.api.content.dto.BookSummaryDTO;
+import com.moyue.api.content.dto.ChapterDTO;
 import com.moyue.api.message.client.MessageDispatchClient;
 import com.moyue.api.message.dto.MessageDispatchDTO;
 import com.moyue.api.social.client.CommentClient;
+import com.moyue.api.social.dto.CommentDTO;
 import com.moyue.common.BizException;
 import com.moyue.common.R;
 import com.moyue.common.ResultCode;
@@ -19,6 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -70,6 +75,10 @@ public class ReportService {
 
     @Autowired(required = false)
     private CommentClient commentClient;
+
+    /** 书籍服务客户端：举报书籍 / 章节时经 book 解析作者（被处理方）；不可用时 owner 通知降级跳过 */
+    @Autowired(required = false)
+    private BookClient bookClient;
 
     /** 站内信触达客户端（moyue-message）；不可用时结果触达降级跳过 */
     @Autowired(required = false)
@@ -176,6 +185,8 @@ public class ReportService {
 
         // 结果触达：REPORT_RESULT 模板（V13 种子），失败只告警不回滚处理结果
         notifyReporter(report, passed);
+        // 被处理方通知：OWNER_NOTICE 模板（V17 种子），通知内容归属人，失败只告警不回滚
+        notifyOwner(report, passed);
         return report;
     }
 
@@ -244,6 +255,83 @@ public class ReportService {
         } catch (Exception ex) {
             log.warn("[report] 举报结果触达异常（已忽略）：reportId={}, err={}", report.getId(), ex.getMessage());
         }
+    }
+
+    /** 通知被处理内容归属人（章节作者 / 评论者 / 书籍作者 / 被举报用户），走站内信 INBOX；失败只告警不回滚 */
+    private void notifyOwner(ReportEntity report, boolean passed) {
+        if (messageDispatchClient == null) {
+            log.warn("[report] 触达服务不可用，owner 通知跳过：reportId={}", report.getId());
+            return;
+        }
+        Long ownerId = resolveOwnerId(report);
+        if (ownerId == null) {
+            log.warn("[report] 无法解析被处理方用户，owner 通知跳过：reportId={}, targetType={}, targetId={}",
+                    report.getId(), report.getTargetType(), report.getTargetId());
+            return;
+        }
+        try {
+            MessageDispatchDTO dto = new MessageDispatchDTO();
+            dto.setUserId(ownerId);
+            dto.setTemplateCode("OWNER_NOTICE");
+            dto.setParams(Map.of(
+                    "targetDesc", describeTarget(report),
+                    "result", passed ? "属实，已下架/隐藏" : "驳回（举报不成立）",
+                    "reason", (report.getHandleRemark() != null && !report.getHandleRemark().isBlank())
+                            ? report.getHandleRemark().trim() : "经平台审核不属实"));
+            // 强制站内信渠道（INBOX=1），保证处置闭环在站内信真实可达
+            dto.setChannels(List.of(1));
+            dto.setBizType("REPORT");
+            dto.setBizId(report.getId());
+            R<?> resp = messageDispatchClient.dispatch(dto);
+            if (resp == null || resp.getCode() != ResultCode.SUCCESS.getCode()) {
+                log.warn("[report] owner 通知触达失败（已忽略）：reportId={}, ownerId={}, resp={}",
+                        report.getId(), ownerId, resp);
+            }
+        } catch (Exception ex) {
+            log.warn("[report] owner 通知异常（已忽略）：reportId={}, ownerId={}, err={}",
+                    report.getId(), ownerId, ex.getMessage());
+        }
+    }
+
+    /** 按举报对象类型解析被处理方用户 ID：书籍/章节→作者，评论→评论者，用户→其自身 */
+    private Long resolveOwnerId(ReportEntity report) {
+        Integer targetType = report.getTargetType();
+        Long targetId = report.getTargetId();
+        if (targetId == null) {
+            return null;
+        }
+        try {
+            if (Objects.equals(targetType, TARGET_BOOK)) {
+                if (bookClient == null) {
+                    return null;
+                }
+                R<BookSummaryDTO> bookResp = bookClient.getBook(targetId);
+                return (bookResp == null || bookResp.getData() == null) ? null : bookResp.getData().getAuthorId();
+            } else if (Objects.equals(targetType, TARGET_CHAPTER)) {
+                if (chapterClient == null || bookClient == null) {
+                    return null;
+                }
+                R<ChapterDTO> chapterResp = chapterClient.getChapter(targetId);
+                if (chapterResp == null || chapterResp.getData() == null
+                        || chapterResp.getData().getBookId() == null) {
+                    return null;
+                }
+                R<BookSummaryDTO> bookResp = bookClient.getBook(chapterResp.getData().getBookId());
+                return (bookResp == null || bookResp.getData() == null) ? null : bookResp.getData().getAuthorId();
+            } else if (Objects.equals(targetType, TARGET_COMMENT)) {
+                if (commentClient == null) {
+                    return null;
+                }
+                R<CommentDTO> commentResp = commentClient.getComment(targetId);
+                return (commentResp == null || commentResp.getData() == null) ? null : commentResp.getData().getUserId();
+            } else if (Objects.equals(targetType, TARGET_USER)) {
+                return targetId;
+            }
+        } catch (Exception ex) {
+            log.warn("[report] 解析被处理方异常（已忽略）：targetType={}, targetId={}, err={}",
+                    targetType, targetId, ex.getMessage());
+        }
+        return null;
     }
 
     /** 举报对象描述（模板占位符 {targetDesc}） */
