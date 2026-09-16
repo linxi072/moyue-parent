@@ -81,4 +81,17 @@ public class SearchController {
                                            @RequestParam(defaultValue = "hot") String sort) {
         return R.ok(recommendService.recommend(limit, sort));
     }
+
+    /**
+     * 个性化推荐位（P1-3）：按用户兴趣画像（类目 / 作者偏好）重排候选、排除已在书架书籍；
+     * userId 缺省或画像为空时回退热门推荐。实际 userId 由网关注入 X-User-Id，此处参数便于内部/测试调用。
+     *
+     * @param userId 用户 ID（可选）
+     * @param limit  条数（默认 10，上限 {@code moyue.search.recommend.max-limit}）
+     */
+    @GetMapping("/recommend/personal")
+    public R<List<BookDocument>> personalize(@RequestParam(required = false) Long userId,
+                                             @RequestParam(defaultValue = "10") int limit) {
+        return R.ok(recommendService.personalizeRecommend(userId, limit));
+    }
 }

@@ -2,6 +2,7 @@ package com.moyue.read.controller;
 
 import com.moyue.common.BizException;
 import com.moyue.common.Constants;
+import com.moyue.api.content.dto.BookshelfSummaryDTO;
 import com.moyue.common.R;
 import com.moyue.common.ResultCode;
 import com.moyue.read.entity.BookshelfEntity;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * 阅读接口：书架查询与增删、阅读进度。
@@ -36,6 +38,22 @@ public class ReadController {
     @GetMapping("/read/bookshelf/{userId}")
     public R<List<BookshelfEntity>> getBookshelf(@PathVariable Long userId) {
         return R.ok(readService.getShelf(userId));
+    }
+
+    /**
+     * 内部端点（仅服务间调用，不经网关）：返回用户书架上书籍的 ID 列表，供推荐画像使用。
+     * 不经网关、不校验 X-User-Id，仅接受路径 userId，避免把网关注入头逻辑扩散到内部调用。
+     */
+    @GetMapping("/internal/bookshelf/{userId}")
+    public R<List<BookshelfSummaryDTO>> getBookshelfInternal(@PathVariable Long userId) {
+        List<BookshelfSummaryDTO> dtos = readService.getShelf(userId).stream()
+                .map(e -> {
+                    BookshelfSummaryDTO dto = new BookshelfSummaryDTO();
+                    dto.setBookId(e.getBookId());
+                    return dto;
+                })
+                .collect(Collectors.toList());
+        return R.ok(dtos);
     }
 
     /** 加入书架（幂等） */
