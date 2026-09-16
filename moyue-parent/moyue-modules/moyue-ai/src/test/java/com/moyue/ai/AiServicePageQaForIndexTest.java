@@ -6,6 +6,8 @@ import com.moyue.ai.entity.AiMessageEntity;
 import com.moyue.ai.mapper.AiMessageMapper;
 import com.moyue.ai.mapper.AiSessionMapper;
 import com.moyue.ai.engine.AiReplyEngine;
+import com.moyue.ai.engine.ReplyContext;
+import com.moyue.ai.engine.ReplyResult;
 import com.moyue.ai.service.AiService;
 import com.moyue.api.search.client.SearchIndexClient;
 import com.moyue.api.search.dto.QaIndexDTO;
@@ -40,6 +42,7 @@ class AiServicePageQaForIndexTest {
         AiService s = new AiService();
         ReflectionTestUtils.setField(s, "sessionMapper", sessionMapper);
         ReflectionTestUtils.setField(s, "messageMapper", messageMapper);
+        when(replyEngine.reply(any(ReplyContext.class))).thenReturn(new ReplyResult("这是回复", true, "mock"));
         ReflectionTestUtils.setField(s, "replyEngine", replyEngine);
         // searchIndexClient 不注入：分页拉取与该客户端无关
         return s;

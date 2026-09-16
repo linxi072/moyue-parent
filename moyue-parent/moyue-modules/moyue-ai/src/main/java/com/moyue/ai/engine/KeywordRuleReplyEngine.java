@@ -6,10 +6,10 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * 关键词规则回复引擎（内置默认实现）。
+ * 关键词规则回复引擎（内置兜底实现，永远可用）。
  * 覆盖平台高频问题：签到积分、兑换、打赏、书币充值、密码找回、审核时效、投诉建议等；
- * 未命中规则的输入统一走「转人工」兜底话术。
- * 有序遍历：先命中先返回（LinkedHashMap 保持声明顺序）。
+ * 未命中规则的输入统一走「转人工」兜底话术（confident=false，由会话层追加转人工提示）。
+ * 有序遍历：先命中先返回（LinkedHashMap 保持声明顺序）。忽略 history / ragContext。
  */
 @Component
 public class KeywordRuleReplyEngine implements AiReplyEngine {
@@ -41,22 +41,23 @@ public class KeywordRuleReplyEngine implements AiReplyEngine {
     }
 
     private static final String FALLBACK =
-            "这个问题我还需要学习一下～已为你记录本次咨询，你可以换个说法再试试，或回复「人工」转接人工客服（工作日 10:00-18:00）。";
+            "这个问题我还需要学习一下～已为你记录本次咨询，你可以换个说法再试试，或描述更具体些。";
 
     @Override
-    public String reply(String userContent) {
+    public ReplyResult reply(ReplyContext context) {
+        String userContent = context == null ? null : context.getContent();
         if (userContent == null || userContent.isBlank()) {
-            return FALLBACK;
+            return new ReplyResult(FALLBACK, false, engineName());
         }
         String normalized = userContent.toLowerCase();
         for (Map.Entry<String[], String> rule : RULES.entrySet()) {
             for (String keyword : rule.getKey()) {
                 if (normalized.contains(keyword.toLowerCase())) {
-                    return rule.getValue();
+                    return new ReplyResult(rule.getValue(), true, engineName());
                 }
             }
         }
-        return FALLBACK;
+        return new ReplyResult(FALLBACK, false, engineName());
     }
 
     @Override

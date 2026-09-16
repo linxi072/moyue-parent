@@ -3,12 +3,19 @@ package com.moyue.ai.service;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyue.ai.engine.AiReplyEngine;
+import com.moyue.ai.engine.ChatTurn;
+import com.moyue.ai.engine.KeywordRuleReplyEngine;
+import com.moyue.ai.engine.ReplyContext;
+import com.moyue.ai.engine.ReplyResult;
 import com.moyue.ai.entity.AiMessageEntity;
 import com.moyue.ai.entity.AiSessionEntity;
 import com.moyue.ai.mapper.AiMessageMapper;
 import com.moyue.ai.mapper.AiSessionMapper;
+import com.moyue.api.search.client.QaSearchClient;
 import com.moyue.api.search.client.SearchIndexClient;
+import com.moyue.api.search.dto.QaContextDTO;
 import com.moyue.api.search.dto.QaIndexDTO;
+import com.moyue.common.R;
 import com.moyue.common.core.domain.PageResult;
 import com.moyue.common.BizException;
 import com.moyue.common.ResultCode;
@@ -20,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -38,6 +46,13 @@ public class AiService {
     /** 单聊标题截断长度 */
     private static final int TITLE_MAX = 20;
 
+    /** 历史多轮注入上限（仅 LLM 引擎消费） */
+    private static final int HISTORY_LIMIT = 10;
+
+    /** 低置信时追加的转人工提示 */
+    private static final String HUMAN_HANDOFF =
+            "\n（如需人工协助，请回复「人工」，工作日 10:00-18:00 在线）";
+
     /** 角色：1 用户 / 2 助手 */
     private static final int ROLE_USER = 1;
     private static final int ROLE_ASSISTANT = 2;
@@ -48,12 +63,21 @@ public class AiService {
     @Autowired
     private AiMessageMapper messageMapper;
 
+    /** 主回复引擎：注入 @Primary 的 LlmReplyEngine（未启用时返回 null，由 AiService 级联兜底） */
     @Autowired
     private AiReplyEngine replyEngine;
+
+    /** 兜底引擎：关键词规则，永远可用 */
+    @Autowired
+    private KeywordRuleReplyEngine keywordReplyEngine;
 
     /** 检索服务客户端（问答索引同步 hook）；search 未注册时安全降级 */
     @Autowired(required = false)
     private SearchIndexClient searchIndexClient;
+
+    /** RAG 召回客户端（仅 LLM 引擎用，注入参考知识库）；search 未注册时安全降级 */
+    @Autowired(required = false)
+    private QaSearchClient qaSearchClient;
 
     /**
      * 一轮对话：sessionId 为空则新建会话；校验归属后落用户消息，
@@ -89,11 +113,70 @@ public class AiService {
         }
 
         saveMessage(session.getId(), ROLE_USER, content);
-        String reply = replyEngine.reply(content);
+
+        // 组装回复上下文：历史多轮（RAG 仅 LLM 引擎消费，缺失安全降级）+ 当前提问
+        ReplyContext ctx = new ReplyContext();
+        ctx.setUserId(userId);
+        ctx.setSessionId(session.getId());
+        ctx.setContent(content);
+        ctx.setHistory(loadHistory(session.getId()));
+        ctx.setRagContext(retrieveRagContext(content));
+
+        // 级联：主引擎（LLM）无法回答（content 为 null）→ 兜底关键字引擎
+        ReplyResult result = replyEngine.reply(ctx);
+        if (result == null || result.getContent() == null) {
+            result = keywordReplyEngine.reply(ctx);
+        }
+
+        String reply = (result != null && result.getContent() != null)
+                ? result.getContent() : keywordReplyEngine.reply(ctx).getContent();
+        // 低置信：追加转人工提示（兜底引擎未命中规则时 confident=false）
+        if (result != null && !result.isConfident()) {
+            reply = reply + HUMAN_HANDOFF;
+        }
+
         AiMessageEntity answer = saveMessage(session.getId(), ROLE_ASSISTANT, reply);
         // 索引同步 hook：一轮对话（提问 + 回复）落库成功后异步推送 ES 索引
         indexQaAsync(session.getId(), content, answer);
         return answer;
+    }
+
+    /** 加载会话最近 HISTORY_LIMIT 条历史轮次（按时间升序），供 LLM 多轮上下文 */
+    private List<ChatTurn> loadHistory(Long sessionId) {
+        if (sessionId == null) {
+            return Collections.emptyList();
+        }
+        QueryWrapper<AiMessageEntity> wrapper = new QueryWrapper<>();
+        wrapper.eq("session_id", sessionId)
+                .eq("is_deleted", 0)
+                .orderByDesc("create_time")
+                .last("LIMIT " + HISTORY_LIMIT);
+        List<AiMessageEntity> msgs = messageMapper.selectList(wrapper);
+        Collections.reverse(msgs);
+        List<ChatTurn> turns = new ArrayList<>(msgs.size());
+        for (AiMessageEntity m : msgs) {
+            turns.add(new ChatTurn(m.getRole() == null ? 0 : m.getRole(), m.getContent()));
+        }
+        return turns;
+    }
+
+    /** RAG 召回：经检索服务取 topK 问答片段拼接（search 未注册 / 异常时返回 null，安全降级） */
+    private String retrieveRagContext(String question) {
+        if (qaSearchClient == null || question == null || question.isBlank()) {
+            return null;
+        }
+        try {
+            R<QaContextDTO> resp = qaSearchClient.retrieveContext(question);
+            if (resp == null || resp.getData() == null
+                    || resp.getData().getPassages() == null
+                    || resp.getData().getPassages().isEmpty()) {
+                return null;
+            }
+            return String.join("\n\n", resp.getData().getPassages());
+        } catch (Exception ex) {
+            log.warn("RAG 召回失败，跳过知识库注入 userId 忽略：{}", ex.getMessage());
+            return null;
+        }
     }
 
     /** 某用户会话分页（按最近更新倒序） */

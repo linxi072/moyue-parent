@@ -2,6 +2,7 @@ package com.moyue.search.controller;
 
 import com.moyue.api.search.dto.BookIndexDTO;
 import com.moyue.api.search.dto.ChapterIndexDTO;
+import com.moyue.api.search.dto.QaContextDTO;
 import com.moyue.api.search.dto.QaIndexDTO;
 import com.moyue.common.R;
 import com.moyue.search.document.BookDocument;
@@ -12,10 +13,12 @@ import com.moyue.search.service.QaSearchService;
 import com.moyue.search.service.SearchService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -97,5 +100,13 @@ public class SearchInternalController {
     public R<Void> removeQaBySession(@PathVariable Long sessionId) {
         qaSearchService.removeBySession(sessionId);
         return R.ok();
+    }
+
+    /** AI 客服 RAG 召回：按问题检索 topK 问答片段，供大模型注入参考知识库 */
+    @GetMapping("/internal/search/qa/retrieve")
+    public R<QaContextDTO> retrieveContext(@RequestParam String question) {
+        QaContextDTO dto = new QaContextDTO();
+        dto.setPassages(qaSearchService.retrieveContext(question));
+        return R.ok(dto);
     }
 }

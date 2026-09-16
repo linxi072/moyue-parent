@@ -26,6 +26,9 @@ public class SearchProperties {
     /** 默认分页大小（请求未显式指定 size 时使用） */
     private int defaultPageSize = 20;
 
+    /** RAG 召回片段数（AI 客服知识库注入，默认 3） */
+    private int ragTopK = 3;
+
     /** 推荐位相关配置 */
     private Recommend recommend = new Recommend();
 

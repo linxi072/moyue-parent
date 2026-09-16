@@ -2,14 +2,20 @@ package com.moyue.ai.engine;
 
 /**
  * AI 回复引擎接口（可插拔）。
- * 当前内置实现为 KeywordRuleReplyEngine（关键词规则匹配 + 转人工兜底）；
- * 后续接入真实大模型时，新增实现类并标注 @Primary（或改用配置选择）即可，
- * 会话 / 消息 / 接口链路无需改动。
+ *
+ * <p>内置实现：</p>
+ * <ul>
+ *   <li>{@code LlmReplyEngine}（@Primary，真实大模型，配置驱动，缺密钥/未启用则降级）；</li>
+ *   <li>{@code KeywordRuleReplyEngine}（关键词规则，兜底，永远可用）。</li>
+ * </ul>
+ *
+ * <p>引擎返回 {@code ReplyResult.content == null} 表示无法回答，会话层（AiService）级联到下一引擎；
+ * {@code confident=false} 表示把握不足，会话层追加「转人工」提示。</p>
  */
 public interface AiReplyEngine {
 
-    /** 根据用户输入生成回复（实现须自行兜底，永不返回 null / 空串） */
-    String reply(String userContent);
+    /** 根据上下文生成回复；content 为 null 表示本引擎无法回答（调用方应降级） */
+    ReplyResult reply(ReplyContext context);
 
     /** 引擎标识，便于前端展示与日志排查 */
     String engineName();

@@ -98,6 +98,29 @@ public class QaSearchService {
         return Date.from(dateTime.atZone(ZoneId.systemDefault()).toInstant());
     }
 
+    /**
+     * RAG 召回：按问题检索 topK 问答片段，供 AI 客服大模型注入参考知识库。
+     * <p>复用 {@link #search(String, LocalDateTime, LocalDateTime, int, int)}；问题为空返回空列表。
+     * ES 不可用时连接异常自然抛出，由调用方（AiService / Feign 降级）吞掉，不影响对话主流程。</p>
+     *
+     * @param question 用户问题
+     * @return "Q: ...\nA: ..." 片段列表（可空）
+     */
+    public List<String> retrieveContext(String question) {
+        if (question == null || question.isBlank()) {
+            return new ArrayList<>();
+        }
+        PageResult<QaDocument> result = search(question, null, null, 1, searchProperties.getRagTopK());
+        List<String> passages = new ArrayList<>();
+        if (result.getRecords() != null) {
+            for (QaDocument d : result.getRecords()) {
+                passages.add("Q: " + (d.getQuestion() == null ? "" : d.getQuestion())
+                        + "\nA: " + (d.getAnswer() == null ? "" : d.getAnswer()));
+            }
+        }
+        return passages;
+    }
+
     /** SearchHits → PageResult */
     private PageResult<QaDocument> toPageResult(SearchHits<QaDocument> hits, int page, int size) {
         PageResult<QaDocument> result = new PageResult<>();

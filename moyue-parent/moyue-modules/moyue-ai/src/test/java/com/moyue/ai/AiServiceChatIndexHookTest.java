@@ -3,6 +3,8 @@ package com.moyue.ai;
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyue.ai.engine.AiReplyEngine;
+import com.moyue.ai.engine.ReplyContext;
+import com.moyue.ai.engine.ReplyResult;
 import com.moyue.ai.entity.AiMessageEntity;
 import com.moyue.ai.entity.AiSessionEntity;
 import com.moyue.ai.mapper.AiMessageMapper;
@@ -61,7 +63,7 @@ class AiServiceChatIndexHookTest {
             m.setId(m.getRole() == 2 ? 300L : 200L);
             return 1;
         }).when(messageMapper).insert(any(AiMessageEntity.class));
-        when(replyEngine.reply(any())).thenReturn("这是回复");
+        when(replyEngine.reply(any(ReplyContext.class))).thenReturn(new ReplyResult("这是回复", true, "mock"));
     }
 
     @Test
