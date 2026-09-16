@@ -85,6 +85,8 @@ public class UserService {
         d.setPhone(e.getPhone());
         d.setNickname(e.getNickname());
         d.setAvatarUrl(e.getAvatarUrl());
+        d.setEmail(e.getEmail());
+        d.setDeviceToken(e.getDeviceToken());
         d.setRole(e.getRole());
         d.setStatus(e.getStatus());
         return d;

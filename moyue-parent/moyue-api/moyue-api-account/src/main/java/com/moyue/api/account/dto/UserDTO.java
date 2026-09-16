@@ -18,6 +18,12 @@ public class UserDTO implements Serializable {
 
     private String avatarUrl;
 
+    /** 邮箱（触达渠道：邮件；可空） */
+    private String email;
+
+    /** 设备推送令牌（触达渠道：推送；可空） */
+    private String deviceToken;
+
     /** 1 读者 / 2 作者 / 3 管理员 */
     private Integer role;
 

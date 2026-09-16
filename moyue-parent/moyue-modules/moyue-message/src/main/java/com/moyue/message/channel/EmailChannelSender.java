@@ -65,8 +65,8 @@ public class EmailChannelSender implements ChannelSender {
 
     /**
      * 经用户域解析邮箱。
-     * <p>注：当前 {@link UserDTO} 无 email 字段（架构设计 §十一-5）：保留解析入口，
-     * 缺失时返回 {@code null} → 上层走 pending；用户域补充邮箱字段后可在此返回 {@code u.getEmail()}。</p>
+     * <p>{@link UserDTO} 已承载 {@code email} 字段（P1-2 触达渠道补全）：优先返回
+     * {@code u.getEmail()}；缺失时返回 {@code null} → 上层走 pending（邮件渠道静默跳过，不投也不失败）。</p>
      */
     private String resolveEmail(Long userId) {
         if (userClient == null || userId == null) {
@@ -74,8 +74,8 @@ public class EmailChannelSender implements ChannelSender {
         }
         try {
             UserDTO user = userClient.getUser(userId).getData();
-            if (user != null) {
-                log.debug("用户 {} 资料暂无可解析邮箱字段，邮件渠道回退 pending", userId);
+            if (user != null && !isBlank(user.getEmail())) {
+                return user.getEmail();
             }
             return null;
         } catch (Exception ex) {

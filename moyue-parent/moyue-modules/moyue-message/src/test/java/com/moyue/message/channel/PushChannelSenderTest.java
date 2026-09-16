@@ -1,5 +1,6 @@
 package com.moyue.message.channel;
 
+import com.moyue.message.config.PushProperties;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -7,14 +8,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 
 /**
- * PushChannelSender 推送渠道回归测试（P2-14 桩实现钉现状）。
+ * PushChannelSender 推送渠道测试（P1-2 真实接入 + 优雅降级）。
  *
- * <p>当前为桩实现：仅打印结构化日志并返回 {@code pending}，<b>不做任何真实推送</b>、绝不抛异常。
- * 用例把该现状钉住，防止后续误改语义；<b>P1-2 接入真实推送通道后</b>需升级为断言真实投递结果。</p>
+ * <p>默认配置 {@code enabled=false} 下返回 {@code pending}（不抛异常、不真实外呼）；
+ * 用例把「未启用即降级 pending」这一契约钉住。启用真实网关（yml / Nacos 配
+ * {@code moyue.push.enabled=true} + {@code endpoint}）后的投递断言在集成环境补齐。</p>
  */
 class PushChannelSenderTest {
 
-    private final PushChannelSender sender = new PushChannelSender();
+    private final PushChannelSender sender = new PushChannelSender(new PushProperties());
 
     private ChannelMessage message() {
         ChannelMessage msg = new ChannelMessage();
@@ -33,13 +35,13 @@ class PushChannelSenderTest {
     }
 
     @Test
-    @DisplayName("桩实现：返回 pending（非 success / 非 failure）且不抛异常、不真实外呼")
-    void sendShouldReturnPendingStub() {
+    @DisplayName("未启用：返回 pending（非 success / 非 failure）且不抛异常、不真实外呼")
+    void sendShouldReturnPendingWhenDisabled() {
         ChannelSendResult result = sender.send(message());
 
         assertThat(result.isPending()).isTrue();
         assertThat(result.isSuccess()).isFalse();
-        assertThat(result.getDetail()).contains("未接入供应商");
+        assertThat(result.getDetail()).contains("推送渠道未启用");
         assertThatCode(() -> sender.send(message())).doesNotThrowAnyException();
     }
 }

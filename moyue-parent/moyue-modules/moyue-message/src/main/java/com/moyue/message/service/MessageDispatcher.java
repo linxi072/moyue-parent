@@ -127,6 +127,8 @@ public class MessageDispatcher {
             message.setTarget(dto.getTargetEmail());
         } else if (channel == MessageChannel.SMS) {
             message.setTarget(dto.getTargetPhone());
+        } else if (channel == MessageChannel.PUSH) {
+            message.setTarget(dto.getTargetDeviceToken());
         }
         return message;
     }

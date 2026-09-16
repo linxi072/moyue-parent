@@ -30,6 +30,9 @@ public class MessageDispatchDTO implements Serializable {
     /** 可选：覆盖用户资料的收件手机号 */
     private String targetPhone;
 
+    /** 可选：覆盖用户资料的推送设备令牌（推送渠道用） */
+    private String targetDeviceToken;
+
     /** 业务类型，如 AUDIT / REPORT */
     private String bizType;
 

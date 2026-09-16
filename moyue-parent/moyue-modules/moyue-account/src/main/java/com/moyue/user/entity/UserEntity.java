@@ -28,6 +28,12 @@ public class UserEntity {
     /** 头像地址 */
     private String avatarUrl;
 
+    /** 邮箱（触达渠道：邮件；可空，未绑定则不投邮件） */
+    private String email;
+
+    /** 设备推送令牌（触达渠道：推送；可空，未绑定则不投推送） */
+    private String deviceToken;
+
     /** 角色：1 读者 / 2 作者 / 3 管理员 */
     private Integer role;
 
