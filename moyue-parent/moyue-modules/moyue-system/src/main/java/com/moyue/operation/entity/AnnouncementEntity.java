@@ -3,6 +3,7 @@ package com.moyue.operation.entity;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
@@ -10,7 +11,8 @@ import java.time.LocalDateTime;
 
 /**
  * 运营公告实体，映射 announcement 表（V6 建表）。
- * 表含 is_deleted 字段，全局逻辑删除配置（logic-delete-field: isDeleted）自动生效。
+ * 表含 is_deleted 字段，逻辑删除经 {@code @TableLogic} 在实体级显式启用
+ * （全局 logic-delete-field 配置在 application.yml 中未开启，故必须逐实体声明）。
  */
 @Data
 @TableName("announcement")
@@ -40,6 +42,7 @@ public class AnnouncementEntity {
     private LocalDateTime publishTime;
 
     /** 逻辑删除：0 否 / 1 是 */
+    @TableLogic(value = "0", delval = "1")
     private Integer isDeleted;
 
     /** 创建时间 */
