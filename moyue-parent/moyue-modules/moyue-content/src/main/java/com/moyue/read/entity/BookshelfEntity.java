@@ -28,6 +28,15 @@ public class BookshelfEntity {
     /** 最后阅读章节 → chapter.id */
     private Long lastChapterId;
 
+    /** 听书进度：当前收听章节 → chapter.id（P2-L 智能朗读） */
+    private Long listenChapterId;
+
+    /** 听书进度：章节内片段序号（断点续听，P2-L） */
+    private Integer listenSegmentIndex;
+
+    /** 听书进度：片段内字符偏移（P2-L） */
+    private Integer listenCharOffset;
+
     /** 逻辑删除：0 否 / 1 是 */
     @TableLogic(value = "0", delval = "1")
     private Integer isDeleted;

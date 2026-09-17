@@ -6,6 +6,7 @@ import com.moyue.api.commerce.dto.PointsAwardDTO;
 import com.moyue.common.BizException;
 import com.moyue.common.ResultCode;
 import com.moyue.common.cache.CacheNames;
+import com.moyue.read.dto.ListenProgressDTO;
 import com.moyue.read.entity.BookshelfEntity;
 import com.moyue.read.mapper.BookshelfMapper;
 import org.slf4j.Logger;
@@ -152,5 +153,40 @@ public class ReadService {
         QueryWrapper<BookshelfEntity> qw = new QueryWrapper<>();
         qw.eq("user_id", userId).eq("book_id", bookId);
         return bookshelfMapper.selectOne(qw);
+    }
+
+    /**
+     * 保存听书进度（断点续听，P2-L）。
+     * 复用书架行（不新建表，对齐主理人 Q4），仅更新 listen_* 三列。
+     */
+    @CacheEvict(cacheNames = CacheNames.READ_BOOKSHELF, key = "#userId")
+    @Transactional
+    public void saveListenProgress(Long userId, Long bookId, Long chapterId, Integer segmentIndex, Integer charOffset) {
+        BookshelfEntity e = findActive(userId, bookId);
+        if (e == null) {
+            throw new BizException(ResultCode.RESOURCE_NOT_FOUND);
+        }
+        e.setListenChapterId(chapterId);
+        e.setListenSegmentIndex(segmentIndex);
+        e.setListenCharOffset(charOffset);
+        bookshelfMapper.updateById(e);
+    }
+
+    /**
+     * 读取听书进度（续播定位，P2-L）。
+     *
+     * @return 听书进度（章节 + 片段序号 + 字符偏移）；不在书架则 RESOURCE_NOT_FOUND
+     */
+    public ListenProgressDTO getListenProgress(Long userId, Long bookId) {
+        BookshelfEntity e = findActive(userId, bookId);
+        if (e == null) {
+            throw new BizException(ResultCode.RESOURCE_NOT_FOUND);
+        }
+        ListenProgressDTO dto = new ListenProgressDTO();
+        dto.setBookId(bookId);
+        dto.setChapterId(e.getListenChapterId());
+        dto.setSegmentIndex(e.getListenSegmentIndex());
+        dto.setCharOffset(e.getListenCharOffset());
+        return dto;
     }
 }
