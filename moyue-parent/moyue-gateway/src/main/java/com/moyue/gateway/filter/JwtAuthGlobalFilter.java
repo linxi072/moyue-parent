@@ -6,6 +6,7 @@ import com.moyue.common.Constants;
 import com.moyue.common.JwtProvider;
 import com.moyue.common.R;
 import com.moyue.common.ResultCode;
+import com.moyue.common.SecuritySignUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
@@ -55,6 +56,10 @@ public class JwtAuthGlobalFilter implements GlobalFilter {
     @Autowired
     private ObjectMapper objectMapper;
 
+    /** P2-I(P1)：网关 HMAC 签名密钥；留空则不签名（配置驱动优雅降级，dev 本地不签名） */
+    @Value("${moyue.security.gatewaySigSecret:}")
+    private String gatewaySigSecret;
+
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         String path = exchange.getRequest().getURI().getPath();
@@ -94,6 +99,18 @@ public class JwtAuthGlobalFilter implements GlobalFilter {
             }
         }
         return false;
+    }
+
+    /** P2-I：向请求注入网关注入来源标识（X-Forwarded-By）与可选 HMAC 签名（X-Gateway-Sig / X-Gateway-Ts） */
+    private ServerHttpRequest withGatewayHeaders(ServerHttpRequest req) {
+        ServerHttpRequest.Builder builder = req.mutate()
+                .header(Constants.FORWARDED_BY_HEADER, Constants.FORWARDED_BY_GATEWAY);
+        if (gatewaySigSecret != null && !gatewaySigSecret.isBlank()) {
+            String ts = String.valueOf(System.currentTimeMillis());
+            String sig = SecuritySignUtil.sign(req.getMethod().name(), req.getURI().getPath(), ts, gatewaySigSecret);
+            builder.header("X-Gateway-Ts", ts).header(Constants.GATEWAY_SIG_HEADER, sig);
+        }
+        return builder.build();
     }
 
     /** 写入统一响应体 R&lt;T&gt;，HTTP 状态固定 200 */

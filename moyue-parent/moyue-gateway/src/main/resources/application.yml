@@ -229,6 +229,12 @@ moyue:
   jwt:
     # P2-17：密钥环境变量化（dev 保留本地默认值；test/prod 必须注入 MOYUE_JWT_SECRET，不带明文默认）
     secret: ${MOYUE_JWT_SECRET:moyue-jwt-dev-secret-key-0123456789abcdefghij}
+  security:
+    # P2-I 网关直连防护：允许直连业务端口的来源网段（CIDR，逗号分隔）。
+    # 留空（dev/test 默认）= 过滤器 no-op，便于本地与 H2 测试；生产由运维填入网关网段 + 集群 Pod/子网 CIDR。
+    allowGatewayCidr: ""
+    # P2-I(P1) 网关信任头 HMAC 签名密钥；留空则不签名（no-op），生产必填并与业务侧 gatewaySigSecret 一致。
+    gatewaySigSecret: ""
 
 logging:
   level:

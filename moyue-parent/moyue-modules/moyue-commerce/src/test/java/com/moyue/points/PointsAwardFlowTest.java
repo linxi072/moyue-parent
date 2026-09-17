@@ -72,6 +72,7 @@ class PointsAwardFlowTest {
     @DisplayName("内部发放：账户不存在时懒建户并落库（余额/累计获得原子累加），流水逐笔落台账")
     void award_autoCreatesAccountAndPersistsFlow() throws Exception {
         mockMvc.perform(post("/api/v1/internal/points/award")
+                        .header("X-Service-Token", "dev-internal-token")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(awardBody(USER_NO_ACCOUNT, 2, 100, "阅读时长奖励")))
                 .andExpect(status().isOk())
@@ -91,10 +92,12 @@ class PointsAwardFlowTest {
     @DisplayName("内部发放：多次发放累加余额与累计获得，流水逐笔独立记账")
     void award_multipleTimes_accumulatesBalanceAndFlows() throws Exception {
         mockMvc.perform(post("/api/v1/internal/points/award")
+                        .header("X-Service-Token", "dev-internal-token")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(awardBody(USER_NO_ACCOUNT, 2, 30, "阅读时长")))
                 .andExpect(jsonPath("$.code").value(0));
         mockMvc.perform(post("/api/v1/internal/points/award")
+                        .header("X-Service-Token", "dev-internal-token")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(awardBody(USER_NO_ACCOUNT, 3, 20, "评论奖励")))
                 .andExpect(jsonPath("$.code").value(0));
@@ -110,6 +113,7 @@ class PointsAwardFlowTest {
     void award_invalidBizType_rejected() throws Exception {
         for (int bizType : new int[]{0, 6}) {
             mockMvc.perform(post("/api/v1/internal/points/award")
+                        .header("X-Service-Token", "dev-internal-token")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(awardBody(USER_INVALID_BIZ, bizType, 10, "非法业务类型")))
                     .andExpect(status().isOk())
@@ -125,6 +129,7 @@ class PointsAwardFlowTest {
     void award_nonPositivePoints_rejected() throws Exception {
         for (int points : new int[]{0, -5}) {
             mockMvc.perform(post("/api/v1/internal/points/award")
+                        .header("X-Service-Token", "dev-internal-token")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(awardBody(USER_BAD_POINTS, 4, points, "非法积分")))
                     .andExpect(status().isOk())
@@ -180,6 +185,7 @@ class PointsAwardFlowTest {
     @DisplayName("签到与发放叠加：余额为各笔之和不丢失（原子加法口径）")
     void checkIn_afterAward_accumulatesBalance() throws Exception {
         mockMvc.perform(post("/api/v1/internal/points/award")
+                        .header("X-Service-Token", "dev-internal-token")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(awardBody(USER_CHECK_IN, 4, 90, "系统发放")))
                 .andExpect(jsonPath("$.code").value(0));

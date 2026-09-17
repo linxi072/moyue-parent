@@ -46,6 +46,13 @@
             <artifactId>spring-webmvc</artifactId>
             <scope>provided</scope>
         </dependency>
+        <!-- Feign：ServiceTokenRequestInterceptor 实现 feign.RequestInterceptor，需 feign-core 在编译/运行期可见
+             （@ConditionalOnClass 仅跳过 Bean 注册，无法避免 JVM 加载类时因缺失超接口而 NoClassDefFoundError）。
+             feign-core 不触发 FeignAutoConfiguration，非 openfeign 模块引入无害。 -->
+        <dependency>
+            <groupId>io.github.openfeign</groupId>
+            <artifactId>feign-core</artifactId>
+        </dependency>
         <dependency>
             <groupId>jakarta.servlet</groupId>
             <artifactId>jakarta.servlet-api</artifactId>
@@ -55,6 +62,12 @@
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <scope>provided</scope>
+        </dependency>
+        <!-- 测试：Mock 单测（P2-I 安全组件单测：CidrFilter / InternalAuthInterceptor） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 </project>
