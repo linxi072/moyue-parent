@@ -8,6 +8,7 @@ import com.moyue.api.search.dto.BookIndexDTO;
 import com.moyue.api.content.dto.BookSummaryDTO;
 import com.moyue.common.core.domain.PageResult;
 import com.moyue.api.account.dto.UserDTO;
+import com.moyue.book.category.service.CategoryService;
 import com.moyue.book.entity.BookEntity;
 import com.moyue.book.mapper.BookMapper;
 import com.moyue.common.BizException;
@@ -24,9 +25,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -46,13 +45,10 @@ import java.util.Objects;
 @Service
 public class BookService {
 
-    /** 演示分类字典：categoryId → 分类名（脚手架占位，生产可独立分类服务） */
-    private static final Map<Long, String> CATEGORY_NAMES = new LinkedHashMap<>();
-    static {
-        CATEGORY_NAMES.put(1L, "玄幻");
-        CATEGORY_NAMES.put(2L, "都市");
-        CATEGORY_NAMES.put(3L, "悬疑");
-    }
+    /**
+     * 分类解析已抽离为独立 {@code CategoryService}（P2-A 分类服务独立化）：
+     * categoryId → 分类名经 category 表查询，运营后台可增删改排序，替代原硬编码字典。
+     */
 
     /** 作者角色值 */
     private static final int ROLE_AUTHOR = 2;
@@ -65,6 +61,10 @@ public class BookService {
     @Autowired
     private BookMapper bookMapper;
 
+    /** 分类领域服务（P2-A）：categoryId → 分类名经 category 表解析，替代硬编码字典 */
+    @Autowired
+    private CategoryService categoryService;
+
     @Autowired(required = false)
     private UserClient userClient;
 
@@ -75,11 +75,16 @@ public class BookService {
     @Autowired
     private FileStorage fileStorage;
 
-    /** 分页查询书籍（P2-16：走 BOOK_LIST 缓存，key = page:size，TTL 5 分钟） */
-    @Cacheable(cacheNames = CacheNames.BOOK_LIST, key = "#page + ':' + #size")
-    public PageResult<BookSummaryDTO> listBooks(int page, int size) {
+    /** 分页查询书籍（P2-16：走 BOOK_LIST 缓存；P2-A 增加 categoryId 过滤） */
+    @Cacheable(cacheNames = CacheNames.BOOK_LIST,
+            key = "#page + ':' + #size + ':' + (#categoryId == null ? 'all' : #categoryId)")
+    public PageResult<BookSummaryDTO> listBooks(int page, int size, Long categoryId) {
+        LambdaQueryWrapper<BookEntity> q = new LambdaQueryWrapper<>();
+        if (categoryId != null) {
+            q.eq(BookEntity::getCategoryId, categoryId);
+        }
         Page<BookEntity> p = new Page<>(page, size);
-        bookMapper.selectPage(p, null);
+        bookMapper.selectPage(p, q);
 
         PageResult<BookSummaryDTO> result = new PageResult<>();
         result.setTotal(p.getTotal());
@@ -277,7 +282,7 @@ public class BookService {
         dto.setBookId(e.getId());
         dto.setTitle(e.getTitle());
         dto.setCategoryId(e.getCategoryId());
-        dto.setCategoryName(CATEGORY_NAMES.getOrDefault(e.getCategoryId(), "未知"));
+        dto.setCategoryName(categoryService.resolveName(e.getCategoryId()));
         dto.setAuthorName(resolveAuthor(e.getAuthorId()));
         dto.setCoverUrl(e.getCoverUrl());
         dto.setDescription(e.getIntro());
@@ -330,11 +335,23 @@ public class BookService {
         dto.setTitle(e.getTitle());
         dto.setCoverUrl(e.getCoverUrl());
         dto.setWordCount(e.getWordCount());
-        dto.setCategory(CATEGORY_NAMES.getOrDefault(e.getCategoryId(), "未知"));
+        dto.setCategory(categoryService.resolveName(e.getCategoryId()));
         dto.setStatus(e.getStatus());
         dto.setIntro(e.getIntro());
         dto.setAuthor(resolveAuthor(e.getAuthorId()));
         return dto;
+    }
+
+    /**
+     * P2-A 分类解析对外入口：categoryId → 分类名。
+     * 经 {@link CategoryService} 查询 category 表，不再依赖硬编码字典；
+     * 解析失败 / 未知分类统一回退为「未知」（见 {@link CategoryService#resolveName}）。
+     *
+     * @param categoryId 分类主键，可为 null
+     * @return 分类名（未知时返回「未知」）
+     */
+    public String resolveCategoryName(Long categoryId) {
+        return categoryService.resolveName(categoryId);
     }
 
     private String resolveAuthor(Long authorId) {

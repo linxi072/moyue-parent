@@ -33,14 +33,15 @@ public class BookController {
     @Autowired
     private BookService bookService;
 
-    /** 分页查询书籍（读取网关注入的 X-User-Id 上下文头） */
+    /** 分页查询书籍（读取网关注入的 X-User-Id 上下文头）；可选 categoryId 按分类筛选（P2-A） */
     @GetMapping("/books")
     public R<PageResult<BookSummaryDTO>> listBooks(@RequestParam(defaultValue = "1") int page,
                                                    @RequestParam(defaultValue = "20") int size,
+                                                   @RequestParam(required = false) Long categoryId,
                                                    HttpServletRequest request) {
         String userId = request.getHeader(Constants.USER_ID_HEADER);
         // userId 非空代表请求已通过网关鉴权
-        return R.ok(bookService.listBooks(page, size));
+        return R.ok(bookService.listBooks(page, size, categoryId));
     }
 
     /**

@@ -138,3 +138,16 @@ ALTER TABLE `user` ADD COLUMN `device_token` VARCHAR(512) DEFAULT NULL COMMENT '
 ALTER TABLE `bookshelf` ADD COLUMN `listen_chapter_id` BIGINT DEFAULT NULL COMMENT '听书进度：当前收听章节 → chapter.id';
 ALTER TABLE `bookshelf` ADD COLUMN `listen_segment_index` INT DEFAULT 0 COMMENT '听书进度：章节内片段序号（断点续听）';
 ALTER TABLE `bookshelf` ADD COLUMN `listen_char_offset` INT DEFAULT 0 COMMENT '听书进度：片段内字符偏移';
+
+-- ============ V20__category.sql ============
+CREATE TABLE IF NOT EXISTS `category` ( `id` BIGINT NOT NULL COMMENT '分类主键（雪花 ID）', `name` VARCHAR(50) NOT NULL COMMENT '分类名称', `icon` VARCHAR(64) DEFAULT NULL COMMENT '分类图标（前端展示用）', `sort` INT NOT NULL DEFAULT 0 COMMENT '显示顺序（升序：书城筛选项排序）', `status` TINYINT DEFAULT 1 COMMENT '状态：0 禁用 / 1 正常', `is_deleted` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '逻辑删除：0 否 / 1 是（@TableLogic）', `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间', `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间', PRIMARY KEY (`id`) ) COMMENT = '小说分类表（运营后台可增删改排序）';
+
+-- ============ V21__category_seed.sql ============
+INSERT INTO category (id, name, icon, sort, status) SELECT 1, '玄幻', 'fantasy', 1, 1 WHERE NOT EXISTS (SELECT 1 FROM category WHERE id = 1);
+INSERT INTO category (id, name, icon, sort, status) SELECT 2, '都市', 'city', 2, 1 WHERE NOT EXISTS (SELECT 1 FROM category WHERE id = 2);
+INSERT INTO category (id, name, icon, sort, status) SELECT 3, '悬疑', 'mystery', 3, 1 WHERE NOT EXISTS (SELECT 1 FROM category WHERE id = 3);
+INSERT INTO sys_menu (id, parent_id, menu_name, menu_type, path, component, perms, icon, order_num, status) SELECT 940000000000003001, 0, '分类管理', 1, 'category', 'content/category/index', 'system:category:list', 'category', 5, 1 WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 940000000000003001);
+INSERT INTO sys_menu (id, parent_id, menu_name, menu_type, path, component, perms, icon, order_num, status) SELECT 940000000000003011, 940000000000003001, '分类查询', 2, NULL, NULL, 'system:category:list', NULL, 1, 1 WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 940000000000003011);
+INSERT INTO sys_menu (id, parent_id, menu_name, menu_type, path, component, perms, icon, order_num, status) SELECT 940000000000003012, 940000000000003001, '分类新增', 2, NULL, NULL, 'system:category:add', NULL, 2, 1 WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 940000000000003012);
+INSERT INTO sys_menu (id, parent_id, menu_name, menu_type, path, component, perms, icon, order_num, status) SELECT 940000000000003013, 940000000000003001, '分类修改', 2, NULL, NULL, 'system:category:edit', NULL, 3, 1 WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 940000000000003013);
+INSERT INTO sys_menu (id, parent_id, menu_name, menu_type, path, component, perms, icon, order_num, status) SELECT 940000000000003014, 940000000000003001, '分类删除', 2, NULL, NULL, 'system:category:remove', NULL, 4, 1 WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 940000000000003014);
