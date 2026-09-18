@@ -31,5 +31,11 @@
             <artifactId>lombok</artifactId>
             <scope>provided</scope>
         </dependency>
+        <!-- 单测：JUnit5 + AssertJ（由 spring-boot-starter-test 引入），本模块此前无测试，P2-D 补 fallback 单测 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 </project>

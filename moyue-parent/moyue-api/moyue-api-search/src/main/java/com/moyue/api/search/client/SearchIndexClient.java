@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RequestBody;
  * 返回类型包裹 R&lt;T&gt;，与 SearchInternalController 内部端点结构一致。
  * 供 moyue-content 在书籍创建 / 更新 / 下架时同步 ES 索引（P2-13）。
  */
-@FeignClient(name = "moyue-search", fallbackFactory = SearchIndexClientFallbackFactory.class)
+@FeignClient(name = "moyue-search", contextId = "searchIndexClient", fallbackFactory = SearchIndexClientFallbackFactory.class)
 public interface SearchIndexClient {
 
     /** 索引一本书（bookId 为 _id，重复推送覆盖更新，幂等） */

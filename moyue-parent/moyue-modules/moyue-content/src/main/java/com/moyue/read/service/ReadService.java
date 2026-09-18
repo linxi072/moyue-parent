@@ -8,6 +8,8 @@ import com.moyue.common.ResultCode;
 import com.moyue.common.cache.CacheNames;
 import com.moyue.read.dto.ListenProgressDTO;
 import com.moyue.read.entity.BookshelfEntity;
+import com.moyue.read.event.BookshelfChangedEvent;
+import com.moyue.read.event.BookshelfEventPublisher;
 import com.moyue.read.mapper.BookshelfMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,6 +47,10 @@ public class ReadService {
     @Autowired(required = false)
     private PointsClient pointsClient;
 
+    /** 书架变更事件发布器（P2-D 实时同步）：写库成功后发布领域事件，由 BookshelfWsNotifier 近实时推送 */
+    @Autowired
+    private BookshelfEventPublisher bookshelfEventPublisher;
+
     /**
      * 按用户 ID 查询书架（按加入时间倒序）。
      * 缓存名 {@link CacheNames#READ_BOOKSHELF}（TTL 5 分钟），key = userId。
@@ -80,6 +86,11 @@ public class ReadService {
             // 已收藏，或曾取消收藏留下逻辑删除行：复活旧记录，保持幂等
             bookshelfMapper.revive(userId, bookId);
         }
+        // P2-D：写库成功后发布书架变更事件（由 BookshelfWsNotifier 近实时推送）；读路径不发。
+        // 发布器为可选依赖（required=false），缺失时静默跳过，绝不阻断书架写库主流程。
+        if (bookshelfEventPublisher != null) {
+            bookshelfEventPublisher.publish(userId, bookId, BookshelfChangedEvent.ACTION_ADD);
+        }
     }
 
     /** 移出书架（全局逻辑删除） */
@@ -91,6 +102,10 @@ public class ReadService {
             throw new BizException(ResultCode.RESOURCE_NOT_FOUND);
         }
         bookshelfMapper.deleteById(e.getId());
+        // P2-D：写库成功后发布书架变更事件（发布器缺失时静默跳过）
+        if (bookshelfEventPublisher != null) {
+            bookshelfEventPublisher.publish(userId, bookId, BookshelfChangedEvent.ACTION_REMOVE);
+        }
     }
 
     /**
@@ -109,6 +124,10 @@ public class ReadService {
         }
         e.setLastChapterId(chapterId);
         bookshelfMapper.updateById(e);
+        // P2-D：写库成功后发布阅读进度变更事件（发布器缺失时静默跳过）
+        if (bookshelfEventPublisher != null) {
+            bookshelfEventPublisher.publish(userId, bookId, BookshelfChangedEvent.ACTION_PROGRESS);
+        }
     }
 
     /**
@@ -170,6 +189,10 @@ public class ReadService {
         e.setListenSegmentIndex(segmentIndex);
         e.setListenCharOffset(charOffset);
         bookshelfMapper.updateById(e);
+        // P2-D：写库成功后发布听书进度变更事件（发布器缺失时静默跳过）
+        if (bookshelfEventPublisher != null) {
+            bookshelfEventPublisher.publish(userId, bookId, BookshelfChangedEvent.ACTION_LISTEN);
+        }
     }
 
     /**

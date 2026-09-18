@@ -125,3 +125,16 @@ INSERT IGNORE INTO `sys_menu` (`id`, `parent_id`, `menu_name`, `menu_type`, `pat
 -- ============ V16__settlement.sql ============
 CREATE TABLE `settlement_order` ( `id` BIGINT NOT NULL COMMENT '结算单ID（雪花ID）', `author_id` BIGINT NOT NULL COMMENT '作者ID', `period` VARCHAR(20) NOT NULL COMMENT '结算月份 YYYY-MM', `total_amount` DECIMAL(12,2) NOT NULL DEFAULT 0 COMMENT '结算总额（元）', `status` TINYINT NOT NULL DEFAULT 0 COMMENT '0待结算/1已结算待打款/2已打款/3打款失败', `pay_channel` TINYINT NULL COMMENT '打款渠道 1微信/2支付宝', `pay_serial` VARCHAR(64) NULL COMMENT '渠道流水号（幂等键）', `remark` VARCHAR(255) NULL COMMENT '审核/打款备注', `operator_id` BIGINT NULL COMMENT '审核/打款操作人', `create_time` DATETIME NULL COMMENT '创建时间', `update_time` DATETIME NULL COMMENT '更新时间', `is_deleted` TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除 0否/1是', PRIMARY KEY (`id`), KEY `settlement_order_idx_settlement_author_period` (`author_id`, `period`), KEY `settlement_order_idx_settlement_status` (`status`) ) COMMENT='稿酬结算单';
 ALTER TABLE `author_income` ADD COLUMN `settlement_id` BIGINT NULL COMMENT '结算单ID（锁定已结算流水）';
+
+-- ============ V17__risk_owner_notice_and_dashboard.sql ============
+INSERT IGNORE INTO `message_template` (`id`,`code`,`name`,`title_tpl`,`content_tpl`,`channels`) VALUES (920000000000000004,'OWNER_NOTICE','被处理方通知','{targetDesc}处理通知','您发布的{targetDesc}因被举报，平台处理结果：{result}。处理意见：{reason}','1');
+INSERT IGNORE INTO `sys_menu` (`id`, `parent_id`, `menu_name`, `menu_type`, `path`, `component`, `perms`, `icon`, `order_num`, `status`) VALUES (940000000000002193, 940000000000001004, '风险看板', 2, NULL, NULL, 'system:risk:dashboard', 'form', 3, 1);
+
+-- ============ V18__user_contact.sql ============
+ALTER TABLE `user` ADD COLUMN `email` VARCHAR(128) DEFAULT NULL COMMENT '邮箱（触达渠道：邮件；可空）';
+ALTER TABLE `user` ADD COLUMN `device_token` VARCHAR(512) DEFAULT NULL COMMENT '设备推送令牌（触达渠道：推送；可空）';
+
+-- ============ V19__bookshelf_listen_progress.sql ============
+ALTER TABLE `bookshelf` ADD COLUMN `listen_chapter_id` BIGINT DEFAULT NULL COMMENT '听书进度：当前收听章节 → chapter.id';
+ALTER TABLE `bookshelf` ADD COLUMN `listen_segment_index` INT DEFAULT 0 COMMENT '听书进度：章节内片段序号（断点续听）';
+ALTER TABLE `bookshelf` ADD COLUMN `listen_char_offset` INT DEFAULT 0 COMMENT '听书进度：片段内字符偏移';

@@ -131,30 +131,10 @@ INSERT IGNORE INTO `message_template` (`id`,`code`,`name`,`title_tpl`,`content_t
 INSERT IGNORE INTO `sys_menu` (`id`, `parent_id`, `menu_name`, `menu_type`, `path`, `component`, `perms`, `icon`, `order_num`, `status`) VALUES (940000000000002193, 940000000000001004, '风险看板', 2, NULL, NULL, 'system:risk:dashboard', 'form', 3, 1);
 
 -- ============ V18__user_contact.sql ============
-SET @exist_email := (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'user' AND column_name = 'email');
-SET @sql_email := IF(@exist_email = 0, 'ALTER TABLE `user` ADD COLUMN `email` VARCHAR(128) DEFAULT NULL COMMENT ''邮箱（触达渠道：邮件；可空）'' AFTER `avatar_url`', 'SELECT 1');
-PREPARE stmt_email FROM @sql_email;
-EXECUTE stmt_email;
-DEALLOCATE PREPARE stmt_email;
-SET @exist_token := (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'user' AND column_name = 'device_token');
-SET @sql_token := IF(@exist_token = 0, 'ALTER TABLE `user` ADD COLUMN `device_token` VARCHAR(512) DEFAULT NULL COMMENT ''设备推送令牌（触达渠道：推送；可空）'' AFTER `email`', 'SELECT 1');
-PREPARE stmt_token FROM @sql_token;
-EXECUTE stmt_token;
-DEALLOCATE PREPARE stmt_token;
+ALTER TABLE `user` ADD COLUMN `email` VARCHAR(128) DEFAULT NULL COMMENT '邮箱（触达渠道：邮件；可空）';
+ALTER TABLE `user` ADD COLUMN `device_token` VARCHAR(512) DEFAULT NULL COMMENT '设备推送令牌（触达渠道：推送；可空）';
 
 -- ============ V19__bookshelf_listen_progress.sql ============
-SET @exist_lc := (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'bookshelf' AND column_name = 'listen_chapter_id');
-SET @sql_lc := IF(@exist_lc = 0, 'ALTER TABLE `bookshelf` ADD COLUMN `listen_chapter_id` BIGINT DEFAULT NULL COMMENT ''听书进度：当前收听章节 → chapter.id'' AFTER `last_chapter_id`', 'SELECT 1');
-PREPARE stmt_lc FROM @sql_lc;
-EXECUTE stmt_lc;
-DEALLOCATE PREPARE stmt_lc;
-SET @exist_ls := (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'bookshelf' AND column_name = 'listen_segment_index');
-SET @sql_ls := IF(@exist_ls = 0, 'ALTER TABLE `bookshelf` ADD COLUMN `listen_segment_index` INT DEFAULT 0 COMMENT ''听书进度：章节内片段序号（断点续听）'' AFTER `listen_chapter_id`', 'SELECT 1');
-PREPARE stmt_ls FROM @sql_ls;
-EXECUTE stmt_ls;
-DEALLOCATE PREPARE stmt_ls;
-SET @exist_lo := (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'bookshelf' AND column_name = 'listen_char_offset');
-SET @sql_lo := IF(@exist_lo = 0, 'ALTER TABLE `bookshelf` ADD COLUMN `listen_char_offset` INT DEFAULT 0 COMMENT ''听书进度：片段内字符偏移'' AFTER `listen_segment_index`', 'SELECT 1');
-PREPARE stmt_lo FROM @sql_lo;
-EXECUTE stmt_lo;
-DEALLOCATE PREPARE stmt_lo;
+ALTER TABLE `bookshelf` ADD COLUMN `listen_chapter_id` BIGINT DEFAULT NULL COMMENT '听书进度：当前收听章节 → chapter.id';
+ALTER TABLE `bookshelf` ADD COLUMN `listen_segment_index` INT DEFAULT 0 COMMENT '听书进度：章节内片段序号（断点续听）';
+ALTER TABLE `bookshelf` ADD COLUMN `listen_char_offset` INT DEFAULT 0 COMMENT '听书进度：片段内字符偏移';

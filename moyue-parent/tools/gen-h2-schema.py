@@ -64,6 +64,16 @@ SKIP_STMT = re.compile(
     r"|USE\s|LOCK\s+TABLES|UNLOCK\s+TABLES|CREATE\s+DATABASE|DROP\s+DATABASE)\b"
 )
 
+# V18/V19 幂等 ALTER 的 MySQL 过程化包裹：SET @x := IF(@exist=0, '真实DDL', 'SELECT 1')
+# H2 库每次新建（列必不存在），等价取其 then 分支「真实 DDL」直发。
+PROC_IF = re.compile(
+    r"(?i)^SET\s+@\w+\s*:=\s*IF\s*\(\s*@\w+\s*=\s*0\s*,\s*'(.*?)'\s*,\s*'SELECT\s+1'\s*\)\s*;?$"
+)
+# 存在性检查赋值（SET @exist := (SELECT ...)）/ 过程化语句（PREPARE/EXECUTE/DEALLOCATE）：H2 不支持，跳过
+PROC_SKIP = re.compile(
+    r"(?i)^(SET\s+@\w+\s*:=\s*\(|PREPARE\s|EXECUTE\s|DEALLOCATE\s)"
+)
+
 
 def strip_mysql_only(stmt: str) -> str:
     """剥离单条语句中 H2 不支持的 MySQL 专有语法。"""
@@ -188,7 +198,16 @@ def main():
     for f in files:
         stmts = []
         for raw in to_statements(f.read_text(encoding="utf-8")):
-            if SKIP_STMT.match(raw):
+            # V18/V19 幂等 ALTER 过程化包裹：提取真实 DDL 在 H2 直发（then 分支）
+            m_if = PROC_IF.match(raw)
+            if m_if:
+                inner = m_if.group(1).replace("''", "'")
+                stmt = strip_mysql_only(inner)
+                if stmt:
+                    stmts.append(renamer.apply(stmt))
+                continue
+            # 存在性检查 / 过程化语句：H2 不支持，跳过
+            if PROC_SKIP.match(raw) or SKIP_STMT.match(raw):
                 skipped += 1
                 continue
             stmt = strip_mysql_only(raw)
