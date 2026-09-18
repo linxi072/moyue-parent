@@ -79,6 +79,14 @@ spring:
           predicates:
             - Path=/api/v1/im/**
 
+        # ===== social（P2-E 社区关注流 / 动态：关注 / 取关 / 关注列表 / 粉丝列表 / feed 时间线 / 作者主页动态）=====
+        # 注意：内部端点 /api/v1/internal/** 不在此暴露（不经网关，由业务侧 InternalAuthInterceptor 校验 X-Service-Token），
+        # 同一条断言内用逗号分隔多路径（OR），避免 AND 语义导致路径互斥永不匹配。
+        - id: moyue-social-follow
+          uri: lb://moyue-social
+          predicates:
+            - Path=/api/v1/follow/**,/api/v1/feed,/api/v1/dynamic/**
+
         # ===== message（触达域：站内信 / 触达记录）=====
         - id: moyue-message
           uri: lb://moyue-message
