@@ -10,12 +10,14 @@ import com.moyue.common.core.domain.PageResult;
 import com.moyue.api.account.dto.UserDTO;
 import com.moyue.book.category.service.CategoryService;
 import com.moyue.book.entity.BookEntity;
+import com.moyue.book.event.BookDynamicEvent;
 import com.moyue.book.mapper.BookMapper;
 import com.moyue.common.BizException;
 import com.moyue.common.ResultCode;
 import com.moyue.common.cache.CacheNames;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
@@ -74,6 +76,10 @@ public class BookService {
 
     @Autowired
     private FileStorage fileStorage;
+
+    /** 书籍动态事件发布器（P2-E：发布 / 完结旁路落 social，失败仅记 warn，不阻断主流程） */
+    @Autowired
+    private ApplicationEventPublisher eventPublisher;
 
     /** 分页查询书籍（P2-16：走 BOOK_LIST 缓存；P2-A 增加 categoryId 过滤） */
     @Cacheable(cacheNames = CacheNames.BOOK_LIST,
@@ -169,6 +175,7 @@ public class BookService {
             throw new BizException(ResultCode.RESOURCE_NOT_FOUND);
         }
         checkOwner(e.getAuthorId(), userId, role);
+        int oldStatus = e.getStatus() == null ? 0 : e.getStatus();
         if (title != null) {
             e.setTitle(title);
         }
@@ -192,7 +199,12 @@ public class BookService {
             e.setStatus(status);
         }
         bookMapper.updateById(e);
-        return toDto(e);
+        BookSummaryDTO dto = toDto(e);
+        // P2-E：作品完结动态（status 由非 2 转 2 时发布，AFTER_COMMIT 旁路落 social，失败仅记 warn）
+        if (status != null && status == STATUS_FINISHED && oldStatus != STATUS_FINISHED) {
+            publishBookDynamic(dto.getBookId(), dto.getTitle(), dto.getAuthorId(), dto.getAuthor(), 2);
+        }
+        return dto;
     }
 
     /**
@@ -364,6 +376,20 @@ public class BookService {
         } catch (Exception ex) {
             // 用户服务未注册 / 不可用：安全降级，不阻断书城查询
             return "";
+        }
+    }
+
+    /**
+     * P2-E：发布书籍动态事件（AFTER_COMMIT 旁路落 social）。
+     * 发布本身同步，由 {@link BookDynamicEventListener} 异步于提交后调用 DynamicClient；
+     * 任何异常仅记 warn，绝不阻断书城写主流程。
+     */
+    private void publishBookDynamic(Long bookId, String bookTitle, Long authorId, String authorName, int dynamicType) {
+        try {
+            eventPublisher.publishEvent(
+                    new BookDynamicEvent(this, bookId, bookTitle, authorId, authorName, dynamicType));
+        } catch (Exception ex) {
+            log.warn("发布书籍动态事件失败 bookId={} type={}, err={}", bookId, dynamicType, ex.getMessage());
         }
     }
 }

@@ -12,9 +12,12 @@ import com.moyue.common.R;
 import com.moyue.common.ResultCode;
 import com.moyue.operation.entity.AuthorIncomeEntity;
 import com.moyue.operation.entity.RewardOrderEntity;
+import com.moyue.operation.event.RewardDynamicEvent;
 import com.moyue.operation.mapper.AuthorIncomeMapper;
 import com.moyue.operation.mapper.RewardOrderMapper;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,6 +37,7 @@ import java.util.UUID;
  * 幂等设计：order_no 既是唯一键也是支付回调幂等键——已支付订单重复回调直接返回，不重复计入稿酬。
  */
 @Service
+@Slf4j
 public class RewardService {
 
     /** 订单状态：0 待支付 / 1 已支付 / 2 已关闭 */
@@ -67,6 +71,10 @@ public class RewardService {
     /** 章节客户端（16-23 标题 enrichment）；不可用时标题留空，不阻断主流程 */
     @Autowired(required = false)
     private ChapterClient chapterClient;
+
+    /** 打赏动态事件发布器（P2-E：打赏后旁路落 social，失败仅记 warn，不阻断支付主流程） */
+    @Autowired
+    private ApplicationEventPublisher eventPublisher;
 
     /** 创建打赏订单（userId 由调用方从网关注入头取得，绝不信任请求体），返回待支付订单 */
     @Transactional
@@ -112,6 +120,8 @@ public class RewardService {
         order.setPayTime(LocalDateTime.now());
         rewardOrderMapper.updateById(order);
         settleAuthorIncome(order);
+        // P2-E：打赏动态（AFTER_COMMIT 旁路落 social，失败仅记 warn，不阻断支付主流程）
+        publishRewardDynamic(order);
         return order;
     }
 
@@ -267,6 +277,39 @@ public class RewardService {
         authorIncomeMapper.insert(income);
     }
 
+    /**
+     * P2-E：发布打赏动态事件（AFTER_COMMIT 旁路落 social）。
+     * 经 content BookClient 取作者 / 作品反规范化快照；解析失败（降级）则不发布动态，不影响支付。
+     */
+    private void publishRewardDynamic(RewardOrderEntity order) {
+        BookSummaryDTO book = fetchBookSummary(order.getBookId());
+        if (book == null || book.getAuthorId() == null) {
+            return;
+        }
+        try {
+            eventPublisher.publishEvent(new RewardDynamicEvent(this, order.getUserId(), book.getAuthorId(),
+                    book.getAuthor(), order.getBookId(), book.getTitle(), order.getId()));
+        } catch (Exception ex) {
+            log.warn("发布打赏动态事件失败 orderId={}, err={}", order.getId(), ex.getMessage());
+        }
+    }
+
+    /** 经 Feign 取作品摘要（标题 / 作者）；失败或不可用时返回 null（降级，不阻断主流程） */
+    private BookSummaryDTO fetchBookSummary(Long bookId) {
+        if (bookClient == null || bookId == null) {
+            return null;
+        }
+        try {
+            R<BookSummaryDTO> resp = bookClient.getBook(bookId);
+            if (resp != null && resp.getCode() == ResultCode.SUCCESS.getCode() && resp.getData() != null) {
+                return resp.getData();
+            }
+        } catch (Exception ex) {
+            // 降级：书籍服务不可用，跳过依赖
+        }
+        return null;
+    }
+
     /** 生成买断稿酬流水：incomeType=4，金额全额入账，settleMonth=period */
     private AuthorIncomeEntity settleBuyoutIncome(Long authorId, Long bookId, BigDecimal amount, String period) {
         if (authorId == null) {
@@ -291,18 +334,8 @@ public class RewardService {
 
     /** 经 Feign 取书籍作者 ID；失败或非法时返回 null（降级，不阻断支付） */
     private Long resolveAuthorId(Long bookId) {
-        if (bookClient == null) {
-            return null;
-        }
-        try {
-            R<BookSummaryDTO> resp = bookClient.getBook(bookId);
-            if (resp == null || resp.getCode() != ResultCode.SUCCESS.getCode() || resp.getData() == null) {
-                return null;
-            }
-            return resp.getData().getAuthorId();
-        } catch (Exception ex) {
-            return null;
-        }
+        BookSummaryDTO book = fetchBookSummary(bookId);
+        return book == null ? null : book.getAuthorId();
     }
 
     private RewardOrderEntity findByOrderNo(String orderNo) {
