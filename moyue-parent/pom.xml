@@ -147,6 +147,12 @@
                 <artifactId>moyue-api-system</artifactId>
                 <version>${project.version}</version>
             </dependency>
+            <!-- P2-G 可观测性公共组件（随 moyue-common-security 传递至全服务） -->
+            <dependency>
+                <groupId>com.moyue</groupId>
+                <artifactId>moyue-common-observability</artifactId>
+                <version>${project.version}</version>
+            </dependency>
 
             <!-- MyBatis-Plus（Spring Boot 3 系必须使用 boot3 starter，否则拉到 mybatis-spring 2.x 与 Spring 6.1 不兼容） -->
             <dependency>

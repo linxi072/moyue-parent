@@ -17,6 +17,9 @@ public final class Constants {
     /** 网关向下游服务透传的用户角色头 */
     public static final String USER_ROLE_HEADER = "X-User-Role";
 
+    /** 分布式追踪透传头（X-Trace-Id）：网关生成、全链路透传，供日志聚合与链路串联（P2-G） */
+    public static final String TRACE_ID_HEADER = "X-Trace-Id";
+
     /** 服务间内部调用鉴权头（X-Service-Token），仅 /api/v1/internal/** 校验 */
     public static final String SERVICE_TOKEN_HEADER = "X-Service-Token";
 

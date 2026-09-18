@@ -1,0 +1,32 @@
+# 墨阅小说网 · Prometheus 抓取配置（P2-G）
+# 各服务经 moyue-common-observability 暴露 GET /actuator/prometheus（management.endpoints.web.exposure.include 默认 prometheus,health,info）。
+# 将本段并入 prometheus.yml 的 scrape_configs，或放到 file_sd 目录由 file_sd_configs 加载。
+# 端口以各服务 application.yml 的 server.port 为准；metrics_path 固定为 /actuator/prometheus。
+
+scrape_configs:
+  - job_name: 'moyue-services'
+    metrics_path: /actuator/prometheus
+    scrape_interval: 15s
+    scheme: http
+    static_configs:
+      # 服务名 → 端口（与 docs/后续迭代更新计划.md 模块注释一致；按需校正）
+      - targets:
+          - 'moyue-gateway:8080'      # 网关
+          - 'moyue-auth:8090'         # 认证
+          - 'moyue-account:8081'      # 账号
+          - 'moyue-content:8082'      # 内容（书城/章节/阅读）
+          - 'moyue-social:8083'       # 社交（评论/博客/IM）
+          - 'moyue-commerce:8084'     # 商业（积分/周边/稿酬）
+          - 'moyue-search:8085'       # 检索/推荐
+          - 'moyue-system:8086'       # 平台运营/系统管理
+          - 'moyue-message:8087'      # 触达（站内信/渠道）
+          - 'moyue-risk:8089'         # 内容安全
+          - 'moyue-ai:8097'           # AI 智能客服
+        labels:
+          cluster: 'moyue-prod'
+
+# 备注：
+# - 每个服务的 /actuator/prometheus 自带 application 标签（management.metrics.tags.application=${spring.application.name}），
+#   看板/告警用 {application="moyue-content"} 等维度切分。
+# - 仅暴露只读端点；网关不路由 /actuator/**，抓取走内网直连服务端口。
+# - 若启用 Prometheus 安全，给本 job 加 bearer_token 或 basic_auth（与运维部署手册对齐）。

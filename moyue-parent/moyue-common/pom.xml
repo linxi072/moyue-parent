@@ -21,5 +21,6 @@
         <module>moyue-common-redis</module>
         <module>moyue-common-mybatis</module>
         <module>moyue-common-migration</module>
+        <module>moyue-common-observability</module>
     </modules>
 </project>
