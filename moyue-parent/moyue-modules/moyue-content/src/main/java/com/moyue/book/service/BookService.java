@@ -157,7 +157,10 @@ public class BookService {
         e.setClickCount(0L);
         e.setIsDeleted(0);
         bookMapper.insert(e);
-        return toDto(e);
+        BookSummaryDTO dto = toDto(e);
+        // P2-E：发布新作动态（type=1，AFTER_COMMIT 旁路落 social，失败仅记 warn，不阻断书城主流程）
+        publishBookDynamic(dto.getBookId(), dto.getTitle(), dto.getAuthorId(), dto.getAuthor(), 1);
+        return dto;
     }
 
     /**

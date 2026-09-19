@@ -126,13 +126,17 @@ public class FollowService {
         return Math.min(size, MAX_SIZE);
     }
 
-    /** 构造 keyset 游标 SQL（H2 / MySQL 兼容）：(create_time < ?) OR (create_time = ? AND id < ?) */
+    /** 构造 keyset 游标 SQL（H2 / MySQL 兼容）：(create_time < {0}) OR (create_time = {1} AND id < {2})，{0}/{1}/{2} 对应 parseCursor 的 [ct, ct, id] */
     private String buildCursorSql() {
-        return "(create_time < ?) OR (create_time = ? AND id < ?)";
+        return "(create_time < {0}) OR (create_time = {1} AND id < {2})";
     }
 
     /** 解析 cursor = createTimeMillis_id 为 [LocalDateTime, LocalDateTime, Long]（ct 复用两次） */
     private Object[] parseCursor(String cursor) {
+        // 首屏 cursor 为 null/空串时直接返回 null（apply 条件为假不会使用该参数，但参数会先行求值）
+        if (cursor == null || cursor.isBlank()) {
+            return null;
+        }
         String[] parts = cursor.split("_");
         long millis = Long.parseLong(parts[0]);
         long id = Long.parseLong(parts[1]);
