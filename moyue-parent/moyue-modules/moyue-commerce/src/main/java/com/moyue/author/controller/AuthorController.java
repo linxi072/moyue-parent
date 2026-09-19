@@ -1,7 +1,7 @@
 package com.moyue.author.controller;
 
+import com.moyue.api.system.dto.AuthorIncomeDTO;
 import com.moyue.api.system.dto.SettlementDTO;
-import com.moyue.author.entity.AuthorIncomeEntity;
 import com.moyue.author.service.AuthorService;
 import com.moyue.common.BizException;
 import com.moyue.common.Constants;
@@ -30,7 +30,7 @@ public class AuthorController {
 
     /** 按作者查询稿酬流水：GET /api/v1/author/income/{authorId} */
     @GetMapping("/author/income/{authorId}")
-    public R<List<AuthorIncomeEntity>> listIncome(@PathVariable Long authorId) {
+    public R<List<AuthorIncomeDTO>> listIncome(@PathVariable Long authorId) {
         return R.ok(authorService.listByAuthor(authorId));
     }
 

@@ -1,10 +1,9 @@
 package com.moyue.author.service;
 
-import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.moyue.api.system.client.IncomeClient;
 import com.moyue.api.system.client.SettlementClient;
+import com.moyue.api.system.dto.AuthorIncomeDTO;
 import com.moyue.api.system.dto.SettlementDTO;
-import com.moyue.author.entity.AuthorIncomeEntity;
-import com.moyue.author.mapper.AuthorIncomeMapper;
 import com.moyue.common.ResultCode;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -21,18 +20,29 @@ import java.util.List;
 @Service
 public class AuthorService {
 
-    @Autowired
-    private AuthorIncomeMapper authorIncomeMapper;
+    /** 稿酬流水 Feign 客户端（目标 moyue-system）；不可用时稿酬流水查询降级为空，不阻断作者主页主流程 */
+    @Autowired(required = false)
+    private IncomeClient incomeClient;
 
     /** 结算单 Feign 客户端（目标 moyue-system）；不可用时结算单查询降级为空，不阻断稿酬流水主流程 */
     @Autowired(required = false)
     private SettlementClient settlementClient;
 
-    /** 按 author_id 查询该作者的全部稿酬流水，按结算月份倒序 */
-    public List<AuthorIncomeEntity> listByAuthor(Long authorId) {
-        return authorIncomeMapper.selectList(Wrappers.<AuthorIncomeEntity>lambdaQuery()
-                .eq(AuthorIncomeEntity::getAuthorId, authorId)
-                .orderByDesc(AuthorIncomeEntity::getSettleMonth));
+    /** 按 author_id 查询该作者的全部稿酬流水（经 Feign 到 moyue-system，按结算月份倒序） */
+    public List<AuthorIncomeDTO> listByAuthor(Long authorId) {
+        if (incomeClient == null) {
+            return Collections.emptyList();
+        }
+        try {
+            com.moyue.common.R<List<AuthorIncomeDTO>> resp = incomeClient.listByAuthor(authorId);
+            if (resp != null && resp.getCode() == ResultCode.SUCCESS.getCode() && resp.getData() != null) {
+                return resp.getData();
+            }
+            return Collections.emptyList();
+        } catch (Exception ex) {
+            // 降级：稿酬流水查询失败不影响作者主页主流程
+            return Collections.emptyList();
+        }
     }
 
     /** 查询该作者的结算单列表（经 Feign 到 moyue-system；降级为空集合） */
