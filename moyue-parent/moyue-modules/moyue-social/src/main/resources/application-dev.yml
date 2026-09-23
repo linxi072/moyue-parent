@@ -1,5 +1,0 @@
-# dev 本地开发默认值（仅本地使用）
-spring:
-  datasource:
-    username: root
-    password: root
