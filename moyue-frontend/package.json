@@ -1,0 +1,21 @@
+{
+  "name": "moyue-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "墨阅小说网前端脚手架（单体化后直接调用 moyue-app /api/v1，src/api/sample 为 API 客户端样例）",
+  "type": "module",
+  "scripts": {
+    "gen": "echo \"单体化后已移除 moyue-contract；前端直接调用 /api/v1（开发代理见 vite.config.ts，basePath 见 src/api/sample/base.ts）\"",
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "axios": "^1.7.7"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vite": "^5.4.0"
+  }
+}

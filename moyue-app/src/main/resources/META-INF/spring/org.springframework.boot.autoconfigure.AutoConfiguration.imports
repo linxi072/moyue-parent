@@ -1,0 +1,4 @@
+com.moyue.common.core.openapi.MoyueOpenApiAutoConfiguration
+com.moyue.common.mybatis.config.MybatisPlusConfig
+com.moyue.common.obs.ObservabilityAutoConfiguration
+com.moyue.common.cache.MoyueCacheAutoConfiguration
