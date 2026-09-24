@@ -1,6 +1,7 @@
 package com.moyue.ai.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyue.ai.engine.AiReplyEngine;
 import com.moyue.ai.engine.ChatTurn;
@@ -107,6 +108,9 @@ public class AiService {
             if (session == null) {
                 throw new BizException(ResultCode.RESOURCE_NOT_FOUND, "会话不存在或已删除");
             }
+            if (session.getIsDeleted() != null && session.getIsDeleted() == 1) {
+                throw new BizException(ResultCode.RESOURCE_NOT_FOUND, "会话不存在或已删除");
+            }
             if (!session.getUserId().equals(userId)) {
                 throw new BizException(ResultCode.FORBIDDEN, "无权访问他人会话");
             }
@@ -183,7 +187,7 @@ public class AiService {
     public PageResult<AiSessionEntity> pageSessions(Long userId, int page, int size) {
         Page<AiSessionEntity> p = new Page<>(page, size);
         QueryWrapper<AiSessionEntity> wrapper = new QueryWrapper<>();
-        wrapper.eq("user_id", userId).orderByDesc("update_time");
+        wrapper.eq("user_id", userId).eq("is_deleted", 0).orderByDesc("update_time");
         sessionMapper.selectPage(p, wrapper);
 
         PageResult<AiSessionEntity> result = new PageResult<>();
@@ -204,7 +208,7 @@ public class AiService {
             throw new BizException(ResultCode.FORBIDDEN, "无权访问他人会话");
         }
         QueryWrapper<AiMessageEntity> wrapper = new QueryWrapper<>();
-        wrapper.eq("session_id", sessionId).orderByAsc("create_time");
+        wrapper.eq("session_id", sessionId).eq("is_deleted", 0).orderByAsc("create_time");
         return messageMapper.selectList(wrapper);
     }
 
@@ -288,8 +292,68 @@ public class AiService {
         return result;
     }
 
-    // TODO: 会话删除（逻辑删除 ai_session）目前无业务入口；若后续新增删除功能，
-    // 须同步调用 searchIndexClient.removeQaBySession(sessionId) 清理 ES 索引文档。
+    /**
+     * 删除单个会话（逻辑删除，闭环 AiService:291 TODO）：级联逻辑删除其全部消息，
+     * 并异步清理 ES 问答索引（非阻断）。会话不存在 / 已删除 → RESOURCE_NOT_FOUND；
+     * 非本人会话 → FORBIDDEN（防越权删他人对话）。
+     */
+    @Transactional
+    public void deleteSession(Long userId, Long sessionId) {
+        if (userId == null || sessionId == null) {
+            throw new BizException(ResultCode.PARAM_ERROR, "用户 ID 与会话 ID 不能为空");
+        }
+        AiSessionEntity session = sessionMapper.selectOne(
+                new QueryWrapper<AiSessionEntity>().eq("id", sessionId).eq("is_deleted", 0));
+        if (session == null) {
+            throw new BizException(ResultCode.RESOURCE_NOT_FOUND, "会话不存在或已删除");
+        }
+        if (!session.getUserId().equals(userId)) {
+            throw new BizException(ResultCode.FORBIDDEN, "无权删除他人会话");
+        }
+        session.setIsDeleted(1);
+        sessionMapper.updateById(session);
+        // 级联逻辑删除消息（is_deleted: 0 → 1）
+        UpdateWrapper<AiMessageEntity> uw = new UpdateWrapper<>();
+        uw.eq("session_id", sessionId).eq("is_deleted", 0).set("is_deleted", 1);
+        messageMapper.update(null, uw);
+        removeQaIndexAsync(sessionId);
+    }
+
+    /**
+     * 清空用户全部会话（逻辑删除，闭环 AiService:291 TODO）：逐会话级联删除消息并清理 ES 索引；
+     * 返回删除的会话数（仅统计未删除会话）。
+     */
+    @Transactional
+    public long clearSessions(Long userId) {
+        if (userId == null) {
+            throw new BizException(ResultCode.PARAM_ERROR, "用户 ID 不能为空");
+        }
+        List<AiSessionEntity> sessions = sessionMapper.selectList(
+                new QueryWrapper<AiSessionEntity>().eq("user_id", userId).eq("is_deleted", 0));
+        for (AiSessionEntity s : sessions) {
+            s.setIsDeleted(1);
+            sessionMapper.updateById(s);
+            UpdateWrapper<AiMessageEntity> uw = new UpdateWrapper<>();
+            uw.eq("session_id", s.getId()).eq("is_deleted", 0).set("is_deleted", 1);
+            messageMapper.update(null, uw);
+            removeQaIndexAsync(s.getId());
+        }
+        return sessions.size();
+    }
+
+    /** 异步清理某会话的 ES 问答索引文档（非阻断：search 未注册 / 异常仅记 warn，不影响删除主流程） */
+    private void removeQaIndexAsync(Long sessionId) {
+        if (searchIndexClient == null) {
+            return;
+        }
+        java.util.concurrent.CompletableFuture.runAsync(() -> {
+            try {
+                searchIndexClient.removeQaBySession(sessionId);
+            } catch (Exception ex) {
+                log.warn("清理会话 ES 问答索引失败 sessionId={}, err={}", sessionId, ex.getMessage());
+            }
+        });
+    }
 
     private String truncate(String s, int max) {
         return s.length() > max ? s.substring(0, max) : s;

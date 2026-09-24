@@ -6,6 +6,7 @@ import com.moyue.ai.service.AiService;
 import com.moyue.common.core.domain.PageResult;
 import com.moyue.common.R;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -46,6 +47,20 @@ public class AiController {
     public R<List<AiMessageEntity>> listMessages(@PathVariable Long sessionId,
                                                  @RequestParam Long userId) {
         return R.ok(aiService.listMessages(userId, sessionId));
+    }
+
+    /** 删除单个会话（逻辑删除，级联删消息 + 清理 ES 索引）；非本人会话返回 10003 */
+    @DeleteMapping("/ai/sessions/{sessionId}")
+    public R<Void> deleteSession(@PathVariable Long sessionId,
+                                 @RequestParam Long userId) {
+        aiService.deleteSession(userId, sessionId);
+        return R.ok();
+    }
+
+    /** 清空该用户全部会话（逻辑删除），返回删除的会话数 */
+    @DeleteMapping("/ai/sessions")
+    public R<Long> clearSessions(@RequestParam Long userId) {
+        return R.ok(aiService.clearSessions(userId));
     }
 
     /** 对话请求体 */

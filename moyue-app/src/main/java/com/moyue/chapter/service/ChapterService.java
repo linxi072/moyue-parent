@@ -8,6 +8,7 @@ import com.moyue.api.content.client.BookClient;
 import com.moyue.api.content.dto.BookSummaryDTO;
 import com.moyue.api.content.dto.ChapterDTO;
 import com.moyue.api.risk.client.RiskClient;
+import com.moyue.api.risk.client.BehaviorRiskClient;
 import com.moyue.api.risk.dto.ModerationRequestDTO;
 import com.moyue.api.risk.dto.ModerationResultDTO;
 import com.moyue.api.search.client.SearchIndexClient;
@@ -79,6 +80,10 @@ public class ChapterService {
     /** 检索服务客户端（章节索引同步 hook）；search 未注册时安全降级 */
     @Autowired(required = false)
     private SearchIndexClient searchIndexClient;
+
+    /** 行为风控客户端（P2-C 收尾）：章节发布成功非阻断埋点 */
+    @Autowired(required = false)
+    private BehaviorRiskClient behaviorRiskClient;
 
     /** 章节正文入索引的最大长度：超过部分截断（防单条 ES 文档过大拖垮索引与查询） */
     private static final int CONTENT_INDEX_MAX = 20000;
@@ -248,6 +253,10 @@ public class ChapterService {
         chapterMapper.updateById(e);
         // 索引同步 hook：仅已发布(2) 入索引；定时待发布(4) 与人工审核中(1) 均不入索引
         syncChapterIndexIfPublished(e);
+        // P2-C 收尾：章节实际发布（status=2）时采集 PUBLISH 行为事件，非阻断
+        if (Integer.valueOf(STATUS_PUBLISHED).equals(e.getStatus())) {
+            collectPublishRisk(userId, e.getId());
+        }
         return e;
     }
 
@@ -282,6 +291,8 @@ public class ChapterService {
             }
             e.setStatus(STATUS_PUBLISHED);
             syncChapterIndexIfPublished(e);
+            // P2-C 收尾：定时到点转发布亦采集 PUBLISH，行为主体取作者（bookClient 不可用时跳过）
+            collectPublishRisk(resolveChapterAuthorId(e.getBookId()), e.getId());
             activated++;
         }
         if (activated > 0) {
@@ -431,6 +442,34 @@ public class ChapterService {
         } catch (Exception ex) {
             // 书籍服务不可用：降级为空作品名，索引同步不受阻
             return "";
+        }
+    }
+
+    // ------------------------------ P2-C 行为风控埋点 ------------------------------
+
+    /** 章节发布行为风控埋点（非阻断；客户端未就绪 / 无行为主体 / 异常均仅告警跳过） */
+    private void collectPublishRisk(Long userId, Long chapterId) {
+        if (behaviorRiskClient == null || userId == null) {
+            return;
+        }
+        try {
+            behaviorRiskClient.collect(userId, null, "PUBLISH", chapterId, null);
+        } catch (Exception ignored) {
+            // collect 本身已降级；双保险
+        }
+    }
+
+    /** 经 BookClient 解析章节作者 ID（行为主体）；客户端未注册 / 不可用 / 异常时返回 null，安全降级 */
+    private Long resolveChapterAuthorId(Long bookId) {
+        if (bookClient == null || bookId == null) {
+            return null;
+        }
+        try {
+            R<BookSummaryDTO> resp = bookClient.getBook(bookId);
+            BookSummaryDTO book = resp == null ? null : resp.getData();
+            return book == null ? null : book.getAuthorId();
+        } catch (Exception ex) {
+            return null;
         }
     }
 
