@@ -12,6 +12,9 @@ import com.moyue.merch.entity.MerchProductEntity;
 import com.moyue.merch.mapper.MerchCartMapper;
 import com.moyue.merch.mapper.MerchOrderMapper;
 import com.moyue.merch.mapper.MerchProductMapper;
+import com.moyue.api.member.client.MemberClient;
+import com.moyue.common.R;
+import com.moyue.member.service.MemberService.MemberBenefits;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -41,6 +44,10 @@ public class MerchService {
 
     @Autowired
     private MerchOrderMapper orderMapper;
+
+    /** 会员服务进程内客户端（可选依赖）：结算时查询会员折扣率，未注册则原价结算 */
+    @Autowired(required = false)
+    private MemberClient memberClient;
 
     private static final SecureRandom RANDOM = new SecureRandom();
 
@@ -194,6 +201,9 @@ public class MerchService {
 
         String orderNo = generateOrderNo();
         LocalDateTime now = LocalDateTime.now();
+        // 会员折扣：下单前查一次当前用户折扣率（无会员 / 服务降级时恒为 1，即原价），循环内复用
+        BigDecimal discountRate = resolveDiscountRate(userId);
+
         List<MerchOrderEntity> orders = new ArrayList<>();
         for (MerchCartEntity cart : carts) {
             MerchProductEntity product = productMapper.selectById(cart.getProductId());
@@ -221,8 +231,13 @@ public class MerchService {
             order.setProductId(product.getId());
             order.setProductName(product.getName());
             order.setQuantity(qty);
-            order.setTotalAmount(product.getPrice()
-                    .multiply(BigDecimal.valueOf(qty)).setScale(2, RoundingMode.HALF_UP));
+            // 本行金额 = 单价 × 数量；会员生效中且折扣率 < 1 时按折扣率下浮（保留两位）
+            BigDecimal lineTotal = product.getPrice()
+                    .multiply(BigDecimal.valueOf(qty)).setScale(2, RoundingMode.HALF_UP);
+            if (discountRate.compareTo(BigDecimal.ONE) < 0) {
+                lineTotal = lineTotal.multiply(discountRate).setScale(2, RoundingMode.HALF_UP);
+            }
+            order.setTotalAmount(lineTotal);
             order.setStatus(0);
             order.setIsDeleted(0);
             order.setCreateTime(now);
@@ -276,6 +291,29 @@ public class MerchService {
         QueryWrapper<MerchCartEntity> qw = new QueryWrapper<>();
         qw.eq("user_id", userId).eq("product_id", productId);
         return cartMapper.selectOne(qw);
+    }
+
+    /**
+     * 解析当前会员折扣率：会员生效中且折扣率 < 1 时返回该折扣率，否则返回 1（原价）。
+     * 边界：会员客户端未注入 / 服务降级 / 非会员 / 折扣率缺失或异常，一律原价，绝不阻断下单主链路。
+     */
+    private BigDecimal resolveDiscountRate(Long userId) {
+        if (memberClient == null) {
+            return BigDecimal.ONE;
+        }
+        try {
+            R<MemberBenefits> r = memberClient.getBenefits(userId);
+            if (r == null || r.getData() == null || !r.getData().isActive()) {
+                return BigDecimal.ONE;
+            }
+            BigDecimal rate = r.getData().getDiscountRate();
+            if (rate == null || rate.compareTo(BigDecimal.ONE) >= 0) {
+                return BigDecimal.ONE;
+            }
+            return rate;
+        } catch (Exception e) {
+            return BigDecimal.ONE;
+        }
     }
 
     /** 订单号：14 位时间戳 + 10 位随机数，共 24 位（与打赏订单同风格） */
