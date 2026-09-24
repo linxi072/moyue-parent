@@ -19,6 +19,7 @@ import com.moyue.points.mapper.PointsCheckInMapper;
 import com.moyue.points.mapper.PointsFlowMapper;
 import com.moyue.points.mapper.PointsOrderMapper;
 import com.moyue.points.mapper.PointsProductMapper;
+import com.moyue.api.risk.client.BehaviorRiskClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -50,6 +51,10 @@ public class PointsService {
 
     @Autowired
     private PointsFlowMapper flowMapper;
+
+    /** 行为风控客户端（P2-C 闭环补全）：签到 / 兑换成功后非阻断埋点 */
+    @Autowired(required = false)
+    private BehaviorRiskClient behaviorRiskClient;
 
     /** 签到固定奖励积分 */
     private static final int CHECK_IN_POINTS = 10;
@@ -232,7 +237,23 @@ public class PointsService {
         order.setUpdateTime(now);
         orderMapper.insert(order);
 
+        collectRisk(userId, "REDEEM", order.getId());
         return toOrderDTO(order);
+    }
+
+    /**
+     * 行为风控埋点（P2-C 闭环补全）：业务主流程成功后非阻断采集一次用户行为。
+     * 风控服务未就绪 / 异常时仅告警吞掉，绝不回滚、不阻断主链路。
+     */
+    private void collectRisk(Long userId, String eventType, Long bizId) {
+        if (behaviorRiskClient == null) {
+            return;
+        }
+        try {
+            behaviorRiskClient.collect(userId, null, eventType, bizId, null);
+        } catch (Exception ignored) {
+            // collect 本身已降级；双保险
+        }
     }
 
     /**
@@ -258,6 +279,7 @@ public class PointsService {
             throw new BizException(ResultCode.PARAM_ERROR, "今日已签到");
         }
         earnPoints(userId, CHECK_IN_POINTS, BIZ_CHECK_IN, "每日签到");
+        collectRisk(userId, "SIGN_IN", null);
         return CHECK_IN_POINTS;
     }
 

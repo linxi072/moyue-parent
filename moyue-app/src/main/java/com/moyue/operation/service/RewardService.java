@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyue.api.content.client.BookClient;
 import com.moyue.api.content.client.ChapterClient;
+import com.moyue.api.risk.client.BehaviorRiskClient;
 import com.moyue.api.content.dto.BookSummaryDTO;
 import com.moyue.common.core.domain.PageResult;
 import com.moyue.common.BizException;
@@ -72,6 +73,10 @@ public class RewardService {
     @Autowired(required = false)
     private ChapterClient chapterClient;
 
+    /** 行为风控客户端（P2-C 闭环补全）：打赏支付成功后非阻断埋点 */
+    @Autowired(required = false)
+    private BehaviorRiskClient behaviorRiskClient;
+
     /** 打赏动态事件发布器（P2-E：打赏后旁路落 social，失败仅记 warn，不阻断支付主流程） */
     @Autowired
     private ApplicationEventPublisher eventPublisher;
@@ -122,7 +127,22 @@ public class RewardService {
         settleAuthorIncome(order);
         // P2-E：打赏动态（AFTER_COMMIT 旁路落 social，失败仅记 warn，不阻断支付主流程）
         publishRewardDynamic(order);
+        collectRewardRisk(order.getUserId(), order.getId());
         return order;
+    }
+
+    /**
+     * 打赏行为风控埋点（P2-C 闭环补全）：支付成功后非阻断采集，风控不可用仅告警。
+     */
+    private void collectRewardRisk(Long userId, Long orderId) {
+        if (behaviorRiskClient == null) {
+            return;
+        }
+        try {
+            behaviorRiskClient.collect(userId, null, "REWARD", orderId, null);
+        } catch (Exception ignored) {
+            // collect 本身已降级；双保险
+        }
     }
 
     /** 订单详情（仅下单人可见） */

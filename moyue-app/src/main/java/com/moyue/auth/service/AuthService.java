@@ -19,6 +19,12 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import com.moyue.api.risk.client.BehaviorRiskClient;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.web.context.request.RequestAttributes;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
+
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -36,6 +42,10 @@ public class AuthService implements CommandLineRunner {
 
     @Autowired
     private JwtProvider jwtProvider;
+
+    /** 行为风控客户端（P2-C 闭环补全）：登录成功后非阻断埋点 */
+    @Autowired(required = false)
+    private BehaviorRiskClient behaviorRiskClient;
 
     @Autowired
     private StringRedisTemplate redisTemplate;
@@ -87,7 +97,36 @@ public class AuthService implements CommandLineRunner {
         if (user.getStatus() != null && user.getStatus() == 0) {
             throw new BizException(ResultCode.FORBIDDEN, "账号已禁用");
         }
-        return issueTokens(user);
+        LoginVO vo = issueTokens(user);
+        collectLoginRisk(user.getId());
+        return vo;
+    }
+
+    /**
+     * 登录行为风控埋点（P2-C 闭环补全）：非阻断采集，deviceId / IP 最佳努力从请求头与上下文获取。
+     * 风控服务未就绪 / 无 Web 上下文 / 异常时仅告警吞掉，绝不回滚、不阻断登录主链路。
+     */
+    private void collectLoginRisk(Long userId) {
+        if (behaviorRiskClient == null) {
+            return;
+        }
+        try {
+            String deviceId = null;
+            String ip = null;
+            try {
+                RequestAttributes attrs = RequestContextHolder.getRequestAttributes();
+                if (attrs instanceof ServletRequestAttributes sra) {
+                    HttpServletRequest req = sra.getRequest();
+                    deviceId = req.getHeader("X-Device-Id");
+                    ip = req.getRemoteAddr();
+                }
+            } catch (Exception ignored) {
+                // 非 Web 上下文（如单元测试）忽略
+            }
+            behaviorRiskClient.collect(userId, deviceId, "LOGIN", null, ip);
+        } catch (Exception ignored) {
+            // collect 本身已降级；双保险
+        }
     }
 
     /** 注册：写入 user 表（BCrypt） */
