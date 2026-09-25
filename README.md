@@ -101,17 +101,50 @@ moyue:
 
 ## 八、Flyway 迁移
 
-`classpath:db/migration` 下 V1–Vn 脚本，全域共享。详见 [docs/运维部署手册.md](docs/运维部署手册.md)。
+`classpath:db/migration` 下 **V1–V24** 脚本，全域共享（含 P0 稿酬/定时发布、P1 触达/会员、P2 分类/关注动态/行为风控等幂等迁移）。
+H2 测试库由 `tools/gen-h2-schema.py` 依据此序列生成，保证测试与 MySQL 结构一致。详见 [docs/运维部署手册.md](docs/运维部署手册.md)。
 
-## 九、路线图状态（P0→P2 已全部交付）
+> 检索域依赖运行中 Elasticsearch（8.13.4+I K），建有三套索引 **`moyue_book` / `moyue_chapter` / `moyue_qa`**；ES 不可用时检索降级不阻断主链路。
 
-| 项 | 状态 |
+## 九、路线图状态（P0→P2）
+
+> 状态以实际落地提交为准（详见 `docs/后续迭代更新计划.md` §4 落地追踪）。编号沿用该文档 P0/P1/P2 体系。
+
+### P0 阶段（已交付）
+| 项 | 内容 |
 |---|---|
-| P2-B 会员/订阅 | ✅ 订阅状态机 + 支付 Stub + H2 集成测试 |
-| P2-C 内容安全反作弊 | ✅ 配置化行为风控 + 复用触达 + H2 集成测试 |
-| P2-13 搜索与推荐 | ✅ ES 分类筛选 / 排序 / 热门推荐 |
-| P2-14 消息触达 | ✅ ChannelSender SPI + 站内信/邮件真实现 + 短信/推送桩 |
-| P2-15 内容安全 | ✅ 人工审核 + 敏感词/机审/举报 |
-| P2-16 缓存与性能 | ✅ Redis 缓存 + 限流熔断 |
-| P2-17 配置治理 | ✅ dev/test/prod 隔离 + 密钥环境变量化 + 白名单配置化 |
-| 单体化重构 | ✅ 移除 Spring Cloud / OpenFeign / Nacos / Gateway，单模块 moyue-app |
+| P0-1 稿酬结算与打款闭环 | settlement_order 状态机 + 订阅/买断分成 + 打款 Stub（不回退） |
+| P0-2 章节定时发布调度闭环 | ChapterPublishJobHandler + XXL-Job 接管 1→2 |
+| P0-3 测试基线 | 4 个 @Disabled 流程测试 H2 化 + 全模块单测 |
+
+### P1 阶段（已交付）
+| 项 | 内容 |
+|---|---|
+| P1-1 AI 客服真实化 | LLM 引擎 + RAG 召回 + 多轮 + 转人工（缺 Key 降级关键字引擎） |
+| P1-2 触达渠道补全 | 短信/推送真实外呼（默认降级）+ 邮件解析 + UserDTO 联系字段 |
+| P1-3 推荐个性化 | 规则画像版 |
+| P1-4 内容安全处置闭环 + 看板 | 机审(AC)/敏感词热刷/举报/处置双向通知/统计看板（已真实落地，非桩） |
+| P1-5 检索质量调优 | 同义词/纠错 |
+
+### P2 阶段（已交付）
+| 项 | 内容 |
+|---|---|
+| P2-A 分类服务独立化 | category 表 + 后台 CRUD + BookClient(contextId) + book ES 含 categoryId；去硬编码 |
+| P2-C 风控反作弊·行为层 | BehaviorRiskClient 非阻断埋点（LOGIN/SIGN_IN/REDEEM/REWARD/PUBLISH） |
+| P2-D 书架实时同步 | 内容域事件 → 社区域 WebSocket 单播通道 |
+| P2-G 可观测性增强 | TraceId 串联 + Prometheus 指标 + 单行 JSON 日志（common-observability 聚合模块） |
+| P2-I 网关直连防护 | CidrFilter + InternalAuthInterceptor（X-Service-Token），上生产前置 |
+| P2-L 智能朗读（TTS） | 听书进度 + 配置驱动降级（SERVICE_DEGRADED） |
+| P2-B 会员/订阅（部分） | member 订阅状态机 + 支付 Stub（V23）；权益框架待深化 |
+| P2-E 社区（部分） | follow/dynamic 表（V22）；关注流/动态聚合待深化 |
+
+### P2 阶段（本批进行中）
+| 项 | 内容 | 状态 |
+|---|---|---|
+| P2-H 跨域共享表解耦收尾 | author_income 收敛为单写方(operation) + AuthorIncomeService 收口跨域读取 | 🚧 收尾 |
+| P2-J 文档与代码对齐 | 本文档路线图/Flyway/索引描述修正 | 🚧 本任务 |
+| P2-K 测试覆盖补齐 | account/commerce/social/auth/message 关键路径单测 | 🚧 进行中 |
+| P2-F 前端页面与联调 | moyue-frontend 核心页面（书城/阅读/客服/登录）消费 /api/v1 契约 | 🚧 进行中 |
+
+### 单体化重构（已交付）
+移除 Spring Cloud / OpenFeign / Nacos / Gateway，单模块 `moyue-app`；跨域调用改为进程内 Service 注入，`/api/v1` 路径与包名不变（前端契约不受影响）。
