@@ -138,13 +138,13 @@ H2 测试库由 `tools/gen-h2-schema.py` 依据此序列生成，保证测试与
 | P2-B 会员/订阅（部分） | member 订阅状态机 + 支付 Stub（V23）；权益框架待深化 |
 | P2-E 社区（部分） | follow/dynamic 表（V22）；关注流/动态聚合待深化 |
 
-### P2 阶段（本批进行中）
+### P2 阶段（本批已交付）
 | 项 | 内容 | 状态 |
 |---|---|---|
-| P2-H 跨域共享表解耦收尾 | author_income 收敛为单写方(operation) + AuthorIncomeService 收口跨域读取 | 🚧 收尾 |
-| P2-J 文档与代码对齐 | 本文档路线图/Flyway/索引描述修正 | 🚧 本任务 |
-| P2-K 测试覆盖补齐 | account/commerce/social/auth/message 关键路径单测 | 🚧 进行中 |
-| P2-F 前端页面与联调 | moyue-frontend 核心页面（书城/阅读/客服/登录）消费 /api/v1 契约 | 🚧 进行中 |
+| P2-H 跨域共享表解耦收尾 | author_income 收敛为单写方(operation) + AuthorIncomeService 收口跨域读取 | ✅ `e5bc7a8` |
+| P2-J 文档与代码对齐 | 本文档路线图/Flyway/索引描述修正 | ✅ `1c9075f` |
+| P2-K 测试覆盖补齐 | IM + 作者跨域稿酬降级单测（22 例），全量 418 例 0 失败 | ✅ `40df24c` |
+| P2-F 前端页面与联调 | moyue-frontend 五页（登录/书城/详情+目录/阅读器/AI 客服）消费 /api/v1 契约，tsc + vite build 通过 | ✅ `1cb6c0f` |
 
 ### 单体化重构（已交付）
 移除 Spring Cloud / OpenFeign / Nacos / Gateway，单模块 `moyue-app`；跨域调用改为进程内 Service 注入，`/api/v1` 路径与包名不变（前端契约不受影响）。
