@@ -7,6 +7,8 @@ import { renderBookstore } from './pages/bookstore';
 import { renderBookDetail } from './pages/bookDetail';
 import { renderReader } from './pages/reader';
 import { renderAiChat } from './pages/aiChat';
+import { renderSearch } from './pages/search';
+import { renderShelf } from './pages/shelf';
 
 const app = document.getElementById('app');
 if (!app) throw new Error('找不到 #app 挂载点');
@@ -16,6 +18,8 @@ const { outlet } = renderShell(app);
 const router = new Router(outlet);
 router
   .add('/', () => void renderBookstore(outlet))
+  .add('/search', (_p, q) => void renderSearch(outlet, q.get('q') ?? ''))
+  .add('/shelf', () => void renderShelf(outlet))
   .add('/book/:bookId', (p) => void renderBookDetail(outlet, Number(p.bookId)))
   .add('/read/:chapterId', (p) => void renderReader(outlet, Number(p.chapterId)))
   .add('/ai', () => void renderAiChat(outlet))

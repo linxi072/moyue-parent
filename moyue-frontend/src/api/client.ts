@@ -61,6 +61,12 @@ export async function apiPost<T>(url: string, data?: unknown): Promise<T> {
   return (resp.data as ApiResponse<T>).data as T;
 }
 
+/** PUT 并解包 R<T>.data */
+export async function apiPut<T>(url: string, data?: unknown): Promise<T> {
+  const resp = await http.put<ApiResponse<T>>(url, data);
+  return (resp.data as ApiResponse<T>).data as T;
+}
+
 /** DELETE 并解包 R<T>.data */
 export async function apiDelete<T>(url: string, params?: Record<string, unknown>): Promise<T> {
   const resp = await http.delete<ApiResponse<T>>(url, { params });

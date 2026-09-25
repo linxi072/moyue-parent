@@ -11,6 +11,8 @@ export function renderShell(app: HTMLElement): { outlet: HTMLElement } {
 
   const links = el('div', { class: 'nav-links' });
   links.appendChild(el('a', { href: '#/', text: '书城' }));
+  links.appendChild(el('a', { href: '#/search', text: '搜索' }));
+  links.appendChild(el('a', { href: '#/shelf', text: '书架' }));
   links.appendChild(el('a', { href: '#/ai', text: 'AI 客服' }));
   nav.appendChild(links);
 

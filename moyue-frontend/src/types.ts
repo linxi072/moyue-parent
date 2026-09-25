@@ -61,3 +61,69 @@ export interface PageResult<T> {
   size?: number;
   records?: T[];
 }
+
+/** 书籍搜索文档（ES moyue_book / BookDocument） */
+export interface BookDocument {
+  bookId?: number;
+  title?: string;
+  authorName?: string;
+  categoryName?: string;
+  categoryId?: number;
+  coverUrl?: string;
+  description?: string;
+  status?: number;
+  clickCount?: number;
+  favoriteCount?: number;
+  hotScore?: number;
+  updateTime?: string;
+}
+
+/** 书籍检索结果（含纠错建议；P1-5 BookSearchResult） */
+export interface BookSearchResult {
+  records?: BookDocument[];
+  total?: number;
+  page?: number;
+  size?: number;
+  /** 主检索无命中、按编辑距离二次召回时的纠错建议词 */
+  correctedKeyword?: string;
+}
+
+/** 书架条目（read 域 BookshelfEntity） */
+export interface BookshelfItem {
+  id?: number;
+  userId?: number;
+  bookId?: number;
+  lastChapterId?: number;
+  listenChapterId?: number;
+  createTime?: string;
+}
+
+/** 评论 DTO（comment 域 CommentDTO） */
+export interface CommentDTO {
+  id?: number;
+  userId?: number;
+  bookId?: number;
+  content?: string;
+  status?: number;
+  likeCount?: number;
+  createTime?: string;
+}
+
+/** AI 会话（ai 域 AiSessionEntity） */
+export interface AiSession {
+  id?: number;
+  userId?: number;
+  title?: string;
+  isDeleted?: number;
+  createTime?: string;
+  updateTime?: string;
+}
+
+/** 分类（P2-A CategoryController） */
+export interface CategoryDTO {
+  id?: number;
+  name?: string;
+  sort?: number;
+  icon?: string;
+  remark?: string;
+}
