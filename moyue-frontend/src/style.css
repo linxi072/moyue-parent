@@ -1,0 +1,275 @@
+:root {
+  --bg: #f7f4ee;
+  --panel: #ffffff;
+  --ink: #2b2620;
+  --muted: #8a8175;
+  --accent: #c0392b;
+  --line: #e7e0d6;
+  --shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+#app {
+  min-height: 100vh;
+}
+
+/* 顶部导航 */
+.topnav {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 12px 24px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.topnav .brand {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent);
+  text-decoration: none;
+}
+.nav-links {
+  display: flex;
+  gap: 18px;
+}
+.nav-links a,
+.nav-right a {
+  color: var(--ink);
+  text-decoration: none;
+}
+.nav-links a:hover {
+  color: var(--accent);
+}
+.nav-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.nav-right .uid {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.outlet {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+/* 通用 */
+h2 {
+  margin: 0 0 16px;
+}
+h3 {
+  margin: 24px 0 12px;
+}
+.muted {
+  color: var(--muted);
+}
+.msg {
+  color: var(--accent);
+  margin: 12px 0;
+}
+.hint {
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 12px;
+}
+.btn {
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 14px;
+}
+.btn.primary {
+  background: var(--accent);
+  color: #fff;
+}
+.btn.primary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: none;
+  font-size: 14px;
+}
+.input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 14px;
+  margin: 4px 0 14px;
+  outline: none;
+}
+.input:focus {
+  border-color: var(--accent);
+}
+label {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* 卡片 */
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: var(--shadow);
+  max-width: 380px;
+}
+.auth-card {
+  margin: 40px auto;
+}
+
+/* 书城网格 */
+.book-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 18px;
+}
+.book-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  text-decoration: none;
+  color: var(--ink);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.book-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow);
+}
+.cover,
+.cover-img {
+  width: 100%;
+  height: 190px;
+  object-fit: cover;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 56px;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, #b85c4a, #c0392b);
+}
+.book-title {
+  padding: 10px 12px 2px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.book-author,
+.book-cat {
+  padding: 0 12px 10px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* 书籍详情 */
+.book-header .intro {
+  color: var(--muted);
+  max-width: 720px;
+}
+.chapter-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  columns: 2;
+  column-gap: 32px;
+}
+.chapter-list li {
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--line);
+  break-inside: avoid;
+}
+.chapter-list a {
+  color: var(--ink);
+  text-decoration: none;
+}
+.chapter-list a:hover {
+  color: var(--accent);
+}
+
+/* 阅读器 */
+.chapter-title {
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 12px;
+}
+.chapter-content {
+  font-family: "Noto Serif CJK SC", "Songti SC", serif;
+  font-size: 17px;
+  line-height: 2;
+  white-space: pre-wrap;
+  max-width: 760px;
+  margin: 24px 0 32px;
+}
+
+/* AI 客服 */
+.chat-box {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px;
+  height: 420px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.bubble {
+  max-width: 78%;
+  padding: 10px 14px;
+  border-radius: 14px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.bubble.user {
+  align-self: flex-end;
+  background: var(--accent);
+  color: #fff;
+  border-bottom-right-radius: 2px;
+}
+.bubble.bot {
+  align-self: flex-start;
+  background: #f0ece4;
+  border-bottom-left-radius: 2px;
+}
+.chat-form {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+.chat-form .input {
+  margin: 0;
+}
+.chat-form .btn {
+  white-space: nowrap;
+}
