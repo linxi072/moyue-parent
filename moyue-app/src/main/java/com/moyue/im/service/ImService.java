@@ -285,12 +285,10 @@ public class ImService {
         }
 
         // 他人发送的未读消息批量置已读（状态原子 0→1）
-        return messageMapper.update(null,
-                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<MessageEntity>()
-                        .eq(MessageEntity::getConversationId, conversationId)
-                        .ne(MessageEntity::getSenderId, userId)
-                        .eq(MessageEntity::getStatus, 0)
-                        .set(MessageEntity::getStatus, 1));
+        com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<MessageEntity> uw =
+                new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<>();
+        uw.eq("conversation_id", conversationId).ne("sender_id", userId).eq("status", 0).set("status", 1);
+        return messageMapper.update(null, uw);
     }
 
     /**
