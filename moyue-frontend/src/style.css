@@ -654,3 +654,38 @@ label {
   display: block;
   margin-top: 6px;
 }
+
+/* 作者稿酬 */
+.income-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin-top: 12px;
+}
+.income-summary {
+  max-width: 420px;
+}
+.income-total {
+  font-size: 36px;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1.2;
+  margin: 4px 0;
+}
+.income-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.income-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+.income-row .flow-remark {
+  flex: 1;
+}

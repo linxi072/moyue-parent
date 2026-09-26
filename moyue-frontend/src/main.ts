@@ -11,6 +11,7 @@ import { renderSearch } from './pages/search';
 import { renderShelf } from './pages/shelf';
 import { renderProfile } from './pages/profile';
 import { renderAuthor } from './pages/author';
+import { renderAuthorIncome } from './pages/authorIncome';
 
 const app = document.getElementById('app');
 if (!app) throw new Error('找不到 #app 挂载点');
@@ -27,6 +28,7 @@ router
   .add('/ai', () => void renderAiChat(outlet))
   .add('/profile', () => void renderProfile(outlet))
   .add('/author', () => void renderAuthor(outlet))
+  .add('/author/income', () => void renderAuthorIncome(outlet))
   .add('/login', () => renderLogin(outlet));
 
 router.start();

@@ -2,7 +2,7 @@
 // 消费：GET /books/mine、POST /books、GET /chapters/drafts?bookId=、
 //      GET /chapters?bookId=、POST /chapters、POST /chapters/{id}/publish
 import { el } from '../dom';
-import { apiGet, apiPost } from '../api/client';
+import { apiGet, apiPost, apiPut, apiDelete } from '../api/client';
 import { getSession } from '../auth';
 import type { BookSummaryDTO, ChapterDTO } from '../types';
 
@@ -88,8 +88,85 @@ export async function renderAuthor(root: HTMLElement): Promise<void> {
   createSection.appendChild(form);
   root.appendChild(createSection);
 
+  // ---- 作品编辑（回写 PUT /books/{bookId}） ----
+  const editSection = el('div', { class: 'author-section', style: 'display:none;' });
+  const editHint = el('p', { class: 'muted', text: '编辑作品信息（保存即回写）。' });
+  editSection.appendChild(el('h3', { text: '编辑作品' }));
+  editSection.appendChild(editHint);
+  const eTitle = el('input', { class: 'input', placeholder: '作品名称' }) as HTMLInputElement;
+  const eCat = el('select', { class: 'input' }) as HTMLSelectElement;
+  eCat.appendChild(el('option', { value: '', text: '选择分类' }));
+  categories.forEach((c) => eCat.appendChild(el('option', { value: String(c.id), text: c.name ?? '' })));
+  const eIntro = el('textarea', { class: 'input', placeholder: '作品简介' }) as HTMLTextAreaElement;
+  eIntro.style.minHeight = '70px';
+  const eTags = el('input', { class: 'input', placeholder: '标签（逗号分隔）' }) as HTMLInputElement;
+  const eStatus = el('select', { class: 'input' }) as HTMLSelectElement;
+  eStatus.appendChild(el('option', { value: '1', text: '连载中' }));
+  eStatus.appendChild(el('option', { value: '2', text: '已完结' }));
+  eStatus.appendChild(el('option', { value: '3', text: '已下架' }));
+  const eMsg = el('span', { class: 'muted', style: 'margin-left:12px;font-size:13px;' });
+  const eSave = el('button', { class: 'btn primary', text: '保存修改' });
+  const eCancel = el('button', { class: 'btn', text: '取消' });
+  const editForm = el('div', { class: 'author-form' });
+  editForm.appendChild(el('label', { text: '作品名称' }));
+  editForm.appendChild(eTitle);
+  editForm.appendChild(el('label', { text: '分类' }));
+  editForm.appendChild(eCat);
+  editForm.appendChild(el('label', { text: '简介' }));
+  editForm.appendChild(eIntro);
+  editForm.appendChild(el('label', { text: '标签' }));
+  editForm.appendChild(eTags);
+  editForm.appendChild(el('label', { text: '状态' }));
+  editForm.appendChild(eStatus);
+  editForm.appendChild(el('div', {}, [eSave, eCancel, eMsg]));
+  editSection.appendChild(editForm);
+  root.appendChild(editSection);
+
+  let editingBookId: number | null = null;
+  function openEdit(b: BookSummaryDTO): void {
+    editingBookId = b.bookId ?? null;
+    eTitle.value = b.title ?? '';
+    eCat.value = b.categoryId != null ? String(b.categoryId) : '';
+    eIntro.value = b.intro ?? '';
+    eTags.value = '';
+    eStatus.value = String(b.status ?? 1);
+    editHint.textContent = `编辑《${b.title}》`;
+    editSection.style.display = '';
+    editSection.scrollIntoView({ behavior: 'smooth' });
+  }
+  eCancel.addEventListener('click', () => {
+    editSection.style.display = 'none';
+    editingBookId = null;
+  });
+  eSave.addEventListener('click', async () => {
+    if (!editingBookId) return;
+    eSave.disabled = true;
+    eMsg.textContent = '保存中…';
+    try {
+      await apiPut<BookSummaryDTO>(`/books/${editingBookId}`, {
+        title: eTitle.value.trim(),
+        categoryId: eCat.value ? Number(eCat.value) : null,
+        intro: eIntro.value.trim(),
+        tags: eTags.value.trim() || undefined,
+        status: Number(eStatus.value),
+      });
+      eMsg.textContent = '已保存';
+      editSection.style.display = 'none';
+      await loadMyBooks();
+    } catch (e) {
+      eMsg.textContent = (e as Error).message;
+    } finally {
+      eSave.disabled = false;
+    }
+  });
+
+  // 稿酬入口
+  const incomeLink = el('a', { class: 'btn-link', href: '#/author/income', text: '查看稿酬明细 →' });
+  incomeLink.style.marginLeft = '16px';
+
   // ---- 我的作品 ----
   const mySection = el('div', { class: 'author-section' });
+  mySection.appendChild(incomeLink);
   mySection.appendChild(el('h3', { text: '我的作品' }));
   const bookList = el('div', { class: 'book-row-list' });
   mySection.appendChild(bookList);
@@ -128,6 +205,25 @@ export async function renderAuthor(root: HTMLElement): Promise<void> {
           void openWriter();
         });
         row.appendChild(sel);
+        const editBtn = el('button', { class: 'btn-link', text: '编辑' });
+        editBtn.addEventListener('click', () => openEdit(b));
+        row.appendChild(editBtn);
+        const delBtn = el('button', { class: 'btn-link danger', text: '删除' });
+        delBtn.addEventListener('click', async () => {
+          if (!confirm(`确认删除《${b.title}》？该操作不可恢复。`)) return;
+          try {
+            await apiDelete<void>(`/books/${b.bookId}`);
+            if (selectedBookId === b.bookId) {
+              selectedBookId = null;
+              writeBody.replaceChildren();
+              writeHint.textContent = '从上方「我的作品」选择一本开始写作。';
+            }
+            await loadMyBooks();
+          } catch (e) {
+            alert((e as Error).message);
+          }
+        });
+        row.appendChild(delBtn);
         bookList.appendChild(row);
       });
     } catch (e) {

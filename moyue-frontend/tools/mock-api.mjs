@@ -74,6 +74,26 @@ function getOrCreateAccount(uid) {
   return acc;
 }
 
+/** 积分发放（对齐 PointsController.POST /internal/points/award）：消费端调用入口 */
+function awardPoints(uid, bizType, points, remark) {
+  const acc = getOrCreateAccount(uid);
+  acc.balance += points;
+  acc.totalEarned += points;
+  FLOWS.push({ id: flowSeq++, userId: uid, bizType, points, remark, createTime: new Date().toISOString() });
+}
+
+// ---- 作者稿酬（system 域 AuthorIncomeDTO / SettlementDTO） ----
+const INCOME = [
+  { id: 1, authorId: 10001, bookId: 1000, orderNo: 'R20260901001', incomeType: 1, amount: 128.5, settleMonth: '2026-09', settlementId: 1, createTime: '2026-09-01T10:00:00' },
+  { id: 2, authorId: 10001, bookId: 1000, orderNo: 'T20260910007', incomeType: 2, amount: 56.0, settleMonth: '2026-09', settlementId: 1, createTime: '2026-09-10T12:30:00' },
+  { id: 3, authorId: 10001, bookId: 1001, orderNo: null, incomeType: 3, amount: 300.0, settleMonth: '2026-09', settlementId: 1, createTime: '2026-09-15T09:00:00' },
+  { id: 4, authorId: 10001, bookId: 1000, orderNo: 'R20260820002', incomeType: 1, amount: 98.2, settleMonth: '2026-08', settlementId: 2, createTime: '2026-08-20T15:00:00' },
+];
+const SETTLEMENTS = [
+  { id: 1, authorId: 10001, period: '2026-09', totalAmount: 484.5, status: 2, payChannel: 'wechat_pay', paySerial: 'WX20260925001', remark: '已打款', createTime: '2026-09-20T00:00:00', updateTime: '2026-09-25T00:00:00' },
+  { id: 2, authorId: 10001, period: '2026-08', totalAmount: 98.2, status: 1, payChannel: null, paySerial: null, remark: '已结算待打款', createTime: '2026-09-01T00:00:00', updateTime: '2026-09-01T00:00:00' },
+];
+
 // ---- 作者域（book / chapter 写作链路） ----
 let bookSeq = 1000;
 let chapterSeq = 100000;
@@ -185,6 +205,23 @@ function route(req, res, url) {
     return ok({ total: list.length, page: 1, size: Number(q('size', 20)), records: list });
   }
 
+  // ---- 作者稿酬（system 域） ----
+  const incomeMatch = p.match(/^\/author\/income\/(\d+)$/);
+  if (incomeMatch && method === 'GET') {
+    const aid = Number(incomeMatch[1]);
+    return ok(INCOME.filter((x) => x.authorId === aid));
+  }
+  if (p === '/author/settlements' && method === 'GET') {
+    const uid = requireUser(req);
+    if (!uid) return fail(CODE.UNAUTHORIZED, '未登录');
+    return ok(SETTLEMENTS.filter((s) => s.authorId === uid));
+  }
+  const settleMatch = p.match(/^\/author\/settlements\/(\d+)$/);
+  if (settleMatch && method === 'GET') {
+    const s = SETTLEMENTS.find((x) => x.id === Number(settleMatch[1]));
+    return s ? ok(s) : fail(CODE.NOT_FOUND, '结算单不存在');
+  }
+
   // ---- 书城 ----
   if (p === '/books' && method === 'GET') {
     const categoryId = q('categoryId');
@@ -223,6 +260,31 @@ function route(req, res, url) {
   if (bookMatch && method === 'GET') {
     const b = BOOKS.find((x) => x.bookId === Number(bookMatch[1]));
     return b ? ok(b) : fail(CODE.NOT_FOUND, '书籍不存在');
+  }
+  if (bookMatch && method === 'PUT') {
+    const uid = requireUser(req);
+    if (!uid) return fail(CODE.UNAUTHORIZED, '未登录');
+    const id = Number(bookMatch[1]);
+    const book = MY_BOOKS.find((x) => x.bookId === id);
+    if (!book) return fail(CODE.NOT_FOUND, '书籍不存在');
+    const b = req.body ?? {};
+    if (b.title != null) book.title = b.title;
+    if (b.intro != null) book.intro = b.intro;
+    if (b.tags != null) book.tags = b.tags;
+    if (b.coverUrl != null) book.coverUrl = b.coverUrl;
+    if (b.categoryId != null) { book.categoryId = Number(b.categoryId); book.category = catName(b.categoryId); }
+    if (b.status != null) book.status = Number(b.status);
+    return ok(book);
+  }
+  if (bookMatch && method === 'DELETE') {
+    const uid = requireUser(req);
+    if (!uid) return fail(CODE.UNAUTHORIZED, '未登录');
+    const id = Number(bookMatch[1]);
+    const i = MY_BOOKS.findIndex((x) => x.bookId === id);
+    if (i < 0) return fail(CODE.NOT_FOUND, '书籍不存在');
+    MY_BOOKS.splice(i, 1);
+    delete CHAPTERS[id];
+    return ok();
   }
 
   // ---- 章节 ----
@@ -337,6 +399,8 @@ function route(req, res, url) {
     if (!uid) return fail(CODE.UNAUTHORIZED, '未登录');
     if (!SHELF.has(uid)) SHELF.set(uid, new Map());
     SHELF.get(uid).set(Number(progMatch[1]), { lastChapterId: Number(req.body?.chapterId ?? null) });
+    // 消费端 award 链路：阅读进度 → 积分发放（bizType=2 阅读时长），对齐 PointsController /internal/points/award
+    awardPoints(uid, 2, 5, '阅读时长奖励');
     return ok();
   }
   if (shelfMatch && method === 'GET') {

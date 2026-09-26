@@ -27,6 +27,8 @@ export interface BookSummaryDTO {
   status?: number;
   coverUrl?: string;
   intro?: string;
+  /** 分类 ID（mock 返回；真实后端 BookSummaryDTO 可能省略，按需可选） */
+  categoryId?: number;
   clickCount?: number;
 }
 
@@ -188,4 +190,37 @@ export interface PointsFlowEntity {
   points?: number;
   remark?: string;
   createTime?: string;
+}
+
+/** 作者稿酬流水（system 域 AuthorIncomeDTO）：incomeType 1 订阅 / 2 打赏分成 / 3 全勤奖 / 4 买断分成 */
+export interface AuthorIncomeDTO {
+  id?: number;
+  authorId?: number;
+  bookId?: number;
+  /** 来源订单号（打赏分成） */
+  orderNo?: string;
+  incomeType?: number;
+  /** 金额（元） */
+  amount?: number;
+  /** 结算月份 YYYY-MM */
+  settleMonth?: string;
+  /** 关联结算单 ID */
+  settlementId?: number;
+  createTime?: string;
+}
+
+/** 结算单（system 域 SettlementDTO）：status 0 待结算 / 1 已结算待打款 / 2 已打款 / 3 打款失败 */
+export interface SettlementDTO {
+  id?: number;
+  authorId?: number;
+  /** 结算周期 YYYY-MM */
+  period?: string;
+  /** 结算总金额（元） */
+  totalAmount?: number;
+  status?: number;
+  payChannel?: string;
+  paySerial?: string;
+  remark?: string;
+  createTime?: string;
+  updateTime?: string;
 }

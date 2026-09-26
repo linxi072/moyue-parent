@@ -241,6 +241,32 @@ async function main() {
   const chapterList = await req('GET', `/chapters?bookId=${createdBookId}&page=1&size=100`, { headers: auth });
   check('发布后目录含该章（status=2）', chapterList.code === 0 && (chapterList.data?.records ?? []).some((c) => c.id === chapterId && c.status === 2));
 
+  // ---- 10. 作者稿酬 / 结算单 ----
+  console.log('\n[10] 作者稿酬 / 结算单');
+  const income = await req('GET', `/author/income/${userId}`, { headers: auth });
+  check('GET /author/income/{id} 返回稿酬流水', income.code === 0 && Array.isArray(income.data) && income.data.length > 0, JSON.stringify(income.data?.slice(0, 1)));
+  const incomeTotal = (income.data ?? []).reduce((s, x) => s + (Number(x.amount) || 0), 0);
+  check('稿酬累计金额 > 0', incomeTotal > 0, `total=${incomeTotal}`);
+
+  const settlements = await req('GET', '/author/settlements', { headers: auth });
+  check('GET /author/settlements 返回结算单', settlements.code === 0 && Array.isArray(settlements.data), JSON.stringify(settlements.data?.slice(0, 1)));
+  const settleId = settlements.data?.[0]?.id;
+  if (settleId) {
+    const one = await req('GET', `/author/settlements/${settleId}`, { headers: auth });
+    check('GET /author/settlements/{id} 返回单张结算单', one.code === 0 && one.data?.id === settleId);
+  }
+
+  // ---- 11. 阅读进度 → 积分发放（消费端 award 链路） ----
+  console.log('\n[11] 阅读进度 → 积分发放');
+  const accBefore = await req('GET', `/points/accounts/${userId}`, { headers: auth });
+  const balBefore = accBefore.data?.balance ?? 0;
+  const progAward = await req('PUT', `/read/bookshelf/${firstBook.bookId}/progress`, { body: { chapterId: firstChapter.id }, headers: auth });
+  check('阅读进度上报 code=0', progAward.code === 0, JSON.stringify(progAward));
+  const accAfterAward = await req('GET', `/points/accounts/${userId}`, { headers: auth });
+  check('阅读进度触发积分 +5（消费端 award）', (accAfterAward.data?.balance ?? 0) - balBefore === 5, `before=${balBefore} after=${accAfterAward.data?.balance}`);
+  const flowsAfter = await req('GET', `/points/flows?userId=${userId}&page=1&size=100`, { headers: auth });
+  check('积分流水含阅读奖励（bizType=2）', (flowsAfter.data?.records ?? []).some((f) => f.bizType === 2));
+
   console.log(`\n=== 结果：${pass} 通过 / ${fail} 失败 ===\n`);
   process.exit(fail === 0 ? 0 : 1);
 }
