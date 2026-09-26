@@ -59,4 +59,13 @@ public class MemberClient {
             return R.fail(ResultCode.SERVICE_DEGRADED);
         }
     }
+
+    /** 续费待处理扫描（供定时任务调用）；返回成功续费条数，不可用时降级 SERVICE_DEGRADED */
+    public R<Integer> renewDueSubscriptions() {
+        try {
+            return R.ok(memberService.renewDueSubscriptions());
+        } catch (Exception e) {
+            return R.fail(ResultCode.SERVICE_DEGRADED);
+        }
+    }
 }

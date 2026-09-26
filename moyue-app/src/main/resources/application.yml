@@ -25,6 +25,11 @@ spring:
     locations: classpath:db/migration
 
 moyue:
+  # 会员支付网关：主开关 stub（缺省空跑桩）/ real（真实渠道骨架，按渠道类型分支，缺密钥降级放行）
+  # 真实渠道密钥经环境变量注入，密钥类不留明文：MOYUE_MEMBER_PAY_CHANNEL_TYPE / APP_ID / SECRET / MCH_ID
+  member:
+    pay:
+      channel: ${MOYUE_MEMBER_PAY_CHANNEL:stub}
   # 缓存总开关（置 false 即全站关闭缓存，自动回源数据库）
   cache:
     enabled: true
