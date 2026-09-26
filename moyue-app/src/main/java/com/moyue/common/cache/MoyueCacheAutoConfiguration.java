@@ -95,6 +95,7 @@ public class MoyueCacheAutoConfiguration implements CachingConfigurer {
         perCache.put(CacheNames.CHAPTER_CONTENT, defaultConfig(Duration.ofMinutes(30)));
         perCache.put(CacheNames.READ_BOOKSHELF, defaultConfig(Duration.ofMinutes(5)));
         perCache.put(CacheNames.RECOMMEND, defaultConfig(Duration.ofMinutes(5)));
+        perCache.put(CacheNames.LEADERBOARD, defaultConfig(Duration.ofMinutes(5)));
         perCache.put(CacheNames.CATEGORY, defaultConfig(Duration.ofMinutes(10)));
 
         return RedisCacheManager.builder(writer)

@@ -26,6 +26,9 @@ public final class CacheNames {
     /** 首页推荐位：建议 TTL 5 分钟（P2-13 推荐位 TopN，可选缓存；命中收益中等、容忍度较高） */
     public static final String RECOMMEND = "recommend";
 
+    /** 榜单/排行榜（热门/新书/完结/评分四榜）：建议 TTL 5 分钟（与推荐位同频，数据容忍度较高） */
+    public static final String LEADERBOARD = "leaderboard";
+
     /** 全站分类树（低频写、高频读）：建议 TTL 10 分钟；写路径 create/update/deleteById 整体失效 */
     public static final String CATEGORY = "category";
 
