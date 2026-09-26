@@ -9,6 +9,8 @@ import { renderReader } from './pages/reader';
 import { renderAiChat } from './pages/aiChat';
 import { renderSearch } from './pages/search';
 import { renderShelf } from './pages/shelf';
+import { renderProfile } from './pages/profile';
+import { renderAuthor } from './pages/author';
 
 const app = document.getElementById('app');
 if (!app) throw new Error('找不到 #app 挂载点');
@@ -23,6 +25,8 @@ router
   .add('/book/:bookId', (p) => void renderBookDetail(outlet, Number(p.bookId)))
   .add('/read/:chapterId', (p) => void renderReader(outlet, Number(p.chapterId)))
   .add('/ai', () => void renderAiChat(outlet))
+  .add('/profile', () => void renderProfile(outlet))
+  .add('/author', () => void renderAuthor(outlet))
   .add('/login', () => renderLogin(outlet));
 
 router.start();

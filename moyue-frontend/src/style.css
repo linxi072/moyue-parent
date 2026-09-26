@@ -432,3 +432,225 @@ label {
 .chat-main .chat-box {
   height: 420px;
 }
+
+/* 个人中心 */
+.profile-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.profile-top {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+.profile-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  max-width: none;
+}
+.profile-card .avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 28px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+.profile-name {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.points-card {
+  max-width: none;
+}
+.points-balance {
+  font-size: 40px;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1.2;
+}
+.points-sub {
+  margin-top: 4px;
+}
+.points-checkin {
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+}
+.profile-section h3 {
+  border-left: 3px solid var(--accent);
+  padding-left: 10px;
+}
+.flow-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.flow-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+.flow-tag {
+  background: #f0ece4;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 12px;
+  flex: none;
+}
+.flow-remark {
+  flex: 1;
+}
+.flow-points {
+  font-weight: 600;
+  flex: none;
+}
+.flow-points.plus {
+  color: #2e7d32;
+}
+.flow-points.minus {
+  color: var(--accent);
+}
+.mall-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 16px;
+}
+.mall-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.mall-name {
+  font-weight: 600;
+}
+.mall-cost {
+  color: var(--accent);
+  font-weight: 600;
+}
+.mall-card .btn {
+  margin-top: 6px;
+}
+
+/* 作者工作台 */
+.author-section {
+  margin-bottom: 28px;
+}
+.author-section h3 {
+  border-left: 3px solid var(--accent);
+  padding-left: 10px;
+}
+.author-form {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 20px;
+  max-width: 560px;
+}
+.author-form label {
+  display: block;
+  margin-top: 6px;
+}
+.book-row-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.book-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 16px;
+}
+.book-row-title {
+  font-weight: 600;
+  min-width: 160px;
+}
+.book-row .btn-link {
+  margin-left: auto;
+}
+.write-body {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 18px;
+  align-items: start;
+}
+.toc-panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+}
+.toc-title {
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+.toc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.toc-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 8px;
+}
+.toc-item:hover {
+  background: #faf7f1;
+}
+.toc-no {
+  font-size: 12px;
+  color: var(--muted);
+  flex: none;
+  width: 52px;
+}
+.toc-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.badge {
+  font-size: 12px;
+  border-radius: 6px;
+  padding: 1px 7px;
+  background: #eee;
+  color: var(--muted);
+  flex: none;
+}
+.badge.draft {
+  background: #fff3e0;
+  color: #b26a00;
+}
+.editor-panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 20px;
+}
+.editor-panel label {
+  display: block;
+  margin-top: 6px;
+}

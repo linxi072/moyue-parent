@@ -51,6 +51,45 @@ const MESSAGES = []; // { id, sessionId, role, content, createTime }
 let sessionSeq = 1;
 let msgSeq = 1;
 
+// ---- 积分域（points） ----
+const ACCOUNTS = new Map(); // userId -> { userId, balance, totalEarned, totalSpent }
+const PRODUCTS = [
+  { id: 1, name: '月卡会员', description: '30 天全场畅读', imageUrl: '', costPoints: 500, stock: 99, status: 1 },
+  { id: 2, name: '限量书签', description: '墨阅定制金属书签', imageUrl: '', costPoints: 200, stock: 50, status: 1 },
+  { id: 3, name: '实体周边', description: '帆布包 + 明信片', imageUrl: '', costPoints: 800, stock: 20, status: 1 },
+];
+let orderSeq = 1;
+const ORDERS = []; // { id, userId, productId, productName, costPoints, status, createTime }
+let flowSeq = 1;
+const FLOWS = []; // { id, userId, bizType, points, remark, createTime }
+const LAST_CHECKIN = new Map(); // userId -> 'YYYY-MM-DD'
+
+function getOrCreateAccount(uid) {
+  let acc = ACCOUNTS.get(uid);
+  if (!acc) {
+    acc = { userId: uid, balance: 1280, totalEarned: 1280, totalSpent: 0 };
+    ACCOUNTS.set(uid, acc);
+    FLOWS.push({ id: flowSeq++, userId: uid, bizType: 4, points: 1280, remark: '账户初始化赠送', createTime: new Date().toISOString() });
+  }
+  return acc;
+}
+
+// ---- 作者域（book / chapter 写作链路） ----
+let bookSeq = 1000;
+let chapterSeq = 100000;
+// 预置两本 demo 作品（作者 = 10001，登录 demo 用户），让作者工作台首屏非空
+const MY_BOOKS = [
+  { bookId: bookSeq++, authorId: 10001, title: '霜河夜行', author: '墨阅君', wordCount: 42000, category: '玄幻', categoryId: 1, status: 1, coverUrl: '', intro: '霜河之上，夜行人未眠。', clickCount: 311 },
+  { bookId: bookSeq++, authorId: 10001, title: '人间烟火', author: '墨阅君', wordCount: 18000, category: '都市', categoryId: 2, status: 1, coverUrl: '', intro: '市井之中见众生。', clickCount: 87 },
+];
+// 预置草稿：第二章为草稿（status=0），第一章已发布（status=2）
+CHAPTERS[MY_BOOKS[0].bookId] = [
+  { id: chapterSeq++, bookId: MY_BOOKS[0].bookId, chapterNo: 1, title: '霜河初雪', wordCount: 3200, status: 2, content: '（mock 正文）霜河初雪……' },
+  { id: chapterSeq++, bookId: MY_BOOKS[0].bookId, chapterNo: 2, title: '夜泊', wordCount: 0, status: 0, content: '' },
+];
+
+const catName = (id) => CATEGORIES.find((c) => c.id === Number(id))?.name ?? '其他';
+
 const toDoc = (b) => ({
   bookId: b.bookId, title: b.title, authorName: b.author, categoryName: b.category,
   categoryId: b.categoryId, coverUrl: b.coverUrl, description: b.intro, status: b.status,
@@ -91,7 +130,59 @@ function route(req, res, url) {
   if (p === '/users/me') {
     const uid = requireUser(req);
     if (!uid) return fail(CODE.UNAUTHORIZED, '未登录');
-    return ok({ userId: uid, nickname: '墨阅君', phone: '13800000000', role: 1 });
+    // 对齐后端 UserInfoVO：id / phone / nickname / role / status
+    return ok({ id: uid, nickname: '墨阅君', phone: '13800000000', role: 1, status: 1 });
+  }
+
+  // ---- 积分账户 ----
+  if (p.match(/^\/points\/accounts\/\d+$/) && method === 'GET') {
+    const uid = requireUser(req);
+    if (!uid) return fail(CODE.UNAUTHORIZED, '未登录');
+    return ok(getOrCreateAccount(uid));
+  }
+  if (p === '/points/products' && method === 'GET') {
+    const list = PRODUCTS.filter((x) => x.status === 1);
+    return ok({ total: list.length, page: 1, size: Number(q('size', 20)), records: list });
+  }
+  if (p === '/points/orders' && method === 'POST') {
+    const uid = requireUser(req);
+    if (!uid) return fail(CODE.UNAUTHORIZED, '未登录');
+    const productId = Number(req.body?.productId);
+    const prod = PRODUCTS.find((x) => x.id === productId);
+    if (!prod) return fail(CODE.NOT_FOUND, '商品不存在');
+    const acc = getOrCreateAccount(uid);
+    if (acc.balance < prod.costPoints) return fail(CODE.PARAM_ERROR, '积分余额不足');
+    acc.balance -= prod.costPoints;
+    acc.totalSpent += prod.costPoints;
+    const order = { id: orderSeq++, userId: uid, productId, productName: prod.name, costPoints: prod.costPoints, status: 1, createTime: new Date().toISOString() };
+    ORDERS.push(order);
+    FLOWS.push({ id: flowSeq++, userId: uid, bizType: 5, points: -prod.costPoints, remark: `兑换《${prod.name}》`, createTime: new Date().toISOString() });
+    return ok(order);
+  }
+  if (p === '/points/orders' && method === 'GET') {
+    const uid = Number(q('userId'));
+    if (!uid) return fail(CODE.PARAM_ERROR, '缺少 userId');
+    const list = ORDERS.filter((o) => o.userId === uid).sort((a, b) => b.id - a.id);
+    return ok({ total: list.length, page: 1, size: Number(q('size', 20)), records: list });
+  }
+  if (p === '/points/check-in' && method === 'POST') {
+    const uid = requireUser(req);
+    if (!uid) return fail(CODE.UNAUTHORIZED, '未登录');
+    const today = new Date().toISOString().slice(0, 10);
+    if (LAST_CHECKIN.get(uid) === today) return fail(CODE.PARAM_ERROR, '今日已签到');
+    LAST_CHECKIN.set(uid, today);
+    const earned = 10;
+    const acc = getOrCreateAccount(uid);
+    acc.balance += earned;
+    acc.totalEarned += earned;
+    FLOWS.push({ id: flowSeq++, userId: uid, bizType: 1, points: earned, remark: '每日签到', createTime: new Date().toISOString() });
+    return ok(earned);
+  }
+  if (p === '/points/flows' && method === 'GET') {
+    const uid = Number(q('userId'));
+    if (!uid) return fail(CODE.PARAM_ERROR, '缺少 userId');
+    const list = FLOWS.filter((f) => f.userId === uid).sort((a, b) => b.id - a.id);
+    return ok({ total: list.length, page: 1, size: Number(q('size', 20)), records: list });
   }
 
   // ---- 书城 ----
@@ -103,7 +194,30 @@ function route(req, res, url) {
   if (p === '/books/mine' && method === 'GET') {
     const uid = requireUser(req);
     if (!uid) return fail(CODE.UNAUTHORIZED, '未登录');
-    return ok({ total: 0, page: 1, size: 20, records: [] });
+    const list = MY_BOOKS.filter((b) => b.authorId === uid);
+    return ok({ total: list.length, page: 1, size: 20, records: list });
+  }
+  if (p === '/books' && method === 'POST') {
+    const uid = requireUser(req);
+    if (!uid) return fail(CODE.UNAUTHORIZED, '未登录');
+    const title = String(req.body?.title ?? '').trim();
+    if (!title) return fail(CODE.PARAM_ERROR, '书名不能为空');
+    const book = {
+      bookId: bookSeq++,
+      authorId: uid,
+      title,
+      author: '墨阅君',
+      wordCount: 0,
+      category: catName(req.body?.categoryId),
+      categoryId: Number(req.body?.categoryId) || null,
+      status: 1,
+      coverUrl: req.body?.coverUrl ?? '',
+      intro: req.body?.intro ?? '',
+      clickCount: 0,
+    };
+    MY_BOOKS.push(book);
+    CHAPTERS[book.bookId] = [];
+    return ok(book);
   }
   const bookMatch = p.match(/^\/books\/(\d+)$/);
   if (bookMatch && method === 'GET') {
@@ -126,6 +240,55 @@ function route(req, res, url) {
       if (c) return ok(c);
     }
     return fail(CODE.NOT_FOUND, '章节不存在');
+  }
+  if (p === '/chapters' && method === 'POST') {
+    const uid = requireUser(req);
+    if (!uid) return fail(CODE.UNAUTHORIZED, '未登录');
+    const bookId = Number(req.body?.bookId);
+    if (!bookId) return fail(CODE.PARAM_ERROR, '缺少 bookId');
+    if (!CHAPTERS[bookId]) CHAPTERS[bookId] = [];
+    const title = String(req.body?.title ?? '').trim() || `第${(req.body?.chapterNo ?? CHAPTERS[bookId].length + 1)}章`;
+    const content = String(req.body?.content ?? '');
+    const status = Number(req.body?.status ?? 0);
+    const chapter = {
+      id: chapterSeq++,
+      bookId,
+      chapterNo: Number(req.body?.chapterNo ?? CHAPTERS[bookId].length + 1),
+      title,
+      wordCount: content.length,
+      status,
+      content,
+    };
+    CHAPTERS[bookId].push(chapter);
+    const book = MY_BOOKS.find((b) => b.bookId === bookId);
+    if (book) book.wordCount += content.length;
+    return ok(chapter);
+  }
+  if (p === '/chapters/drafts' && method === 'GET') {
+    const bookId = Number(q('bookId'));
+    const list = (CHAPTERS[bookId] ?? []).filter((c) => c.status === 0);
+    return ok({ total: list.length, page: 1, size: Number(q('size', 20)), records: list.map(({ content, ...rest }) => rest) });
+  }
+  const pubMatch = p.match(/^\/chapters\/(\d+)\/publish$/);
+  if (pubMatch && method === 'POST') {
+    const uid = requireUser(req);
+    if (!uid) return fail(CODE.UNAUTHORIZED, '未登录');
+    const id = Number(pubMatch[1]);
+    let found;
+    for (const list of Object.values(CHAPTERS)) {
+      const c = list.find((x) => x.id === id);
+      if (c) { found = c; break; }
+    }
+    if (!found) return fail(CODE.NOT_FOUND, '章节不存在');
+    const publishTime = req.body?.publishTime;
+    // 定时（未来时间）则置审核中(1)，否则立即发布(2)并落正文
+    if (publishTime && new Date(publishTime).getTime() > Date.now()) {
+      found.status = 1;
+    } else {
+      found.status = 2;
+    }
+    found.publishTime = publishTime ?? null;
+    return ok(found);
   }
 
   // ---- 分类 ----

@@ -127,3 +127,65 @@ export interface CategoryDTO {
   icon?: string;
   remark?: string;
 }
+
+/** 当前用户资料（auth 域 UserInfoVO） */
+export interface UserInfoVO {
+  id?: number;
+  phone?: string;
+  nickname?: string;
+  /** 1 读者 / 2 作者 / 3 管理员 */
+  role?: number;
+  /** 0 禁用 / 1 正常 */
+  status?: number;
+}
+
+/** 积分账户（commerce 域 PointsAccountDTO） */
+export interface PointsAccountDTO {
+  userId?: number;
+  /** 当前积分余额 */
+  balance?: number;
+  /** 累计获得 */
+  totalEarned?: number;
+  /** 累计消费 */
+  totalSpent?: number;
+  createTime?: string;
+  updateTime?: string;
+}
+
+/** 积分商品（commerce 域 PointsProductDTO） */
+export interface PointsProductDTO {
+  id?: number;
+  name?: string;
+  description?: string;
+  imageUrl?: string;
+  /** 兑换所需积分 */
+  costPoints?: number;
+  stock?: number;
+  /** 1 上架 / 2 下架 */
+  status?: number;
+  createTime?: string;
+}
+
+/** 积分兑换订单（commerce 域 PointsOrderDTO） */
+export interface PointsOrderDTO {
+  id?: number;
+  userId?: number;
+  productId?: number;
+  /** 商品名称快照 */
+  productName?: string;
+  costPoints?: number;
+  /** 0 待兑换 / 1 已兑换 / 2 已取消 */
+  status?: number;
+  createTime?: string;
+}
+
+/** 积分流水（points 域 PointsFlowEntity）：bizType 1 签到 / 2 阅读 / 3 评论 / 4 系统 / 5 兑换消费 */
+export interface PointsFlowEntity {
+  id?: number;
+  userId?: number;
+  bizType?: number;
+  /** 正获得 / 负消费 */
+  points?: number;
+  remark?: string;
+  createTime?: string;
+}

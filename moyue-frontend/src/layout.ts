@@ -6,6 +6,8 @@ import { clearSession, getSession } from './auth';
 export function renderShell(app: HTMLElement): { outlet: HTMLElement } {
   app.replaceChildren();
 
+  const session = getSession();
+
   const nav = el('nav', { class: 'topnav' });
   nav.appendChild(el('a', { class: 'brand', href: '#/', text: '墨阅小说网' }));
 
@@ -14,10 +16,13 @@ export function renderShell(app: HTMLElement): { outlet: HTMLElement } {
   links.appendChild(el('a', { href: '#/search', text: '搜索' }));
   links.appendChild(el('a', { href: '#/shelf', text: '书架' }));
   links.appendChild(el('a', { href: '#/ai', text: 'AI 客服' }));
+  if (session) {
+    links.appendChild(el('a', { href: '#/author', text: '作者工作台' }));
+    links.appendChild(el('a', { href: '#/profile', text: '个人中心' }));
+  }
   nav.appendChild(links);
 
   const right = el('div', { class: 'nav-right' });
-  const session = getSession();
   if (session) {
     right.appendChild(el('span', { class: 'uid', text: `UID:${session.userId}` }));
     right.appendChild(

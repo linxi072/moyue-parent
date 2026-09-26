@@ -189,6 +189,58 @@ async function main() {
   const msgs = await req('GET', `/ai/sessions/${sid}/messages?userId=${userId}`);
   check('会话消息含用户提问与助手回复', (msgs.data ?? []).length >= 2);
 
+  // ---- 8. 个人中心 / 积分 ----
+  console.log('\n[8] 个人中心 / 积分');
+  const me = await req('GET', '/users/me', { headers: auth });
+  check('GET /users/me 返回资料 id', me.code === 0 && me.data?.id === userId, JSON.stringify(me.data));
+
+  const acc = await req('GET', `/points/accounts/${userId}`, { headers: auth });
+  check('GET /points/accounts 返回余额', acc.code === 0 && typeof acc.data?.balance === 'number', JSON.stringify(acc.data));
+  const balanceBefore = acc.data?.balance ?? 0;
+
+  const sign1 = await req('POST', '/points/check-in', { body: { userId }, headers: auth });
+  check('POST /points/check-in 返回本次获得积分', sign1.code === 0 && typeof sign1.data === 'number' && sign1.data > 0, JSON.stringify(sign1));
+  const sign2 = await req('POST', '/points/check-in', { body: { userId }, headers: auth });
+  check('重复签到 → 10001 今日已签到', sign2.code === 10001, `实际 code=${sign2.code}`);
+
+  const flows = await req('GET', `/points/flows?userId=${userId}&page=1&size=20`, { headers: auth });
+  check('GET /points/flows 含签到流水', flows.code === 0 && (flows.data?.records ?? []).some((f) => f.bizType === 1));
+
+  const products = await req('GET', '/points/products?page=1&size=50', { headers: auth });
+  check('GET /points/products 返回上架商品', products.code === 0 && (products.data?.records ?? []).length > 0);
+
+  const order = await req('POST', '/points/orders', { body: { userId, productId: 1 }, headers: auth });
+  check('POST /points/orders 兑换返回订单', order.code === 0 && typeof order.data?.productName === 'string', JSON.stringify(order.data));
+  const accAfter = await req('GET', `/points/accounts/${userId}`, { headers: auth });
+  check('兑换后余额已扣减', accAfter.code === 0 && (accAfter.data?.balance ?? 0) === balanceBefore + (sign1.data ?? 0) - (order.data?.costPoints ?? 0), `before=${balanceBefore} after=${accAfter.data?.balance}`);
+
+  const orders = await req('GET', `/points/orders?userId=${userId}&page=1&size=20`, { headers: auth });
+  check('GET /points/orders 含刚兑换订单', orders.code === 0 && (orders.data?.records ?? []).some((o) => o.id === order.data?.id));
+
+  // ---- 9. 作者工作台（建书 / 写章 / 发布） ----
+  console.log('\n[9] 作者工作台');
+  const mine = await req('GET', `/books/mine?page=1&size=50`, { headers: auth });
+  check('GET /books/mine 返回我的作品', mine.code === 0 && Array.isArray(mine.data?.records), JSON.stringify(mine.data));
+  const seedBook = mine.data?.records?.[0];
+  const bookId = seedBook?.bookId ?? firstBook.bookId; // 用预置或书城首本兜底
+
+  const newBook = await req('POST', '/books', { body: { title: '联调测试作', categoryId: 1, intro: 'verify' }, headers: auth });
+  check('POST /books 创建作品 code=0', newBook.code === 0 && typeof newBook.data?.bookId === 'number', JSON.stringify(newBook.data));
+  const createdBookId = newBook.data?.bookId ?? bookId;
+
+  const newChapter = await req('POST', '/chapters', { body: { bookId: createdBookId, title: '联调测试章', content: '正文内容', chapterNo: 99, status: 0 }, headers: auth });
+  check('POST /chapters 写章 code=0', newChapter.code === 0 && typeof newChapter.data?.id === 'number', JSON.stringify(newChapter.data));
+  const chapterId = newChapter.data?.id;
+
+  const drafts = await req('GET', `/chapters/drafts?bookId=${createdBookId}&page=1&size=20`, { headers: auth });
+  check('GET /chapters/drafts 含草稿', drafts.code === 0 && (drafts.data?.records ?? []).some((c) => c.id === chapterId), JSON.stringify(drafts.data));
+
+  const pub = await req('POST', `/chapters/${chapterId}/publish`, { body: {}, headers: auth });
+  check('POST /chapters/{id}/publish 立即发布 status=2', pub.code === 0 && pub.data?.status === 2, JSON.stringify(pub.data));
+
+  const chapterList = await req('GET', `/chapters?bookId=${createdBookId}&page=1&size=100`, { headers: auth });
+  check('发布后目录含该章（status=2）', chapterList.code === 0 && (chapterList.data?.records ?? []).some((c) => c.id === chapterId && c.status === 2));
+
   console.log(`\n=== 结果：${pass} 通过 / ${fail} 失败 ===\n`);
   process.exit(fail === 0 ? 0 : 1);
 }
