@@ -24,6 +24,9 @@ public enum ResultCode {
     /** 无权限访问该资源 */
     FORBIDDEN(10003, "无权限访问该资源"),
 
+    /** 会员权益受限（非会员 / 未满足接口所需权益） */
+    MEMBER_REQUIRED(10003, "该功能仅会员可用"),
+
     /** 资源不存在或已下架 */
     RESOURCE_NOT_FOUND(20001, "资源不存在或已下架"),
 

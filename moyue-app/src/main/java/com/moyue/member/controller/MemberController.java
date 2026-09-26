@@ -1,6 +1,9 @@
 package com.moyue.member.controller;
 
 import com.moyue.common.R;
+import com.moyue.common.security.SecurityContextHolder;
+import com.moyue.member.annotation.MemberBenefit;
+import com.moyue.member.annotation.RequiresMember;
 import com.moyue.member.entity.MemberSubscriptionEntity;
 import com.moyue.member.entity.MemberTierEntity;
 import com.moyue.member.service.MemberService;
@@ -13,7 +16,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.math.BigDecimal;
 import java.util.List;
+
+import lombok.Data;
 
 /**
  * 会员订阅接口：套餐列表 / 开通订阅 / 权益查询 / 订阅历史 / 取消。
@@ -42,6 +48,27 @@ public class MemberController {
     @GetMapping("/member/benefits")
     public R<MemberService.MemberBenefits> benefits(@RequestParam Long userId) {
         return R.ok(memberService.getBenefits(userId));
+    }
+
+    /** 会员专属空间（需生效中会员） */
+    @GetMapping("/member/exclusive")
+    @RequiresMember
+    public R<MemberExclusiveView> exclusive() {
+        Long userId = SecurityContextHolder.currentUserId();
+        MemberService.MemberBenefits benefits = memberService.getBenefits(userId);
+        MemberExclusiveView view = new MemberExclusiveView();
+        view.setWelcome("欢迎来到会员专属空间，尊享免广告 / 折扣 / 专属徽章");
+        view.setTierName(benefits.getTierName());
+        view.setBenefits(benefits);
+        return R.ok(view);
+    }
+
+    /** 会员折扣预览（需享「折扣」权益的会员） */
+    @GetMapping("/member/exclusive/discount")
+    @RequiresMember(benefit = MemberBenefit.DISCOUNT)
+    public R<BigDecimal> exclusiveDiscount() {
+        Long userId = SecurityContextHolder.currentUserId();
+        return R.ok(memberService.getDiscountRate(userId));
     }
 
     /** 订阅历史 */
@@ -77,5 +104,13 @@ public class MemberController {
         public void setTierCode(String tierCode) {
             this.tierCode = tierCode;
         }
+    }
+
+    /** 会员专属空间视图 */
+    @Data
+    public static class MemberExclusiveView {
+        private String welcome;
+        private String tierName;
+        private MemberService.MemberBenefits benefits;
     }
 }

@@ -187,6 +187,22 @@ public class MemberService {
         return benefits;
     }
 
+    /** 当前用户会员折扣率（无会员 / 无折扣返回 1.00） */
+    public BigDecimal getDiscountRate(Long userId) {
+        MemberBenefits b = getBenefits(userId);
+        return b.isActive() && b.getDiscountRate() != null
+                ? b.getDiscountRate() : BigDecimal.ONE.setScale(2, RoundingMode.HALF_UP);
+    }
+
+    /** 当前用户会员专属徽章（无会员 / 无徽章返回 null，取首个） */
+    public String getBadge(Long userId) {
+        MemberBenefits b = getBenefits(userId);
+        if (b.isActive() && b.getBadges() != null && !b.getBadges().isEmpty()) {
+            return b.getBadges().get(0);
+        }
+        return null;
+    }
+
     // ---------------------------------------------------------------
     // 内部工具
     // ---------------------------------------------------------------

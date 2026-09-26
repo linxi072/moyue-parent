@@ -5,6 +5,8 @@ import com.moyue.common.ResultCode;
 import com.moyue.member.service.MemberService;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
+
 /**
  * 会员服务进程内适配器（monolith 版）。
  *
@@ -35,6 +37,24 @@ public class MemberClient {
     public R<Integer> syncExpired() {
         try {
             return R.ok(memberService.syncExpired());
+        } catch (Exception e) {
+            return R.fail(ResultCode.SERVICE_DEGRADED);
+        }
+    }
+
+    /** 查询会员折扣率（无会员/无折扣返回 1.00）；不可用时降级 SERVICE_DEGRADED */
+    public R<BigDecimal> getDiscountRate(Long userId) {
+        try {
+            return R.ok(memberService.getDiscountRate(userId));
+        } catch (Exception e) {
+            return R.fail(ResultCode.SERVICE_DEGRADED);
+        }
+    }
+
+    /** 查询会员专属徽章（无会员/无徽章返回 null）；不可用时降级 SERVICE_DEGRADED */
+    public R<String> getBadge(Long userId) {
+        try {
+            return R.ok(memberService.getBadge(userId));
         } catch (Exception e) {
             return R.fail(ResultCode.SERVICE_DEGRADED);
         }
