@@ -490,6 +490,9 @@ public class ChapterService {
         d.setChapterNo(e.getChapterNo());
         d.setTitle(e.getTitle());
         d.setWordCount(e.getWordCount());
+        d.setIsPaid(e.getIsPaid());
+        d.setPrice(e.getPrice());
+        d.setFreePreviewChars(e.getFreePreviewChars());
         d.setContent(e.getContent());
         d.setStatus(e.getStatus());
         d.setPublishTime(e.getPublishTime());

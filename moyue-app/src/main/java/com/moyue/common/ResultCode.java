@@ -33,6 +33,9 @@ public enum ResultCode {
     /** 内容命中敏感词被拦截（P2-15 内容安全，机审 REJECT） */
     CONTENT_BLOCKED(20002, "内容包含违规信息，已拦截"),
 
+    /** 章节未购买（付费章节阅读权益不足，需先解锁） */
+    CONTENT_NOT_PURCHASED(20003, "该章节需购买后阅读"),
+
     /** 请求频率超限（Sentinel 限流） */
     FREQUENCY_LIMIT(30001, "请求频率超限"),
 

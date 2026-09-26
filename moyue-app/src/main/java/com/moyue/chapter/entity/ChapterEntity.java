@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
@@ -40,6 +41,15 @@ public class ChapterEntity {
 
     /** 发布时间 */
     private LocalDateTime publishTime;
+
+    /** 是否付费：0 免费 / 1 付费（默认免费，向后兼容） */
+    private Integer isPaid;
+
+    /** 单章解锁价（元） */
+    private BigDecimal price;
+
+    /** 免费预览字数（阅读端未解锁时截断返回前 N 字） */
+    private Integer freePreviewChars;
 
     /** 逻辑删除：0 否 / 1 是 */
     @TableLogic(value = "0", delval = "1")

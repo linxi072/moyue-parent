@@ -1,13 +1,15 @@
 package com.moyue.chapter.controller;
 
 import com.moyue.api.content.dto.ChapterDTO;
-import com.moyue.common.core.domain.PageResult;
 import com.moyue.chapter.entity.ChapterEntity;
 import com.moyue.chapter.service.ChapterService;
 import com.moyue.common.BizException;
 import com.moyue.common.Constants;
 import com.moyue.common.R;
 import com.moyue.common.ResultCode;
+import com.moyue.common.core.domain.PageResult;
+import com.moyue.common.security.SecurityContextHolder;
+import com.moyue.paid.service.PaidChapterService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.Data;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,6 +35,9 @@ public class ChapterController {
     @Autowired
     private ChapterService chapterService;
 
+    @Autowired
+    private PaidChapterService paidChapterService;
+
     /**
      * 章节正文（供 Feign ChapterClient 调用，路径必须为 /api/v1/chapters/{chapterId}）。
      * 16-11：返回 DTO 而非实体，与 ChapterClient 声明的 {@code R<ChapterDTO>} 对齐；
@@ -44,7 +49,18 @@ public class ChapterController {
         if (chapter == null) {
             throw new BizException(ResultCode.RESOURCE_NOT_FOUND);
         }
-        return R.ok(ChapterService.toDto(chapter));
+        ChapterDTO dto = ChapterService.toDto(chapter);
+        dto.setIsPaid(chapter.getIsPaid());
+        dto.setPrice(chapter.getPrice());
+        dto.setFreePreviewChars(chapter.getFreePreviewChars());
+        // 阅读付费墙：按权益判定返回全文或预览片段
+        Long userId = SecurityContextHolder.currentUserId();
+        boolean unlocked = paidChapterService.isUnlocked(userId, chapter.getBookId(), chapter);
+        dto.setUnlocked(unlocked);
+        if (!unlocked && chapter.getIsPaid() != null && chapter.getIsPaid() == 1) {
+            dto.setContent(paidChapterService.previewOf(chapter));
+        }
+        return R.ok(dto);
     }
 
     /** 作品目录分页（按 bookId 查询；列表口径不含正文） */

@@ -32,4 +32,16 @@ public class ChapterDTO implements Serializable {
     private Integer status;
 
     private LocalDateTime publishTime;
+
+    /** 是否付费：0 免费 / 1 付费（阅读端按权益判定是否返回全文） */
+    private Integer isPaid;
+
+    /** 单章解锁价（元） */
+    private java.math.BigDecimal price;
+
+    /** 免费预览字数 */
+    private Integer freePreviewChars;
+
+    /** 当前用户是否已解锁（未登录/匿名读付费章时为 false，仅返回预览片段） */
+    private Boolean unlocked;
 }

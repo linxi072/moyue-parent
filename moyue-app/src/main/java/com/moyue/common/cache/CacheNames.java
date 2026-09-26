@@ -29,6 +29,9 @@ public final class CacheNames {
     /** 榜单/排行榜（热门/新书/完结/评分四榜）：建议 TTL 5 分钟（与推荐位同频，数据容忍度较高） */
     public static final String LEADERBOARD = "leaderboard";
 
+    /** 付费章节/订阅阅读：用户已解锁权益清单（按 userId 维度），建议 TTL 5 分钟 */
+    public static final String PAID_ENTITLEMENT = "paid:entitlement";
+
     /** 全站分类树（低频写、高频读）：建议 TTL 10 分钟；写路径 create/update/deleteById 整体失效 */
     public static final String CATEGORY = "category";
 
