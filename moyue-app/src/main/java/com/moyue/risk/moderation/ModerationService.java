@@ -23,7 +23,7 @@ import java.util.List;
  * <ul>
  *   <li>无命中 → PASS；</li>
  *   <li>命中 level=2 且无 level=1 → REVIEW：内容照常落库（由调用方标记审核中），
- *       本服务写 audit_task（biz_type：1 章节 / 2 评论 / 3 书籍 / 4 用户，对齐 V13 注释）转人工；</li>
+ *       本服务写 audit_task（biz_type：1 章节 / 2 评论 / 3 书籍 / 4 用户 / 5 书评，对齐 V13 注释）转人工；</li>
  *   <li>出现 level=1 命中 → REJECT（调用方抛业务异常阻断落库）。</li>
  * </ul>
  * <p>说明：V13 未建 moderation_log 表，按设计不新增表，机审结果只落 audit_task（REVIEW 时）

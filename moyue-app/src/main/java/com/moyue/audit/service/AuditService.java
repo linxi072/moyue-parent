@@ -7,8 +7,11 @@ import com.moyue.api.content.dto.BookSummaryDTO;
 import com.moyue.api.content.dto.ChapterDTO;
 import com.moyue.api.message.client.MessageDispatchClient;
 import com.moyue.api.message.dto.MessageDispatchDTO;
+import com.moyue.api.book.client.ReviewClient;
+import com.moyue.api.book.client.ReviewClient;
 import com.moyue.api.social.client.CommentClient;
 import com.moyue.api.social.dto.CommentDTO;
+import com.moyue.book.review.dto.ReviewDTO;
 import com.moyue.audit.entity.AuditTaskEntity;
 import com.moyue.audit.mapper.AuditTaskMapper;
 import com.moyue.common.BizException;
@@ -46,6 +49,7 @@ public class AuditService {
 
     private static final int BIZ_CHAPTER = 1;
     private static final int BIZ_COMMENT = 2;
+    private static final int BIZ_REVIEW = 5;
 
     /** 章节审核通过 / 驳回后的目标状态（chapter.status） */
     private static final int CHAPTER_PUBLISHED = 2;
@@ -71,6 +75,10 @@ public class AuditService {
     /** 站内信触达客户端（moyue-message）；不可用时 owner 通知降级跳过（不影响审核裁决落库） */
     @Autowired(required = false)
     private MessageDispatchClient messageDispatchClient;
+
+    /** 书评服务客户端；不可用时审核回写降级跳过 */
+    @Autowired(required = false)
+    private ReviewClient reviewClient;
 
     /**
      * 查询 status=0 的待投递任务（本地消息表未消费记录）。
@@ -135,6 +143,13 @@ public class AuditService {
             R<Void> resp = commentClient.auditComment(task.getBizId(),
                     passed ? COMMENT_APPROVED : COMMENT_REJECTED);
             ensureSuccess(resp, "评论" + action);
+        } else if (Objects.equals(bizType, BIZ_REVIEW)) {
+            if (reviewClient == null) {
+                throw new BizException(ResultCode.INTERNAL_ERROR, "书评服务不可用，审核回写失败");
+            }
+            R<Void> resp = reviewClient.auditReview(task.getBizId(),
+                    passed ? COMMENT_APPROVED : COMMENT_REJECTED);
+            ensureSuccess(resp, "书评" + action);
         } else {
             throw new BizException(ResultCode.PARAM_ERROR, "未知业务类型：" + bizType);
         }
@@ -180,7 +195,8 @@ public class AuditService {
 
     /**
      * 解析被处理方用户与业务名（单次取数，避免重复 Feign 调用）：
-     * 章节 → 经 chapter → book 取作者；评论 → 评论者；书籍 / 用户类审核任务无 owner 解析点 → null。
+     * 章节 → 经 chapter → book 取作者；评论 → 评论者；书评 → 书评作者本人；
+     * 书籍 / 用户类审核任务无 owner 解析点 → null。
      */
     private OwnerResolve resolveOwner(Integer bizType, Long bizId) {
         if (bizId == null) {
@@ -219,6 +235,20 @@ public class AuditService {
                 return new OwnerResolve(commentResp.getData().getUserId(), "评论#" + bizId);
             } catch (Exception ex) {
                 log.warn("[audit] 解析评论归属人异常（已忽略）：commentId={}, err={}", bizId, ex.getMessage());
+                return null;
+            }
+        } else if (Objects.equals(bizType, BIZ_REVIEW)) {
+            if (reviewClient == null) {
+                return null;
+            }
+            try {
+                R<ReviewDTO> reviewResp = reviewClient.getReview(bizId);
+                if (reviewResp == null || reviewResp.getData() == null) {
+                    return null;
+                }
+                return new OwnerResolve(reviewResp.getData().getUserId(), "书评#" + bizId);
+            } catch (Exception ex) {
+                log.warn("[audit] 解析书评归属人异常（已忽略）：reviewId={}, err={}", bizId, ex.getMessage());
                 return null;
             }
         }

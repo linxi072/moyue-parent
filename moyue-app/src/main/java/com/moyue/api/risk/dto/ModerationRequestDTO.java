@@ -10,7 +10,7 @@ import lombok.Data;
 @Data
 public class ModerationRequestDTO implements Serializable {
 
-    /** 业务类型：1 章节 / 2 评论 / 3 书籍 */
+    /** 业务类型：1 章节 / 2 评论 / 3 书籍 / 5 书评 */
     private Integer bizType;
 
     /** 业务主键 */

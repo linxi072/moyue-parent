@@ -46,6 +46,12 @@ public class BookIndexDTO implements Serializable {
     /** 热度分：clickCount × 1 + favoriteCount × 3 */
     private Long hotScore;
 
+    /** 评分均值 0.00~5.00（推荐评分排序用） */
+    private Double ratingAvg;
+
+    /** 评分人数 */
+    private Integer ratingCount;
+
     /** 最近更新时间（latest 排序用） */
     private LocalDateTime updateTime;
 }

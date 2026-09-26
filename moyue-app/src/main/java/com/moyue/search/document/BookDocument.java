@@ -68,6 +68,14 @@ public class BookDocument {
     @Field(type = FieldType.Long)
     private long hotScore;
 
+    /** 评分均值（推荐评分排序用） */
+    @Field(type = FieldType.Double)
+    private Double ratingAvg;
+
+    /** 评分人数 */
+    @Field(type = FieldType.Long)
+    private Long ratingCount;
+
     /** 最近更新时间（P2-13 新增，latest 排序用） */
     @Field(type = FieldType.Date)
     private Date updateTime;
@@ -94,6 +102,8 @@ public class BookDocument {
         doc.setClickCount(dto.getClickCount() == null ? 0L : dto.getClickCount());
         doc.setFavoriteCount(dto.getFavoriteCount() == null ? 0L : dto.getFavoriteCount());
         doc.setHotScore(dto.getHotScore() == null ? 0L : dto.getHotScore());
+        doc.setRatingAvg(dto.getRatingAvg());
+        doc.setRatingCount(dto.getRatingCount() == null ? 0L : dto.getRatingCount());
         doc.setUpdateTime(toDate(dto.getUpdateTime()));
         return doc;
     }

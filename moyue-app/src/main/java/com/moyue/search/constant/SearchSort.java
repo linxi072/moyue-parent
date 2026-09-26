@@ -15,7 +15,10 @@ public enum SearchSort {
     HOT("hot"),
 
     /** 最新：updateTime 降序 */
-    LATEST("latest");
+    LATEST("latest"),
+
+    /** 评分：ratingAvg 降序 */
+    RATING("rating");
 
     private final String value;
 

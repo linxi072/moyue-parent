@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
@@ -44,6 +45,12 @@ public class BookEntity {
 
     /** 累计点击 */
     private Long clickCount;
+
+    /** 评分均值 0.00~5.00（书评聚合回写） */
+    private java.math.BigDecimal ratingAvg;
+
+    /** 评分人数 */
+    private Integer ratingCount;
 
     /** 逻辑删除：0 否 / 1 是 */
     @TableLogic(value = "0", delval = "1")

@@ -37,6 +37,7 @@ public class RecommendService {
 
     private static final String FIELD_HOT_SCORE = "hotScore";
     private static final String FIELD_UPDATE_TIME = "updateTime";
+    private static final String FIELD_RATING_AVG = "ratingAvg";
 
     /** 个性化重排：类目命中加权（相对 hotScore 的加法偏移，确保偏好项上浮） */
     private static final long CATEGORY_BOOST = 1_000_000L;
@@ -156,6 +157,9 @@ public class RecommendService {
         SearchSort sortEnum = SearchSort.fromValue(sort);
         if (sortEnum == SearchSort.LATEST) {
             return Sort.by(Sort.Direction.DESC, FIELD_UPDATE_TIME);
+        }
+        if (sortEnum == SearchSort.RATING) {
+            return Sort.by(Sort.Direction.DESC, FIELD_RATING_AVG);
         }
         return Sort.by(Sort.Direction.DESC, FIELD_HOT_SCORE);
     }

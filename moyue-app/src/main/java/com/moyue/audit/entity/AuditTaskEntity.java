@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
  * 说明：audit_task 表无 is_deleted 字段，故不引入逻辑删除字段。
  *
  * <p>P2-15 由 moyue-platform 整包迁入 moyue-risk，包名零变更；
- * biz_type 语义扩展为：1 章节 / 2 评论 / 3 书籍 / 4 用户（TINYINT 承载，不改表结构）。</p>
+ * biz_type 语义扩展为：1 章节 / 2 评论 / 3 书籍 / 4 用户 / 5 书评（TINYINT 承载，不改表结构）。</p>
  */
 @Data
 @TableName("audit_task")
@@ -22,7 +22,7 @@ public class AuditTaskEntity {
     @TableId(type = IdType.ASSIGN_ID)
     private Long id;
 
-    /** 业务类型：1 章节 / 2 评论 / 3 书籍 / 4 用户 */
+    /** 业务类型：1 章节 / 2 评论 / 3 书籍 / 4 用户 / 5 书评 */
     private Integer bizType;
 
     /** 业务主键 */

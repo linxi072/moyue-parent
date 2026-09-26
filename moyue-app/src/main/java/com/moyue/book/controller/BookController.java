@@ -63,6 +63,7 @@ public class BookController {
         if (dto == null) {
             throw new BizException(ResultCode.RESOURCE_NOT_FOUND);
         }
+        bookService.incrementClickCount(bookId);
         return R.ok(dto);
     }
 

@@ -157,6 +157,7 @@ public class BookService {
         e.setClickCount(0L);
         e.setIsDeleted(0);
         bookMapper.insert(e);
+        syncIndex(e);
         BookSummaryDTO dto = toDto(e);
         // P2-E：发布新作动态（type=1，AFTER_COMMIT 旁路落 social，失败仅记 warn，不阻断书城主流程）
         publishBookDynamic(dto.getBookId(), dto.getTitle(), dto.getAuthorId(), dto.getAuthor(), 1);
@@ -202,6 +203,7 @@ public class BookService {
             e.setStatus(status);
         }
         bookMapper.updateById(e);
+        syncIndex(e);
         BookSummaryDTO dto = toDto(e);
         // P2-E：作品完结动态（status 由非 2 转 2 时发布，AFTER_COMMIT 旁路落 social，失败仅记 warn）
         if (status != null && status == STATUS_FINISHED && oldStatus != STATUS_FINISHED) {
@@ -286,6 +288,39 @@ public class BookService {
         }
     }
 
+    /** 书籍详情点击量自增（每次查看都计，控制器层调用，避开 BOOK_DETAIL 缓存） */
+    public void incrementClickCount(Long bookId) {
+        if (bookId == null) {
+            return;
+        }
+        try {
+            bookMapper.incrementClickCount(bookId);
+        } catch (Exception ex) {
+            log.warn("点击量自增失败 bookId={}, err={}", bookId, ex.getMessage());
+        }
+    }
+
+    /** 书评聚合回写：更新 book.rating_avg / rating_count */
+    public void updateRatingSummary(Long bookId, java.math.BigDecimal avg, int count) {
+        if (bookId == null) {
+            return;
+        }
+        BookEntity e = new BookEntity();
+        e.setId(bookId);
+        e.setRatingAvg(avg);
+        e.setRatingCount(count);
+        bookMapper.updateById(e);
+    }
+
+    /** 评分变更后刷新 ES 索引（事件监听在 AFTER_COMMIT 调用） */
+    public void refreshIndex(Long bookId) {
+        if (bookId == null) {
+            return;
+        }
+        BookEntity e = bookMapper.selectById(bookId);
+        syncIndex(e);
+    }
+
     /**
      * 实体 → 索引载荷 DTO（syncIndex 与管理端全量重建分页拉取复用）。
      * 热度分 {@code hotScore = clickCount × 1 + favoriteCount × 3}；内容域暂不持有收藏数，以 0 兜底。
@@ -304,7 +339,11 @@ public class BookService {
         dto.setStatus(e.getStatus());
         dto.setClickCount(clickCount);
         dto.setFavoriteCount(favoriteCount);
-        dto.setHotScore(clickCount + favoriteCount * 3);
+        double ratingAvg = e.getRatingAvg() == null ? 0.0 : e.getRatingAvg().doubleValue();
+        long ratingScore = Math.round(ratingAvg * 100);
+        dto.setRatingAvg(e.getRatingAvg() == null ? null : e.getRatingAvg().doubleValue());
+        dto.setRatingCount(e.getRatingCount() == null ? 0 : e.getRatingCount());
+        dto.setHotScore(clickCount + favoriteCount * 3 + ratingScore);
         // 以变更时刻作为更新时间，保证 latest 排序反映最新变更
         dto.setUpdateTime(LocalDateTime.now());
         return dto;
