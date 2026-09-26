@@ -3,7 +3,10 @@ package com.moyue.book.category.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.moyue.book.category.entity.CategoryEntity;
 import com.moyue.book.category.mapper.CategoryMapper;
+import com.moyue.common.cache.CacheNames;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,6 +37,7 @@ public class CategoryService {
      *
      * @return 分类列表（空列表而非 null）
      */
+    @Cacheable(cacheNames = CacheNames.CATEGORY, key = "'all'")
     public List<CategoryEntity> listAll() {
         LambdaQueryWrapper<CategoryEntity> q = new LambdaQueryWrapper<CategoryEntity>()
                 .orderByAsc(CategoryEntity::getSort);
@@ -70,6 +74,7 @@ public class CategoryService {
      * @param entity 含 name / icon / sort / status 的分类实体（id 留空）
      * @return 落库后的实体（含生成 id）
      */
+    @CacheEvict(cacheNames = CacheNames.CATEGORY, allEntries = true)
     @Transactional
     public CategoryEntity create(CategoryEntity entity) {
         if (entity.getStatus() == null) {
@@ -88,6 +93,7 @@ public class CategoryService {
      * @param entity 含 id 与待更新字段的分类实体
      * @return 更新后的实体（查不到返回 null）
      */
+    @CacheEvict(cacheNames = CacheNames.CATEGORY, allEntries = true)
     @Transactional
     public CategoryEntity update(CategoryEntity entity) {
         if (entity.getId() == null) {
@@ -119,6 +125,7 @@ public class CategoryService {
      *
      * @param id 分类 ID
      */
+    @CacheEvict(cacheNames = CacheNames.CATEGORY, allEntries = true)
     @Transactional
     public void deleteById(Long id) {
         categoryMapper.deleteById(id);

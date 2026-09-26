@@ -10,6 +10,8 @@ import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.query.Criteria;
+import com.moyue.common.cache.CacheNames;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.elasticsearch.core.query.CriteriaQuery;
 import org.springframework.stereotype.Service;
 
@@ -59,6 +61,7 @@ public class RecommendService {
      * @param sort  排序方式：hot（默认）/ latest / relevance（推荐位 relevance 视作 hot）
      * @return 推荐书籍列表
      */
+    @Cacheable(cacheNames = CacheNames.RECOMMEND, key = "#limit + ':' + #sort", unless = "#result.isEmpty()")
     public List<BookDocument> recommend(int limit, String sort) {
         int maxLimit = Math.max(searchProperties.getRecommend().getMaxLimit(), 1);
         int safeLimit = Math.min(Math.max(limit, 1), maxLimit);
