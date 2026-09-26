@@ -28,7 +28,7 @@ INSERT INTO chapter (id, book_id, chapter_no, title, content, word_count, status
 INSERT INTO comment (id, user_id, book_id, content, status, like_count) VALUES (3001, 1, 1001, '开篇即燃，追定了！', 1, 128), (3002, 1, 1004, '辰东的脑洞永远在线。', 1, 256);
 
 -- ============ V3__message.sql ============
-CREATE TABLE IF NOT EXISTS `notice` ( `id` BIGINT NOT NULL COMMENT '通知主键', `user_id` BIGINT NOT NULL COMMENT '接收用户 → user.id', `title` VARCHAR(128) NOT NULL COMMENT '标题', `content` VARCHAR(500) DEFAULT NULL COMMENT '内容', `type` TINYINT NOT NULL DEFAULT 1 COMMENT '类型：1 系统 / 2 互动 / 3 审核', `is_read` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否已读', `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间', PRIMARY KEY (`id`), KEY `notice_idx_user` (`user_id`) ) COMMENT = '站内信/通知表';
+CREATE TABLE IF NOT EXISTS `notice` ( `id` BIGINT NOT NULL COMMENT '通知主键', `user_id` BIGINT NOT NULL COMMENT '接收用户 → user.id', `title` VARCHAR(128) NOT NULL COMMENT '标题', `content` VARCHAR(500) DEFAULT NULL COMMENT '内容', `type` TINYINT NOT NULL DEFAULT 1 COMMENT '类型：1 系统 / 2 互动 / 3 审核', `is_read` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否已读', `is_deleted` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '逻辑删除：0 否 / 1 是', `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间', PRIMARY KEY (`id`), KEY `notice_idx_user` (`user_id`) ) COMMENT = '站内信/通知表';
 
 -- ============ V4__feature_im_points_blog.sql ============
 DROP TABLE IF EXISTS `chat_conversation`;

@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS `notice` (
   `content`     VARCHAR(500) DEFAULT NULL            COMMENT '内容',
   `type`        TINYINT      NOT NULL DEFAULT 1      COMMENT '类型：1 系统 / 2 互动 / 3 审核',
   `is_read`     TINYINT(1)   NOT NULL DEFAULT 0      COMMENT '是否已读',
+  `is_deleted`  TINYINT(1)   NOT NULL DEFAULT 0      COMMENT '逻辑删除：0 否 / 1 是',
   `create_time` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   PRIMARY KEY (`id`),
   KEY `idx_user` (`user_id`)

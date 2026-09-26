@@ -35,6 +35,9 @@ public final class CacheNames {
     /** 全站分类树（低频写、高频读）：建议 TTL 10 分钟；写路径 create/update/deleteById 整体失效 */
     public static final String CATEGORY = "category";
 
+    /** 消息中心未读角标（按 userId 维度）：建议 TTL 2 分钟，标记已读时整体失效 */
+    public static final String INBOX = "message:inbox";
+
     private CacheNames() {
         // 常量类，禁止实例化
     }
