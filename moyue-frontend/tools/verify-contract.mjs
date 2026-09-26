@@ -9,6 +9,7 @@
 //   1) npm run mock            （另开终端，默认 :8081）
 //   2) node tools/verify-contract.mjs [baseUrl]
 import http from 'node:http';
+import { spawn } from 'node:child_process';
 
 const BASE = process.argv[2] ?? 'http://localhost:8081/api/v1';
 
@@ -25,10 +26,10 @@ function check(name, cond, extra = '') {
   }
 }
 
-/** 极简 HTTP JSON 客户端（对齐前端 axios：baseURL + 身份头） */
-function req(method, path, { body, headers = {} } = {}) {
+/** 极简 HTTP JSON 客户端（对齐前端 axios：baseURL + 身份头），支持指定 base */
+function reqTo(baseUrl, method, path, { body, headers = {} } = {}) {
   return new Promise((resolve, reject) => {
-    const url = new URL(BASE + path);
+    const url = new URL(baseUrl + path);
     const data = body == null ? null : Buffer.from(JSON.stringify(body));
     const r = http.request(
       {
@@ -57,6 +58,10 @@ function req(method, path, { body, headers = {} } = {}) {
     if (data) r.write(data);
     r.end();
   });
+}
+
+function req(method, path, opts = {}) {
+  return reqTo(BASE, method, path, opts);
 }
 
 /** 复刻前端 auth.ts 的 decodeJwt：解析 JWT payload 取 userId / role */
@@ -266,6 +271,57 @@ async function main() {
   check('阅读进度触发积分 +5（消费端 award）', (accAfterAward.data?.balance ?? 0) - balBefore === 5, `before=${balBefore} after=${accAfterAward.data?.balance}`);
   const flowsAfter = await req('GET', `/points/flows?userId=${userId}&page=1&size=100`, { headers: auth });
   check('积分流水含阅读奖励（bizType=2）', (flowsAfter.data?.records ?? []).some((f) => f.bizType === 2));
+
+  // ---- 12. 令牌刷新（P0-#3 token 刷新 + 401 跳登录链路） ----
+  console.log('\n[12] 令牌刷新');
+  const refreshNoToken = await req('POST', '/auth/refresh', { body: {} });
+  check('空 refreshToken → 10001 参数错误', refreshNoToken.code === 10001, `code=${refreshNoToken.code}`);
+  const refresh = await req('POST', '/auth/refresh', { body: { refreshToken: login.data?.refreshToken } });
+  check('POST /auth/refresh 返回新 accessToken', refresh.code === 0 && typeof refresh.data?.accessToken === 'string', JSON.stringify(refresh.data));
+  check('POST /auth/refresh 返回新 refreshToken', typeof refresh.data?.refreshToken === 'string');
+  if (refresh.code === 0) {
+    const newClaims = decodeJwt(refresh.data.accessToken);
+    const newAuth = { 'X-User-Id': String(newClaims.userId), 'X-User-Role': String(newClaims.role ?? '') };
+    const meNew = await req('GET', '/users/me', { headers: newAuth });
+    check('刷新后新 token 可访问受保护端点 /users/me', meNew.code === 0 && meNew.data?.id === newClaims.userId, JSON.stringify(meNew.data));
+  }
+
+  // ---- 13. ES 降级（P1-#7，前端非阻塞降级条 + 热门回退） ----
+  // 另起一个 MOCK_ES_DOWN=1 的 mock 实例，验证检索端点返回 40002（SERVICE_DEGRADED）。
+  console.log('\n[13] ES 降级（MOCK_ES_DOWN=1）');
+  let degradedChild = null;
+  try {
+    const port = 8082;
+    degradedChild = spawn(process.execPath, ['tools/mock-api.mjs'], {
+      env: { ...process.env, MOCK_ES_DOWN: '1', MOCK_PORT: String(port) },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    const degradedBase = `http://localhost:${port}/api/v1`;
+    const ready = await (async () => {
+      const start = Date.now();
+      while (Date.now() - start < 8000) {
+        try {
+          const r = await reqTo(degradedBase, 'GET', '/categories');
+          if (typeof r.code === 'number') return true;
+        } catch {
+          /* 重试 */
+        }
+        await new Promise((res) => setTimeout(res, 200));
+      }
+      return false;
+    })();
+    check('降级 mock 实例启动就绪', ready);
+    if (ready) {
+      const down = await reqTo(degradedBase, 'GET', '/search/corrected?keyword=沧澜');
+      check('ES 不可用时 /search/corrected 返回 40002（SERVICE_DEGRADED）', down.code === 40002, `code=${down.code}`);
+      const recDown = await reqTo(degradedBase, 'GET', '/search/recommend?limit=3');
+      check('ES 不可用时 /search/recommend 返回 40002', recDown.code === 40002, `code=${recDown.code}`);
+    }
+  } catch (e) {
+    check('ES 降级 mock 可启动并验证 40002', false, e.message);
+  } finally {
+    if (degradedChild) degradedChild.kill();
+  }
 
   console.log(`\n=== 结果：${pass} 通过 / ${fail} 失败 ===\n`);
   process.exit(fail === 0 ? 0 : 1);

@@ -63,6 +63,11 @@ export function isLoggedIn(): boolean {
   return getSession() != null;
 }
 
+/** 读取刷新令牌（用于 accessToken 过期时换发新令牌） */
+export function getRefreshToken(): string | null {
+  return localStorage.getItem(REFRESH_KEY);
+}
+
 /** 组装请求身份头（单体无网关，前端直连 demo 自带） */
 export function getAuthHeaders(): Record<string, string> {
   const s = getSession();

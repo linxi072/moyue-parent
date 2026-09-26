@@ -1,7 +1,24 @@
 // 墨阅小说网前端 · 搜索页（/search/books + /search/corrected 纠错 + /search/recommend 推荐位）
+// P1-#7：检索依赖 ES；ES 不可用时后端返回 40002（SERVICE_DEGRADED），前端展示非阻塞降级条并回退热门推荐。
 import { el } from '../dom';
-import { apiGet } from '../api/client';
+import { apiGet, ApiError } from '../api/client';
 import type { BookDocument, BookSearchResult } from '../types';
+
+/** 渲染/复用一条降级提示条（ES 不可用时展示，不阻断页面） */
+function ensureDegradeBanner(root: HTMLElement): HTMLElement {
+  let banner = root.querySelector('.degrade-banner') as HTMLElement | null;
+  if (!banner) {
+    banner = el('div', { class: 'degrade-banner' });
+    root.insertBefore(banner, root.querySelector('.book-grid'));
+  }
+  banner.style.display = '';
+  return banner;
+}
+
+function hideDegradeBanner(root: HTMLElement): void {
+  const banner = root.querySelector('.degrade-banner') as HTMLElement | null;
+  if (banner) banner.style.display = 'none';
+}
 
 export async function renderSearch(root: HTMLElement, q: string): Promise<void> {
   root.replaceChildren();
@@ -41,37 +58,48 @@ export async function renderSearch(root: HTMLElement, q: string): Promise<void> 
     const keyword = input.value.trim();
     grid.replaceChildren();
     hint.textContent = '';
+    hideDegradeBanner(root);
 
-    if (!keyword) {
-      hint.textContent = '推荐位（按热度）：';
-      try {
-        const rec = await apiGet<BookDocument[]>('/search/recommend', { limit: 8, sort: 'hot' });
-        renderCards(grid, rec);
-      } catch (e) {
-        hint.textContent = '推荐加载失败：' + (e as Error).message;
-      }
-      return;
-    }
+    const loadRecommend = async (): Promise<void> => {
+      const rec = await apiGet<BookDocument[]>('/search/recommend', { limit: 8, sort: 'hot' });
+      renderCards(grid, rec);
+    };
 
-    hint.textContent = '搜索中…';
     try {
-      const res = await apiGet<BookSearchResult>('/search/corrected', {
-        keyword,
-        sort: sort.value,
-        page: 1,
-        size: 20,
-      });
-      const list = res.records ?? [];
-      hint.textContent =
-        (res.correctedKeyword ? `已按「${res.correctedKeyword}」召回；` : '') +
-        `共 ${res.total ?? list.length} 条结果`;
-      if (list.length === 0) {
-        grid.appendChild(el('p', { class: 'muted', text: '没有找到相关书籍' }));
-        return;
+      if (!keyword) {
+        hint.textContent = '推荐位（按热度）：';
+        await loadRecommend();
+      } else {
+        hint.textContent = '搜索中…';
+        const res = await apiGet<BookSearchResult>('/search/corrected', {
+          keyword,
+          sort: sort.value,
+          page: 1,
+          size: 20,
+        });
+        const list = res.records ?? [];
+        hint.textContent =
+          (res.correctedKeyword ? `已按「${res.correctedKeyword}」召回；` : '') +
+          `共 ${res.total ?? list.length} 条结果`;
+        if (list.length === 0) {
+          grid.appendChild(el('p', { class: 'muted', text: '没有找到相关书籍' }));
+          return;
+        }
+        renderCards(grid, list);
       }
-      renderCards(grid, list);
     } catch (e) {
-      hint.textContent = '搜索失败：' + (e as Error).message;
+      // P1-#7：ES 不可用 → 非阻塞降级条 + 热门推荐兜底，不当成硬错误
+      if (e instanceof ApiError && e.code === 40002) {
+        ensureDegradeBanner(root).textContent = '检索服务暂时不可用（已进入降级模式），已为你展示热门推荐。';
+        hint.textContent = '';
+        try {
+          await loadRecommend();
+        } catch {
+          /* 推荐也失败则留空，避免反复报错 */
+        }
+      } else {
+        hint.textContent = '搜索失败：' + (e as Error).message;
+      }
     }
   };
 

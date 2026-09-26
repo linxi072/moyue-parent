@@ -10,7 +10,10 @@ import http from 'node:http';
 
 const PORT = Number(process.env.MOCK_PORT ?? 8081);
 
-const CODE = { SUCCESS: 0, PARAM_ERROR: 10001, UNAUTHORIZED: 10002, NOT_FOUND: 20001 };
+const CODE = { SUCCESS: 0, PARAM_ERROR: 10001, UNAUTHORIZED: 10002, NOT_FOUND: 20001, SERVICE_DEGRADED: 40002 };
+
+/** 模拟 ES 不可用（P1-#7 降级演示）：MOCK_ES_DOWN=1 时检索端点返回 40002 */
+const ES_DOWN = process.env.MOCK_ES_DOWN === '1';
 
 const ok = (data) => ({ code: CODE.SUCCESS, message: '操作成功', data: data ?? null, traceId: 'mock' + Date.now() });
 const fail = (code, message) => ({ code, message, data: null, traceId: 'mock' + Date.now() });
@@ -145,6 +148,12 @@ function route(req, res, url) {
     if (!body.phone || !body.password) return fail(CODE.PARAM_ERROR, '手机号和密码不能为空');
     // mock：密码 moon 通过，其余报参数错误，便于前端验证失败分支
     if (body.password !== 'moon') return fail(CODE.PARAM_ERROR, '手机号或密码错误');
+    return ok({ accessToken: issueToken(10001, 1), refreshToken: issueToken(10001, 1) });
+  }
+  // 刷新令牌：校验 refreshToken 存在即换发新 access/refresh 对（对齐后端 AuthController.refresh）
+  if (p === '/auth/refresh' && method === 'POST') {
+    const body = req.body ?? {};
+    if (!body.refreshToken) return fail(CODE.PARAM_ERROR, 'refreshToken 不能为空');
     return ok({ accessToken: issueToken(10001, 1), refreshToken: issueToken(10001, 1) });
   }
   if (p === '/users/me') {
@@ -363,6 +372,7 @@ function route(req, res, url) {
     return ok({ total: docs.length, page: 1, size: Number(q('size', 20)), records: docs });
   }
   if (p === '/search/corrected' && method === 'GET') {
+    if (ES_DOWN) return fail(CODE.SERVICE_DEGRADED, '检索服务暂不可用（已降级）');
     const kw = String(q('keyword', '')).trim();
     let docs = BOOKS.filter((b) => (b.title + b.author + b.category + b.intro).includes(kw)).map(toDoc);
     let corrected;
@@ -374,6 +384,7 @@ function route(req, res, url) {
     return ok({ records: docs, total: docs.length, page: 1, size: Number(q('size', 20)), correctedKeyword: corrected });
   }
   if (p === '/search/recommend' && method === 'GET') {
+    if (ES_DOWN) return fail(CODE.SERVICE_DEGRADED, '检索服务暂不可用（已降级）');
     const limit = Number(q('limit', 10));
     return ok(BOOKS.map(toDoc).sort((a, b) => b.clickCount - a.clickCount).slice(0, limit));
   }

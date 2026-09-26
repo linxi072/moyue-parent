@@ -4,6 +4,7 @@
 import { el } from '../dom';
 import { apiGet, apiPost, apiPut, apiDelete } from '../api/client';
 import { getSession } from '../auth';
+import { confirmModal, alertModal } from '../modal';
 import type { BookSummaryDTO, ChapterDTO } from '../types';
 
 /** 作品状态标签（对齐 BookSummaryDTO.status） */
@@ -210,7 +211,13 @@ export async function renderAuthor(root: HTMLElement): Promise<void> {
         row.appendChild(editBtn);
         const delBtn = el('button', { class: 'btn-link danger', text: '删除' });
         delBtn.addEventListener('click', async () => {
-          if (!confirm(`确认删除《${b.title}》？该操作不可恢复。`)) return;
+          const ok = await confirmModal({
+            title: '删除作品',
+            message: `确认删除《${b.title}》？该操作不可恢复。`,
+            confirmText: '删除',
+            danger: true,
+          });
+          if (!ok) return;
           try {
             await apiDelete<void>(`/books/${b.bookId}`);
             if (selectedBookId === b.bookId) {
@@ -220,7 +227,7 @@ export async function renderAuthor(root: HTMLElement): Promise<void> {
             }
             await loadMyBooks();
           } catch (e) {
-            alert((e as Error).message);
+            await alertModal({ title: '删除失败', message: (e as Error).message });
           }
         });
         row.appendChild(delBtn);
