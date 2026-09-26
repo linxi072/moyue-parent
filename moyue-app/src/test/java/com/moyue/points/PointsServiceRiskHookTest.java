@@ -1,6 +1,8 @@
 package com.moyue.points;
 
 import com.moyue.api.risk.client.BehaviorRiskClient;
+import com.moyue.common.BizException;
+import com.moyue.common.ResultCode;
 import com.moyue.points.service.PointsService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -11,11 +13,13 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * 积分域行为风控埋点集成测试（P2-C 闭环补全）。
@@ -71,6 +75,21 @@ class PointsServiceRiskHookTest {
         // 主链路不回滚：订单仍落库、积分已扣减
         assertThat(queryInt("SELECT COUNT(*) FROM points_order WHERE user_id = 7001 AND product_id = 9001")).isEqualTo(1);
         assertThat(queryInt("SELECT balance FROM points_account WHERE user_id = 7001")).isEqualTo(400);
+    }
+
+    @Test
+    void createOrder_blockedWhenRiskPreCheckBlocked() {
+        // 命中 BLOCK 级规则时，preCheck 返回 true → 兑换被拦截，订单不落、积分不扣
+        when(behaviorRiskClient.preCheck(eq(7001L), any(), eq("REDEEM"), any())).thenReturn(true);
+
+        BizException ex = assertThrows(BizException.class, () -> pointsService.createOrder(7001L, 9001L));
+        assertThat(ex.getCode()).isEqualTo(ResultCode.RISK_BLOCKED.getCode());
+
+        // 拦截发生在业务变更之前：无订单、积分余额保持 500
+        assertThat(queryInt("SELECT COUNT(*) FROM points_order WHERE user_id = 7001 AND product_id = 9001")).isEqualTo(0);
+        assertThat(queryInt("SELECT balance FROM points_account WHERE user_id = 7001")).isEqualTo(500);
+        // preCheck 通过后不再埋点（动作被拒）
+        verify(behaviorRiskClient, times(0)).collect(any(), any(), any(), any(), any());
     }
 
     private int queryInt(String sql) {

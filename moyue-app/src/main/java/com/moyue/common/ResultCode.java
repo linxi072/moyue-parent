@@ -43,7 +43,10 @@ public enum ResultCode {
     SERVICE_DEGRADED(40002, "服务暂时不可用，请稍后重试"),
 
     /** 支付失败 / 订单超时关闭 */
-    PAYMENT_FAILED(50001, "支付失败或订单超时关闭");
+    PAYMENT_FAILED(50001, "支付失败或订单超时关闭"),
+
+    /** 行为风控拦截（P2-C）：命中 BLOCK 级规则，拦截刷分/刷量等滥用行为 */
+    RISK_BLOCKED(60001, "行为触发风控拦截，请稍后重试或联系客服");
 
     private final int code;
 

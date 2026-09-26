@@ -3,6 +3,7 @@ package com.moyue.risk.behavior.controller;
 import com.moyue.common.R;
 import com.moyue.risk.behavior.entity.RiskDecisionEntity;
 import com.moyue.risk.behavior.entity.RiskRuleEntity;
+import com.moyue.risk.behavior.model.RiskMetricsVO;
 import com.moyue.risk.behavior.service.BehaviorRiskService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -56,6 +57,12 @@ public class BehaviorRiskController {
     @GetMapping("/risk/behavior/decisions")
     public R<List<RiskDecisionEntity>> decisions(@RequestParam Long userId) {
         return R.ok(behaviorRiskService.listDecisions(userId));
+    }
+
+    /** 行为风控看板指标：事件/决策总量、各处置结论计数、按规则分组 */
+    @GetMapping("/risk/behavior/metrics")
+    public R<RiskMetricsVO> metrics() {
+        return R.ok(behaviorRiskService.metrics());
     }
 
     /** 行为采集请求体 */

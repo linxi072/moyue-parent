@@ -48,4 +48,25 @@ public class BehaviorRiskClient {
             return Collections.emptyList();
         }
     }
+
+    /**
+     * 业务动作前置风控预检（P2-C 拦截闭环）：仅基于<b>既有</b>行为事件评估是否命中 BLOCK 级规则，
+     * 不写入本次行为事件（避免重复埋点）；返回 true 表示应拦截本次动作。
+     * 风控服务未就绪 / 异常时返回 false（降级：不阻断主链路）。
+     *
+     * @return true=命中 BLOCK 应拦截；false=放行或风控不可用
+     */
+    public boolean preCheck(Long userId, String deviceId, String eventType, String ip) {
+        if (behaviorRiskService == null) {
+            return false;
+        }
+        try {
+            List<RiskDecisionEntity> decisions = behaviorRiskService.preCheck(userId, deviceId, eventType, ip);
+            return decisions != null && decisions.stream().anyMatch(d -> "BLOCK".equals(d.getDecision()));
+        } catch (Exception ex) {
+            log.warn("[behavior-risk] 风控预检失败（已降级，不阻断主链路）：userId={}, eventType={}, err={}",
+                    userId, eventType, ex.getMessage());
+            return false;
+        }
+    }
 }

@@ -1,6 +1,7 @@
 package com.moyue.risk.behavior;
 
 import com.moyue.risk.behavior.entity.RiskDecisionEntity;
+import com.moyue.risk.behavior.model.RiskMetricsVO;
 import com.moyue.risk.behavior.service.BehaviorRiskService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -77,5 +78,19 @@ class BehaviorRiskFlowTest {
     void noViolationBelowThreshold() {
         List<RiskDecisionEntity> hits = behaviorRiskService.submit(9401L, "devS", "LOGIN", null, "5.5.5.5");
         assertThat(hits).isEmpty();
+    }
+
+    @Test
+    void metrics_aggregatesEventsAndDecisions() {
+        // 触发 R_FREQ(BLOCK) 的一连串登录：第 3 次命中
+        behaviorRiskService.submit(9501L, "devM", "LOGIN", null, "6.6.6.6");
+        behaviorRiskService.submit(9501L, "devM", "LOGIN", null, "6.6.6.6");
+        behaviorRiskService.submit(9501L, "devM", "LOGIN", null, "6.6.6.6");
+
+        RiskMetricsVO m = behaviorRiskService.metrics();
+        assertThat(m.getTotalEvents()).isGreaterThanOrEqualTo(3);
+        assertThat(m.getTotalDecisions()).isGreaterThanOrEqualTo(1);
+        assertThat(m.getBlockCount()).isGreaterThanOrEqualTo(1);
+        assertThat(m.getByRuleCode()).containsKey("R_FREQ");
     }
 }

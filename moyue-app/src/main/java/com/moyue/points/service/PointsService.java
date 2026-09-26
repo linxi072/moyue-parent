@@ -163,6 +163,10 @@ public class PointsService {
      */
     @Transactional
     public PointsOrderDTO createOrder(Long userId, Long productId) {
+        // 风控前置拦截（P2-C BLOCK 闭环）：命中 BLOCK 级规则直接拒绝兑换，杜绝刷分
+        if (behaviorRiskClient != null && behaviorRiskClient.preCheck(userId, null, "REDEEM", null)) {
+            throw new BizException(ResultCode.RISK_BLOCKED);
+        }
         PointsProductEntity product = productMapper.selectById(productId);
         if (product == null || product.getStatus() == null || product.getStatus() != 1) {
             throw new BizException(ResultCode.RESOURCE_NOT_FOUND);
@@ -265,6 +269,10 @@ public class PointsService {
     public int checkIn(Long userId) {
         if (userId == null) {
             throw new BizException(ResultCode.PARAM_ERROR, "用户 ID 不能为空");
+        }
+        // 风控前置拦截（P2-C BLOCK 闭环）：命中 BLOCK 级规则直接拒绝签到，杜绝刷分
+        if (behaviorRiskClient != null && behaviorRiskClient.preCheck(userId, null, "SIGN_IN", null)) {
+            throw new BizException(ResultCode.RISK_BLOCKED);
         }
         LocalDate today = LocalDate.now();
         PointsCheckInEntity checkIn = new PointsCheckInEntity();

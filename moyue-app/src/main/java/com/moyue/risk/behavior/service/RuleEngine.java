@@ -57,7 +57,7 @@ public class RuleEngine {
         List<RiskDecisionEntity> decisions = new ArrayList<>();
         for (RiskRuleEntity rule : enabledRules()) {
             RuleConfig cfg = RuleConfig.parse(rule.getConfigJson());
-            RuleHit hit = evaluateRule(rule, cfg, event);
+            RuleHit hit = evaluateRule(rule, cfg, event, false);
             if (hit.violated) {
                 RiskDecisionEntity d = persistDecision(event, rule, hit);
                 decisions.add(d);
@@ -67,11 +67,36 @@ public class RuleEngine {
         return decisions;
     }
 
+    /**
+     * 前置预检评估（P2-C 拦截闭环）：事件尚未落库，以「本次若发生」的视角评估既有行为。
+     * 不落库、不通知；命中仅构造临时决策供调用方判断 BLOCK / REVIEW。
+     * {@code pending=true} 时对频控 / 积分异常类规则在既有计数上 +1（等价于本次事件已计入）。
+     */
+    public List<RiskDecisionEntity> evaluatePreCheck(RiskBehaviorEventEntity event) {
+        List<RiskDecisionEntity> decisions = new ArrayList<>();
+        for (RiskRuleEntity rule : enabledRules()) {
+            RuleConfig cfg = RuleConfig.parse(rule.getConfigJson());
+            RuleHit hit = evaluateRule(rule, cfg, event, true);
+            if (hit.violated) {
+                RiskDecisionEntity d = new RiskDecisionEntity();
+                d.setUserId(event.getUserId());
+                d.setDeviceId(event.getDeviceId());
+                d.setRuleCode(rule.getRuleCode());
+                d.setEventType(event.getEventType());
+                d.setDecision("BLOCK".equals(rule.getAction()) ? "BLOCK" : "REVIEW");
+                d.setRiskLevel("BLOCK".equals(rule.getAction()) ? 3 : 2);
+                d.setMessage(rule.getRuleName() + "：" + hit.message);
+                decisions.add(d);
+            }
+        }
+        return decisions;
+    }
+
     // ---------------------------------------------------------------
     // 规则评估
     // ---------------------------------------------------------------
 
-    private RuleHit evaluateRule(RiskRuleEntity rule, RuleConfig cfg, RiskBehaviorEventEntity event) {
+    private RuleHit evaluateRule(RiskRuleEntity rule, RuleConfig cfg, RiskBehaviorEventEntity event, boolean pending) {
         String type = rule.getRuleType();
         LocalDateTime since = LocalDateTime.now().minusMinutes(cfg.getWindowMinutes());
         switch (type) {
@@ -80,8 +105,8 @@ public class RuleEngine {
                         .eq(RiskBehaviorEventEntity::getUserId, event.getUserId())
                         .eq(RiskBehaviorEventEntity::getEventType, event.getEventType())
                         .ge(RiskBehaviorEventEntity::getCreateTime, since));
-                // 采集已在同事务内落库，selectCount 已含本次事件，直接用 count 判定
-                long total = count;
+                // pending=true（前置预检，事件尚未落库）：本次行为等价 +1，避免少算一拍导致拦截滞后
+                long total = pending ? count + 1 : count;
                 if (total > cfg.getThreshold()) {
                     return new RuleHit(true, "窗口 " + cfg.getWindowMinutes() + "min 内同类型行为 " + total
                             + " 次 > 阈值 " + cfg.getThreshold());
@@ -89,17 +114,22 @@ public class RuleEngine {
                 return RuleHit.NONE;
             }
             case "DEVICE_MULTI_ACCOUNT": {
+                // 设备为空（如积分/签到无设备指纹）无法评估，跳过
+                if (event.getDeviceId() == null) {
+                    return RuleHit.NONE;
+                }
                 long distinctUsers = eventMapper.countDistinctUsersByDevice(event.getDeviceId(), since);
-                if (distinctUsers > cfg.getThreshold()) {
-                    return new RuleHit(true, "窗口内同设备去重用户 " + distinctUsers
+                long total = pending ? distinctUsers + 1 : distinctUsers;
+                if (total > cfg.getThreshold()) {
+                    return new RuleHit(true, "窗口内同设备去重用户 " + total
                             + " > 阈值 " + cfg.getThreshold());
                 }
                 return RuleHit.NONE;
             }
             case "POINTS_ANOMALY": {
                 long redeemCount = eventMapper.countByUserAndType(event.getUserId(), "REDEEM", since);
-                // 采集已在同事务内落库，count 已含本次事件，直接判定
-                long total = redeemCount;
+                // pending=true（前置预检，事件尚未落库）：本次兑换等价 +1，拦截与 submit 一致
+                long total = pending ? redeemCount + 1 : redeemCount;
                 if (total > cfg.getThreshold()) {
                     return new RuleHit(true, "窗口内积分兑换 " + total
                             + " 次 > 阈值 " + cfg.getThreshold());
@@ -107,9 +137,13 @@ public class RuleEngine {
                 return RuleHit.NONE;
             }
             case "ACCOUNT_THEFT": {
+                if (event.getDeviceId() == null) {
+                    return RuleHit.NONE;
+                }
                 long distinctDevices = eventMapper.countDistinctDevicesByUser(event.getUserId(), since);
-                if (distinctDevices > cfg.getThreshold()) {
-                    return new RuleHit(true, "窗口内同用户去重设备 " + distinctDevices
+                long total = pending ? distinctDevices + 1 : distinctDevices;
+                if (total > cfg.getThreshold()) {
+                    return new RuleHit(true, "窗口内同用户去重设备 " + total
                             + " > 阈值 " + cfg.getThreshold());
                 }
                 return RuleHit.NONE;
