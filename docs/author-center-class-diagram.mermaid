@@ -1,0 +1,86 @@
+classDiagram
+    class AuthorCenterController {
+        +overview()
+        +bookDashboard(bookId)
+        +listIncome(bookId)
+        +batchDelete(ids)
+        +batchPublish(ids, publishTime)
+        +batchUpdateStatus(ids, status)
+    }
+    class AuthorCenterService {
+        +AuthorDashboardVO authorOverview(userId)
+        +AuthorBookDashboardVO bookDashboard(userId, bookId)
+        +List~AuthorIncomeVO~ listIncome(userId, bookId)
+        +BatchResult batchDeleteChapters(userId, role, ids)
+        +BatchResult batchPublishChapters(userId, role, ids, time)
+        +BatchResult batchUpdateStatus(userId, role, ids, status)
+    }
+    class AuthorDashboardVO {
+        int totalBooks
+        long totalClick
+        long totalFavorite
+        BigDecimal totalIncome
+        BigDecimal monthIncome
+        ChapterStat chapterStats
+        BigDecimal ratingAvg
+        int ratingCount
+    }
+    class AuthorBookDashboardVO {
+        BookBasicInfo book
+    }
+    class AuthorIncomeVO {
+        Long id; Long authorId; Long bookId
+        Integer incomeType; BigDecimal amount
+        String settleMonth; Long settlementId
+        LocalDateTime createTime
+    }
+    class BatchResult {
+        boolean success
+        List~Long~ publishedIds
+        List~Long~ failedIds
+    }
+    class ChapterStat {
+        long draft; long published
+        long rejected; long scheduled
+    }
+    class BookBasicInfo {
+        Long bookId; String title; String author
+        String coverUrl; Integer status; Long wordCount
+        Long clickCount; BigDecimal ratingAvg; Integer ratingCount; String category
+    }
+    class BookService {
+        +listMyBooks(userId,page,size)
+        +detail(bookId)
+    }
+    class AuthorIncomeService {
+        +listByAuthor(authorId)
+    }
+    class AuthorService {
+        +listByAuthor(userId)
+        +listSettlements(userId)
+    }
+    class ChapterService {
+        +publish(chapterId,userId,role,time)
+        +deleteChapter(chapterId,userId,role)
+        +listByBookAndStatus(bookId,status,page,size)
+    }
+    class BookshelfMapper {
+        +countByBookId(bookId)
+        +countByBookIds(bookIds)
+    }
+    class ChapterMapper {
+        +countByBookIdAndStatus(bookId,status)
+        +countByBookIdsAndStatus(bookIds,status)
+    }
+
+    AuthorCenterController --> AuthorCenterService : 调用
+    AuthorCenterService ..> BookService : 复用
+    AuthorCenterService ..> AuthorIncomeService : 复用(Feign降级)
+    AuthorCenterService ..> AuthorService : 复用(Feign降级)
+    AuthorCenterService ..> BookshelfMapper : 新增COUNT
+    AuthorCenterService ..> ChapterMapper : 新增COUNT
+    AuthorCenterService ..> ChapterService : 复用写能力
+    AuthorBookDashboardVO --|> AuthorDashboardVO
+    AuthorDashboardVO *-- ChapterStat
+    AuthorBookDashboardVO *-- BookBasicInfo
+    BatchResult <.. AuthorCenterService : 返回

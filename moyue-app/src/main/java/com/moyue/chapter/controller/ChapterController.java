@@ -63,12 +63,16 @@ public class ChapterController {
         return R.ok(dto);
     }
 
-    /** 作品目录分页（按 bookId 查询；列表口径不含正文） */
+    /** 作品目录分页（按 bookId 查询；可选 status 过滤，列表口径不含正文，向后兼容） */
     @GetMapping("/chapters")
     public R<PageResult<ChapterDTO>> listChapters(@RequestParam Long bookId,
+                                                  @RequestParam(required = false) Integer status,
                                                   @RequestParam(defaultValue = "1") int page,
                                                   @RequestParam(defaultValue = "20") int size) {
-        return R.ok(ChapterService.toDtoPage(chapterService.listByBook(bookId, page, size)));
+        PageResult<ChapterEntity> src = (status != null)
+                ? chapterService.listByBookAndStatus(bookId, status, page, size)
+                : chapterService.listByBook(bookId, page, size);
+        return R.ok(ChapterService.toDtoPage(src));
     }
 
     /** 草稿箱：按作品查 status=0 的章节（列表口径不含正文） */

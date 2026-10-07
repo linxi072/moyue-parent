@@ -1,0 +1,46 @@
+sequenceDiagram
+    autonumber
+    participant U as 用户/调用方
+    participant C as MemberController
+    participant S as MemberService
+    participant DB as MemberSubscription/Tier (MP)
+    participant G as MemberPaymentGateway
+    participant J as MemberRenewalJobHandler
+    participant MC as MemberClient
+
+    Note over U,S: 开通并开启自动续费（subscribe）
+    U->>C: POST /member/subscribe {userId,tierCode,autoRenew?}
+    C->>S: subscribe(userId, tierCode)
+    S->>DB: insert 待支付 (autoRenew, renewCycleDays=tier.durationDays)
+    S->>G: charge(userId, price, orderNo)
+    G-->>S: ChargeResult(success, realSuccess)
+    S->>DB: update status=ACTIVE, startTime/endTime
+    S->>DB: 若 autoRenew: renewAt = endTime - 窗口
+    S-->>C: R.ok(sub)
+    C-->>U: 200 {code:0}
+
+    Note over J,DB: 续费 Job（每30分钟）
+    J->>MC: renewDueSubscriptions()
+    MC->>S: renewDueSubscriptions()
+    loop 分页扫描 autoRenew=1 AND status=1 AND renew_at<=now
+        S->>DB: select 候选(条件 renew_at<=now)
+        S->>G: charge(userId, price, bizNo=RENEW-{id}-{renewAtEpoch})
+        alt 真实成功 (realSuccess=true)
+            G-->>S: success(serial,channel)
+            S->>DB: 条件更新 endTime+=cycle, renewAt=新end-窗口, lastRenewAt=now, failCount=0 WHERE renew_at<=now
+        else 真实失败/降级成功 (realSuccess=false)
+            G-->>S: degraded(channel)
+            S->>DB: renewLastStatus=1, renewFailCount++, renewLastMsg, 保持 active 不延长
+        end
+    end
+    S-->>MC: R.ok(renewedCount)
+    MC-->>J: R.ok(count)
+    J-->>J: XxlJobHelper.handleSuccess
+
+    Note over U,S: 支付降级（channel=real 缺密钥/异常）
+    U->>C: subscribe(...)
+    S->>G: charge(...)
+    G-->>G: 缺密钥/异常 → log.warn + ChargeResult.degraded(channel)
+    G-->>S: success=true, realSuccess=false
+    S->>DB: 仍按 isSuccess() 激活（业务成功, channel=real-degraded-xxx）
+    Note right of S: 续费 Job 同结果判 isRealSuccess()=false → 标记续费失败、保持active

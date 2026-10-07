@@ -119,6 +119,29 @@ public class ChapterService {
         return result;
     }
 
+    /**
+     * 按作品 + 可选状态查询目录（分页，序号升序）。
+     * 复用 {@link #listByBook} 的 PageResult 组装，仅增加可选的 status 等值过滤；
+     * 供 {@code GET /chapters?status=} 与创作中心复用（status 为空时等价于 listByBook）。
+     */
+    public PageResult<ChapterEntity> listByBookAndStatus(Long bookId, Integer status, int page, int size) {
+        Page<ChapterEntity> p = new Page<>(page, size);
+        QueryWrapper<ChapterEntity> qw = new QueryWrapper<>();
+        qw.eq("book_id", bookId);
+        if (status != null) {
+            qw.eq("status", status);
+        }
+        qw.orderByAsc("chapter_no");
+        chapterMapper.selectPage(p, qw);
+
+        PageResult<ChapterEntity> result = new PageResult<>();
+        result.setTotal(p.getTotal());
+        result.setPage((int) p.getCurrent());
+        result.setSize((int) p.getSize());
+        result.setRecords(p.getRecords());
+        return result;
+    }
+
     /** 草稿箱：按作品查 status=0 的章节（分页，序号升序） */
     public PageResult<ChapterEntity> listDrafts(Long bookId, int page, int size) {
         Page<ChapterEntity> p = new Page<>(page, size);

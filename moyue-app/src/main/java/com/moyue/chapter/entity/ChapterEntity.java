@@ -36,7 +36,7 @@ public class ChapterEntity {
     /** 本章字数 */
     private Integer wordCount;
 
-    /** 状态：0 草稿 / 1 审核中 / 2 已发布 / 3 已驳回 */
+    /** 状态：0 草稿 / 1 审核中 / 2 已发布 / 3 已驳回 / 4 定时待发布（运行期，由 ChapterPublishJobHandler 到点激活为 2） */
     private Integer status;
 
     /** 发布时间 */

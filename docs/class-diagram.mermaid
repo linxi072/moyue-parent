@@ -1,0 +1,147 @@
+classDiagram
+    direction LR
+
+    class MemberSubscriptionEntity {
+        +Long id
+        +Long userId
+        +String tierCode
+        +String tierName
+        +Integer status
+        +LocalDateTime startTime
+        +LocalDateTime endTime
+        +String orderNo
+        +String paySerial
+        +String channel
+        +Integer isDeleted
+        +Boolean autoRenew
+        +Integer renewCycleDays
+        +LocalDateTime renewAt
+        +LocalDateTime lastRenewAt
+        +Integer renewFailCount
+        +Integer renewLastStatus
+        +String renewLastMsg
+    }
+
+    class MemberTierEntity {
+        +Long id
+        +String tierCode
+        +String tierName
+        +BigDecimal monthlyPrice
+        +Integer durationDays
+        +Integer adFree
+        +BigDecimal discountRate
+        +String badge
+        +Integer sort
+        +Integer isDeleted
+    }
+
+    class MemberPaymentGateway {
+        <<interface>>
+        +ChargeResult charge(userId, amount, bizNo)
+    }
+    class ChargeResult {
+        -boolean success
+        -boolean realSuccess
+        -String paySerial
+        -String channel
+        +success(serial, channel) ChargeResult
+        +failed(channel) ChargeResult
+        +degraded(channel) ChargeResult
+        +isSuccess() boolean
+        +isRealSuccess() boolean
+    }
+    class MemberPaymentGatewayStub {
+        +ChargeResult charge(...)
+    }
+    class MemberPaymentGatewayReal {
+        -MemberPayProperties props
+        +ChargeResult charge(...)
+    }
+    class ChannelType {
+        <<enum>>
+        WECHAT
+        ALIPAY
+        ALLIN
+    }
+
+    class MemberPayProperties {
+        +String channel
+        +String channelType
+        +String appId
+        +String secret
+        +String mchId
+    }
+
+    class MemberService {
+        +subscribe(userId, tierCode)
+        +setAutoRenew(userId, subId, enable)
+        +renewSubscription(sub, tier) boolean
+        +renewDueSubscriptions() int
+        +getMemberCenter(userId) MemberCenterView
+        +listUpgradeableTiers(code) List~MemberTierEntity~
+        +getBenefits(userId) MemberBenefits
+    }
+    class MemberBenefits {
+        +boolean active
+        +String tierName
+        +boolean adFree
+        +BigDecimal discountRate
+        +List~String~ badges
+    }
+    class MemberCenterView {
+        +boolean member
+        +String currentTierName
+        +MemberBenefits benefits
+        +MemberSubscriptionView activeSubscription
+        +boolean autoRenew
+        +List~TierUpgradeView~ upgradeableTiers
+    }
+    class MemberSubscriptionView {
+        +Long id  +String tierCode  +Integer status
+        +LocalDateTime startTime  +LocalDateTime endTime
+        +boolean autoRenew  +LocalDateTime renewAt
+        +LocalDateTime lastRenewAt  +Integer renewLastStatus  +String renewLastMsg
+    }
+    class TierUpgradeView {
+        +String tierCode  +String tierName
+        +BigDecimal monthlyPrice  +Integer durationDays
+        +Integer adFree  +BigDecimal discountRate  +String badge
+    }
+
+    class MemberClient {
+        +getBenefits(userId) R
+        +syncExpired() R
+        +getDiscountRate(userId) R
+        +getBadge(userId) R
+        +renewDueSubscriptions() R~Integer~
+    }
+
+    class MemberRenewalJobHandler {
+        +memberRenewalJob() @XxlJob
+    }
+    class MemberExpireJobHandler {
+        +memberExpireJob() @XxlJob
+    }
+    class MemberController {
+        +listTiers()  +subscribe()
+        +benefits()  +exclusive()  +exclusiveDiscount()
+        +subscriptions()  +cancel()
+        +center()  +setAutoRenew()
+    }
+
+    MemberPaymentGateway <|.. MemberPaymentGatewayStub
+    MemberPaymentGateway <|.. MemberPaymentGatewayReal
+    MemberPaymentGateway "1" *-- "1" ChargeResult : returns
+    MemberPaymentGatewayReal ..> MemberPayProperties : reads
+    MemberPayProperties ..> ChannelType : channelType
+    MemberService ..> MemberPaymentGateway : charge
+    MemberService ..> MemberSubscriptionEntity : persist
+    MemberService ..> MemberTierEntity : lookup
+    MemberService ..> MemberCenterView : builds
+    MemberCenterView *-- MemberBenefits
+    MemberCenterView *-- MemberSubscriptionView
+    MemberCenterView *-- TierUpgradeView
+    MemberClient ..> MemberService : delegates
+    MemberRenewalJobHandler ..> MemberClient : renewDueSubscriptions
+    MemberExpireJobHandler ..> MemberClient : syncExpired
+    MemberController ..> MemberService : center/subscribe

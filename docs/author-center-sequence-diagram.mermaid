@@ -1,0 +1,27 @@
+sequenceDiagram
+    participant C as AuthorCenterController
+    participant S as AuthorCenterService
+    participant B as BookService
+    participant BS as BookshelfMapper
+    participant CM as ChapterMapper
+    participant AI as AuthorIncomeService
+    participant CACHE as AUTHOR_DASHBOARD(5min)
+
+    Note over C: 鉴权(currentUserId/Role: 匿名→10002, role<2→10003)
+    C->>S: authorOverview(userId)
+    S->>CACHE: @Cacheable(key=userId)
+    alt 命中
+        CACHE-->>S: AuthorDashboardVO
+    else 未命中
+        S->>B: listMyBooks(userId,1,MAX)
+        B-->>S: List<BookSummaryDTO> (totalBooks, clickCount累计, ratingAvg/Count)
+        S->>BS: countByBookIds(bookIds)
+        BS-->>S: totalFavorite
+        S->>CM: countByBookIdsAndStatus(bookIds,0/2/3/4)
+        CM-->>S: chapterStats{draft,published,rejected,scheduled}
+        S->>AI: listByAuthor(userId)
+        AI-->>S: List<AuthorIncomeDTO> (降级返回空)
+        S->>S: 聚合 totalIncome/monthIncome(ratingAvg加权平均)
+        S->>CACHE: 写入
+    end
+    S-->>C: R.ok(AuthorDashboardVO)

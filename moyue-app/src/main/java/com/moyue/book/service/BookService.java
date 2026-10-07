@@ -389,6 +389,7 @@ public class BookService {
         dto.setTitle(e.getTitle());
         dto.setCoverUrl(e.getCoverUrl());
         dto.setWordCount(e.getWordCount());
+        dto.setClickCount(e.getClickCount());
         dto.setCategory(categoryService.resolveName(e.getCategoryId()));
         dto.setStatus(e.getStatus());
         dto.setIntro(e.getIntro());

@@ -1,0 +1,36 @@
+sequenceDiagram
+    participant C as AuthorCenterController
+    participant S as AuthorCenterService
+    participant CS as ChapterService
+    participant RC as RiskClient
+    participant M as ChapterMapper
+
+    Note over C: 鉴权
+    C->>S: batchPublishChapters(userId,role,ids,publishTime)
+    rect rgb(255,240,240)
+        Note over S,M: @Transactional(外层)
+        loop 每章 id
+            S->>CS: publish(id,userId,role,publishTime)
+            CS->>RC: moderateOrThrow (机审hook)
+            alt REJECT
+                RC-->>CS: CONTENT_BLOCKED(20002)
+                CS-->>S: BizException(CONTENT_BLOCKED)
+                S->>S: failedIds.add(id)
+            else 通过
+                CS->>M: updateById(status→2/4)
+                CS-->>S: ChapterEntity
+                S->>S: publishedIds.add(id)
+            end
+        end
+        alt failedIds 非空
+            S->>S: throw BatchOperationException(failedIds)
+            Note over S,M: @Transactional 整批回滚(全部publish撤销)
+        end
+    end
+    alt 抛异常
+        S-->>C: BatchOperationException
+        C->>C: 捕获→R.fail(20002,"批量发布失败，已回滚").setData(failedIds)
+    else 全成功
+        S-->>C: BatchResult(success=true, publishedIds)
+        C-->>C: R.ok(BatchResult)
+    end

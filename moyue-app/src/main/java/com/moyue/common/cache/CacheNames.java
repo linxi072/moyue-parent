@@ -38,6 +38,9 @@ public final class CacheNames {
     /** 消息中心未读角标（按 userId 维度）：建议 TTL 2 分钟，标记已读时整体失效 */
     public static final String INBOX = "message:inbox";
 
+    /** 作者创作中心看板（汇总 / 单书，按 userId[:bookId] 维度）：建议 TTL 5 分钟，容忍 5min 延迟 */
+    public static final String AUTHOR_DASHBOARD = "author:dashboard";
+
     private CacheNames() {
         // 常量类，禁止实例化
     }
