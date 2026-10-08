@@ -1,0 +1,140 @@
+# =============================================================================
+# moyue-system 服务配置
+#
+# 约定（架构说明书 11.x）：
+#   - 端口 8081；上下文路径 /moyue-system（网关按前缀剥离）
+#   - 所有配置可被 Nacos / 环境变量覆盖；本地 profile 为 dev
+#   - 数据库连接池为 Druid（D-18：由 HikariCP 切换而来）
+# =============================================================================
+server:
+  port: 8086
+  servlet:
+    context-path: /moyue-system
+
+spring:
+  application:
+    name: moyue-system
+  profiles:
+    active: ${MOYUE_PROFILE:dev}
+  jackson:
+    default-property-inclusion: non_null
+    time-zone: Asia/Shanghai
+    date-format: yyyy-MM-dd HH:mm:ss
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 50MB
+  datasource:
+    druid:
+      url: jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:3306}/${MYSQL_DB:moyue}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+      username: ${MYSQL_USER:root}
+      password: ${MYSQL_PASSWORD:root}
+      driver-class-name: com.mysql.cj.jdbc.Driver
+      initial-size: 5
+      min-idle: 5
+      max-active: 50
+      max-wait: 60000
+      # 慢 SQL 阈值：超过即计入 Druid 慢 SQL 列表（⑭ 连接池监视会读取）
+      connection-properties: druid.stat.mergeSql=true;druid.stat.slowSqlMillis=1000
+      filter:
+        stat:
+          enabled: true
+          log-slow-sql: true
+          slow-sql-millis: 1000
+        wall:
+          enabled: false
+      stat-view-servlet:
+        enabled: false
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DB:1}
+      timeout: 5s
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_ADDR:127.0.0.1:8848}
+        namespace: ${NACOS_NAMESPACE:public}
+        group: MOYUE_GROUP
+      config:
+        import-check:
+          enabled: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    table: flyway_schema_history
+    encoding: UTF-8
+
+# ---------------------------------------------------------------- MyBatis-Plus
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
+  global-config:
+    db-config:
+      id-type: assign_id
+      logic-delete-field: is_deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+  mapper-locations: classpath*:mapper/**/*.xml
+
+# ---------------------------------------------------------------- 自定义配置
+moyue:
+  # cloud / boot 双项目模式开关，适配层据此装配（见 架构说明书 第 3 章）
+  mode: ${MOYUE_MODE:cloud}
+  security:
+    permit-paths:
+      - /api/v1/auth/login
+      - /api/v1/auth/refresh
+      - /api/v1/auth/captcha
+      - /actuator/health/**
+      - /v3/api-docs/**
+      - /swagger-ui/**
+      - /doc.html
+      - /webjars/**
+  jwt:
+    # 生产环境务必通过环境变量注入，且不少于 32 字节
+    secret: ${JWT_SECRET:moyue-default-secret-please-change-in-production-32bytes}
+    access-token-ttl: 7200
+    refresh-token-ttl: 604800
+  xxl-job:
+    admin-addresses: ${XXL_JOB_ADMIN:http://127.0.0.1:8080/xxl-job-admin}
+    appname: moyue-executor
+    username: ${XXL_JOB_USER:admin}
+    password: ${XXL_JOB_PASSWORD:123456}
+  generator:
+    # 生成到本地路径仅 dev 生效（架构说明书 D-19）
+    author: moyue
+    default-package: com.moyue
+
+# ---------------------------------------------------------------- springdoc
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html
+  packages-to-scan: com.moyue.system.controller
+
+# ---------------------------------------------------------------- Actuator（⑫⑬⑭ 监控域依赖）
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,env,loggers,threaddump,heapdump
+  endpoint:
+    health:
+      show-details: always
+  health:
+    redis:
+      enabled: true
+    db:
+      enabled: true
+
+logging:
+  level:
+    com.moyue: debug
+    org.apache.velocity: warn

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.moyue</groupId>
+        <artifactId>moyue-parent</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>moyue-api</artifactId>
+    <packaging>pom</packaging>
+    <name>moyue-api</name>
+    <description>服务间契约聚合器（七拆，按目标服务）</description>
+
+    <modules>
+        <module>api-system</module>
+        <module>api-content</module>
+        <module>api-social</module>
+        <module>api-commerce</module>
+        <module>api-search</module>
+        <module>api-message</module>
+        <module>api-risk</module>
+    </modules>
+</project>

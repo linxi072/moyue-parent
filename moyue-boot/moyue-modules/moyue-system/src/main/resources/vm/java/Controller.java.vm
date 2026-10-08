@@ -1,0 +1,78 @@
+package ${packageName}.controller;
+
+import com.moyue.common.core.constant.Constants;
+import com.moyue.common.core.result.PageQuery;
+import com.moyue.common.core.result.PageResult;
+import com.moyue.common.core.result.R;
+import com.moyue.common.log.annotation.Log;
+import com.moyue.common.log.enums.BusinessType;
+import com.moyue.common.security.annotation.RequiresPermissions;
+import ${packageName}.domain.entity.${ClassName};
+import ${packageName}.service.${ClassName}Service;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+/**
+ * ${functionName} 管理接口（由代码生成器生成）。
+ *
+ * @author ${author}
+ * @since ${date}
+ */
+@Tag(name = "${functionName}", description = "${table.tableComment}")
+@Validated
+@RestController
+@RequestMapping(Constants.ADMIN_PATH_PREFIX + "/${moduleName}/${businessName}")
+@RequiredArgsConstructor
+public class ${ClassName}Controller {
+
+    private final ${ClassName}Service ${className}Service;
+
+    @Operation(summary = "分页列表")
+    @RequiresPermissions("${moduleName}:${businessName}:list")
+    @GetMapping
+    public R<PageResult<${ClassName}>> page(PageQuery query) {
+        return R.ok(${className}Service.pageByQuery(query));
+    }
+
+    @Operation(summary = "详情")
+    @RequiresPermissions("${moduleName}:${businessName}:query")
+    @GetMapping("/{id}")
+    public R<${ClassName}> detail(@PathVariable Long id) {
+        return R.ok(${className}Service.getById(id));
+    }
+
+    @Operation(summary = "新增")
+    @RequiresPermissions("${moduleName}:${businessName}:add")
+    @Log(title = "${functionName}", businessType = BusinessType.INSERT)
+    @PostMapping
+    public R<Boolean> create(@RequestBody ${ClassName} entity) {
+        return R.ok(${className}Service.save(entity));
+    }
+
+    @Operation(summary = "编辑")
+    @RequiresPermissions("${moduleName}:${businessName}:edit")
+    @Log(title = "${functionName}", businessType = BusinessType.UPDATE)
+    @PutMapping("/{id}")
+    public R<Boolean> update(@PathVariable Long id, @RequestBody ${ClassName} entity) {
+        entity.setId(id);
+        return R.ok(${className}Service.updateById(entity));
+    }
+
+    @Operation(summary = "删除", description = "逻辑删除")
+    @RequiresPermissions("${moduleName}:${businessName}:remove")
+    @Log(title = "${functionName}", businessType = BusinessType.DELETE)
+    @DeleteMapping("/{id}")
+    public R<Boolean> remove(@PathVariable Long id) {
+        return R.ok(${className}Service.removeById(id));
+    }
+}

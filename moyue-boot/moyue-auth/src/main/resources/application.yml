@@ -1,0 +1,82 @@
+# =============================================================================
+# moyue-auth（8090）
+#
+# 职责：登录 / 注册 / 刷新令牌，签发与校验 JWT
+# 注意：本服务只读 sys_user / sys_role / sys_menu，写操作仅限 sys_login_log
+# =============================================================================
+server:
+  port: 8090
+  servlet:
+    context-path: /moyue-auth
+
+spring:
+  application:
+    name: moyue-auth
+  profiles:
+    active: ${MOYUE_PROFILE:dev}
+  jackson:
+    default-property-inclusion: non_null
+    time-zone: Asia/Shanghai
+  datasource:
+    druid:
+      url: jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:3306}/${MYSQL_DB:moyue}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+      username: ${MYSQL_USER:root}
+      password: ${MYSQL_PASSWORD:root}
+      driver-class-name: com.mysql.cj.jdbc.Driver
+      initial-size: 5
+      min-idle: 5
+      max-active: 30
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DB:0}
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_ADDR:127.0.0.1:8848}
+        namespace: ${NACOS_NAMESPACE:public}
+        group: MOYUE_GROUP
+  flyway:
+    # 只有 system 服务负责迁移（多服务同时迁移会互相抢锁），此处显式关闭
+    enabled: false
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      id-type: assign_id
+      logic-delete-field: is_deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+moyue:
+  mode: ${MOYUE_MODE:cloud}
+  security:
+    permit-paths:
+      - /api/v1/system/login
+      - /api/v1/system/register
+      - /api/v1/system/refresh
+      - /api/v1/system/username-taken
+      - /actuator/**
+  jwt:
+    secret: ${JWT_SECRET:moyue-default-secret-please-change-in-production-32bytes}
+    access-token-ttl: 7200
+    refresh-token-ttl: 604800
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  packages-to-scan: com.moyue.auth.controller
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,env,loggers
+
+logging:
+  level:
+    com.moyue: debug

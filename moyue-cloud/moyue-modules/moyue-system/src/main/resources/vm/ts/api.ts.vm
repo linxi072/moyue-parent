@@ -1,0 +1,39 @@
+// 由代码生成器生成，模板 vm/ts/api.ts.vm
+import request from '@/utils/request'
+import type { R, PageResult } from '@/utils/request'
+
+const BASE = '/${moduleName}/${businessName}'
+
+export interface ${ClassName}Item {
+  id: number
+#foreach ($column in $columns)
+  /** ${column.columnComment} */
+  ${column.javaField}: ${column.tsType}
+#end
+}
+
+export interface ${ClassName}Query {
+  page: number
+  size: number
+#foreach ($column in $columns)
+#if ($column.isQuery == 1)
+  ${column.javaField}?: ${column.tsType}
+#end
+#end
+}
+
+export function page${ClassName}(params: ${ClassName}Query) {
+  return request.get<R<PageResult<${ClassName}Item>>>(BASE, { params })
+}
+
+export function save${ClassName}(data: Partial<${ClassName}Item>) {
+  return request.post<R<boolean>>(BASE, data)
+}
+
+export function update${ClassName}(id: number, data: Partial<${ClassName}Item>) {
+  return request.put<R<boolean>>(BASE + '/' + id, data)
+}
+
+export function remove${ClassName}(id: number) {
+  return request.delete<R<boolean>>(BASE + '/' + id)
+}

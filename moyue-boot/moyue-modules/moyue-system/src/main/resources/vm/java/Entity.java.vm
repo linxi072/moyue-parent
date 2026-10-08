@@ -1,0 +1,37 @@
+package ${packageName}.domain.entity;
+
+import com.baomidou.mybatisplus.annotation.TableName;
+import com.moyue.common.mybatis.entity.BaseEntity;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+
+import java.io.Serial;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
+##
+## 由 moyue 代码生成器生成，模板 vm/java/Entity.java.vm
+## 审计字段（id / create_by / create_time / update_by / update_time / remark / is_deleted）
+## 统一由 BaseEntity 承载，故生成时已跳过，勿重复声明。
+##
+/**
+ * ${functionName} 实体。
+ *
+ * @author ${author}
+ * @since ${date}
+ */
+@Data
+@EqualsAndHashCode(callSuper = true)
+@TableName("${table.tableName}")
+public class ${ClassName} extends BaseEntity {
+
+    @Serial
+    private static final long serialVersionUID = 1L;
+
+#foreach ($column in $columns)
+    /** ${column.columnComment} */
+    private ${column.javaType} ${column.javaField};
+
+#end
+}

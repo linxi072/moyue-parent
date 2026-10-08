@@ -1,0 +1,109 @@
+<script setup lang="ts">
+import { ref, reactive, onMounted } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import type { FormInstance } from 'element-plus'
+import { page${ClassName}, save${ClassName}, update${ClassName}, remove${ClassName} } from '@/api/${moduleName}/${businessName}'
+import type { ${ClassName}Item, ${ClassName}Query } from '@/api/${moduleName}/${businessName}'
+
+// 由代码生成器生成，模板 vm/vue/index.vue.vm
+
+const loading = ref(false)
+const list = ref<${ClassName}Item[]>([])
+const total = ref(0)
+const dialogVisible = ref(false)
+const dialogTitle = ref('')
+const formRef = ref<FormInstance>()
+
+const query = reactive<${ClassName}Query>({ page: 1, size: 10 })
+const form = reactive<Partial<${ClassName}Item>>({})
+
+async function loadData() {
+  loading.value = true
+  try {
+    const res = await page${ClassName}(query)
+    list.value = res.data.records
+    total.value = res.data.total
+  } finally {
+    loading.value = false
+  }
+}
+
+function openCreate() {
+  Object.assign(form, {})
+  dialogTitle.value = '新增${functionName}'
+  dialogVisible.value = true
+}
+
+function openEdit(row: ${ClassName}Item) {
+  Object.assign(form, row)
+  dialogTitle.value = '编辑${functionName}'
+  dialogVisible.value = true
+}
+
+async function handleRemove(row: ${ClassName}Item) {
+  await ElMessageBox.confirm('确认删除该记录？删除后可恢复（逻辑删除）', '提示', { type: 'warning' })
+  await remove${ClassName}(row.id)
+  ElMessage.success('删除成功')
+  loadData()
+}
+
+async function submit() {
+  await formRef.value?.validate()
+  if (form.id) {
+    await update${ClassName}(form.id, form)
+  } else {
+    await save${ClassName}(form)
+  }
+  ElMessage.success('保存成功')
+  dialogVisible.value = false
+  loadData()
+}
+
+onMounted(loadData)
+</script>
+
+<template>
+  <div class="page-container">
+    <el-card shadow="never">
+      <el-button type="primary" @click="openCreate">新增</el-button>
+      <el-table v-loading="loading" :data="list" border class="mt-4">
+#foreach ($column in $columns)
+#if ($column.isList == 1)
+        <el-table-column prop="${column.javaField}" label="${column.columnComment}" min-width="120" show-overflow-tooltip />
+#end
+#end
+        <el-table-column label="操作" width="160" fixed="right">
+          <template #default="scope">
+            <el-button link type="primary" @click="openEdit(scope.row)">编辑</el-button>
+            <el-button link type="danger" @click="handleRemove(scope.row)">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <el-pagination
+        class="mt-4"
+        layout="total, sizes, prev, pager, next"
+        :total="total"
+        v-model:current-page="query.page"
+        v-model:page-size="query.size"
+        @change="loadData"
+      />
+    </el-card>
+
+    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="560px">
+      <el-form ref="formRef" :model="form" label-width="100px">
+#foreach ($column in $columns)
+#if ($column.isInsert == 1)
+        <el-form-item label="${column.columnComment}" prop="${column.javaField}">
+          <el-input v-model="form.${column.javaField}" placeholder="请输入${column.columnComment}" />
+        </el-form-item>
+#end
+#end
+      </el-form>
+      <template #footer>
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="submit">确定</el-button>
+      </template>
+    </el-dialog>
+  </div>
+</template>

@@ -1,0 +1,125 @@
+# =============================================================================
+# moyue-boot（8080）— Spring Boot 单体启动器
+#
+# 与 cloud 形态的三处差异：
+#   1. 不连注册中心（nacos.discovery.enabled=false），配置走本地 yml / 环境变量
+#   2. 不启用 Feign（BootApplication 无 @EnableFeignClients），跨模块调用走本地实现
+#   3. 身份注入由 BootAuthFilter 在进程内完成（替代网关 JwtAuthGlobalFilter）
+# =============================================================================
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: moyue-boot
+  profiles:
+    active: ${MOYUE_PROFILE:dev}
+  jackson:
+    default-property-inclusion: non_null
+    time-zone: Asia/Shanghai
+    date-format: yyyy-MM-dd HH:mm:ss
+  datasource:
+    druid:
+      url: jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:3306}/${MYSQL_DB:moyue}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+      username: ${MYSQL_USER:root}
+      password: ${MYSQL_PASSWORD:root}
+      driver-class-name: com.mysql.cj.jdbc.Driver
+      initial-size: 5
+      min-idle: 5
+      max-active: 50
+      connection-properties: druid.stat.mergeSql=true;druid.stat.slowSqlMillis=1000
+      filter:
+        stat:
+          enabled: true
+          log-slow-sql: true
+          slow-sql-millis: 1000
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DB:0}
+  cloud:
+    nacos:
+      discovery:
+        # 单体不注册，也不去拉配置
+        enabled: false
+      config:
+        # 【启动修复】spring-cloud-alibaba 会在启动时强制校验 spring.config.import=nacos:，
+        # 单体形态没有配置中心，不关掉会直接 APPLICATION FAILED TO START。
+        import-check:
+          enabled: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    encoding: UTF-8
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      id-type: assign_id
+      logic-delete-field: is_deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+  mapper-locations: classpath*:mapper/**/*.xml
+
+moyue:
+  # 关键开关：boot / cloud 两套适配 Bean 由它互斥装配
+  mode: boot
+  boot:
+    security:
+      permit-paths:
+        - /api/v1/system/login
+        - /api/v1/system/register
+        - /api/v1/system/refresh
+        - /api/v1/system/username-taken
+        - /actuator/**
+        - /v3/api-docs/**
+        - /swagger-ui/**
+        - /webjars/**
+        - /doc.html
+        - /error
+        # IM WebSocket 握手：走查询参数 uid 订阅，不经 HTTP Bearer（网关形态下同为放行）
+        - /ws/im
+  security:
+    permit-paths:
+      - /api/v1/system/login
+      - /api/v1/system/register
+      - /api/v1/system/refresh
+      - /actuator/**
+  jwt:
+    secret: ${JWT_SECRET:moyue-default-secret-please-change-in-production-32bytes}
+    access-token-ttl: 7200
+    refresh-token-ttl: 604800
+  xxl-job:
+    admin:
+      # 与 system 域 XxlJobAdminProperties(prefix=moyue.xxl-job.admin) 对齐
+      address: ${XXL_JOB_ADMIN:http://127.0.0.1:8080/xxl-job-admin}
+      username: ${XXL_JOB_USER:admin}
+      password: ${XXL_JOB_PASSWORD:123456}
+    appname: moyue-executor
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+  packages-to-scan: com.moyue
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,env,loggers,threaddump
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.moyue: debug

@@ -1,0 +1,153 @@
+# =============================================================================
+# moyue-gateway（8080，仅 cloud 仓）
+#
+# 职责：路由转发 · JWT 鉴权 · 白名单 · Sentinel 限流熔断 · 注入身份头
+# =============================================================================
+server:
+  port: 8080
+
+spring:
+  application:
+    name: moyue-gateway
+  profiles:
+    active: ${MOYUE_PROFILE:dev}
+  main:
+    web-application-type: reactive
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_ADDR:127.0.0.1:8848}
+        namespace: ${NACOS_NAMESPACE:public}
+        group: MOYUE_GROUP
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+      # 显式路由：lb:// 走注册中心负载均衡；StripPrefix=1 去掉第一段 /api
+      routes:
+        - id: moyue-auth
+          uri: lb://moyue-auth
+          predicates:
+            - Path=/api/v1/auth/**,/api/v1/system/login,/api/v1/system/refresh,/api/v1/system/register
+          filters:
+            # 后端服务带 context-path（/moyue-xxx），网关需补前缀后再转发
+            - PrefixPath=/moyue-auth
+            - StripPrefix=0
+        - id: moyue-system
+          uri: lb://moyue-system
+          predicates:
+            - Path=/api/v1/admin/system/**,/api/v1/system/forms/**
+          filters:
+            # 后端服务带 context-path（/moyue-xxx），网关需补前缀后再转发
+            - PrefixPath=/moyue-system
+            - StripPrefix=0
+        - id: moyue-content
+          uri: lb://moyue-content
+          predicates:
+            - Path=/api/v1/books/**,/api/v1/chapters/**,/api/v1/files/**,/api/v1/read/**,/api/v1/admin/content/**
+          filters:
+            # 后端服务带 context-path（/moyue-xxx），网关需补前缀后再转发
+            - PrefixPath=/moyue-content
+            - StripPrefix=0
+        - id: moyue-social
+          uri: lb://moyue-social
+          predicates:
+            - Path=/api/v1/comments/**,/api/v1/blogs/**,/api/v1/im/**,/api/v1/admin/social/**
+          filters:
+            # 后端服务带 context-path（/moyue-xxx），网关需补前缀后再转发
+            - PrefixPath=/moyue-social
+            - StripPrefix=0
+        # WebSocket 专用路由：转发 WS 必须用 lb:ws://（lb:// 只生成 http/ws 不兼容的 URI）
+        - id: moyue-social-ws
+          uri: lb:ws://moyue-social
+          predicates:
+            - Path=/ws/im
+          filters:
+            - PrefixPath=/moyue-social
+        - id: moyue-commerce
+          uri: lb://moyue-commerce
+          predicates:
+            - Path=/api/v1/points/**,/api/v1/merch/**,/api/v1/author/**,/api/v1/admin/commerce/**
+          filters:
+            # 后端服务带 context-path（/moyue-xxx），网关需补前缀后再转发
+            - PrefixPath=/moyue-commerce
+            - StripPrefix=0
+        - id: moyue-search
+          uri: lb://moyue-search
+          predicates:
+            - Path=/api/v1/search/**,/api/v1/admin/search/**
+          filters:
+            # 后端服务带 context-path（/moyue-xxx），网关需补前缀后再转发
+            - PrefixPath=/moyue-search
+            - StripPrefix=0
+        - id: moyue-message
+          uri: lb://moyue-message
+          predicates:
+            - Path=/api/v1/messages/**,/api/v1/admin/message/**
+          filters:
+            # 后端服务带 context-path（/moyue-xxx），网关需补前缀后再转发
+            - PrefixPath=/moyue-message
+            - StripPrefix=0
+        - id: moyue-risk
+          uri: lb://moyue-risk
+          predicates:
+            - Path=/api/v1/audits/**,/api/v1/reports/**,/api/v1/admin/risk/**
+          filters:
+            # 后端服务带 context-path（/moyue-xxx），网关需补前缀后再转发
+            - PrefixPath=/moyue-risk
+            - StripPrefix=0
+        - id: moyue-ai
+          uri: lb://moyue-ai
+          predicates:
+            - Path=/api/v1/ai/**,/api/v1/admin/ai/**
+          filters:
+            # 后端服务带 context-path（/moyue-xxx），网关需补前缀后再转发
+            - PrefixPath=/moyue-ai
+            - StripPrefix=0
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DB:0}
+
+# ---------------------------------------------------------------- Sentinel
+spring.cloud.sentinel:
+  transport:
+    dashboard: ${SENTINEL_DASHBOARD:127.0.0.1:8858}
+  eager: true
+  scg:
+    fallback:
+      mode: response
+      response-status: 429
+
+# ---------------------------------------------------------------- 自定义
+moyue:
+  mode: ${MOYUE_MODE:cloud}
+  gateway:
+    whitelist:
+      - /api/v1/system/login
+      - /api/v1/system/register
+      - /api/v1/system/refresh
+      - /api/v1/auth/**
+      - /actuator/**
+      - /v3/api-docs/**
+      - /webjars/**
+      - /doc.html
+    # 后台接口强制运营主体（user_type = 3）
+    admin-prefixes:
+      - /api/v1/admin/**
+
+# ---------------------------------------------------------------- JWT（与 common-security 同源）
+moyue.jwt:
+  secret: ${JWT_SECRET:moyue-default-secret-please-change-in-production-32bytes}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway,metrics
+  endpoint:
+    health:
+      show-details: always

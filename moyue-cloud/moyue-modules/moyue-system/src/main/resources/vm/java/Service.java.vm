@@ -1,0 +1,26 @@
+package ${packageName}.service;
+
+import com.baomidou.mybatisplus.extension.service.IService;
+import com.moyue.common.core.result.PageQuery;
+import com.moyue.common.core.result.PageResult;
+import ${packageName}.domain.entity.${ClassName};
+
+/**
+ * ${functionName} 服务（由代码生成器生成）。
+ *
+ * <p>本模板只出接口：实现类需按业务补充校验与事务边界，
+ * 生成器不代为决定业务规则。
+ *
+ * @author ${author}
+ * @since ${date}
+ */
+public interface ${ClassName}Service extends IService<${ClassName}> {
+
+    /**
+     * 分页查询。
+     *
+     * @param query 分页入参
+     * @return 分页结果
+     */
+    PageResult<${ClassName}> pageByQuery(PageQuery query);
+}

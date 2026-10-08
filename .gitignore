@@ -1,41 +1,49 @@
-# ===== WorkBuddy 内部状态（切勿入库） =====
-.workbuddy/
-.workbuddy/**
-
-# ===== 本会话探针 / 临时文件 =====
-_probe*.txt
-_scan*.txt
-_del*.txt
-_final*.txt
-_bootstrap/
-m0.png
-m1.png
-m2.png
-m3.png
-
 # ===== Maven 构建产物 =====
 target/
 **/target/
 *.class
 *.jar
 *.war
+*.zip
 
 # ===== 前端依赖与构建产物 =====
 node_modules/
 dist/
-moyue-web/_npm_stdout.txt
-moyue-web/_npm_stderr.txt
+**/dist/
+*.tsbuildinfo
+.vite/
+
+# ===== 环境变量（含密钥，勿入库；示例与 Vite 多环境文件可入库） =====
+.env
+.env.local
+.env.*.local
+# 保留入库：.env.example / .env.development / .env.production
 
 # ===== 日志 =====
 *.log
 logs/
 **/logs/
 
-# ===== IDE =====
+# ===== 测试与覆盖率产物 =====
+coverage/
+**/coverage/
+
+# ===== IDE / 编辑器 =====
 .idea/
 .vscode/
 *.iml
+*.swp
+.project
+.classpath
+.settings/
 
-# ===== 操作系统 =====
+# ===== 操作系统临时文件 =====
 .DS_Store
 Thumbs.db
+
+# ===== 交付物 / 打包（git bundle 等） =====
+*.bundle
+
+# ===== WorkBuddy 内部状态（切勿入库） =====
+.workbuddy/
+.workbuddy/**

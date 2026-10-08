@@ -1,117 +1,145 @@
-# 墨阅小说网（Moyue Novel）后端
+# 墨阅小说网 · moyue-parent
 
-基于 **Spring Boot 3.2.12** 的**单体**小说平台——单体化后由单个 `moyue-app` 模块承载全部业务域。
+> 墨阅小说网后端与管理的**单一伞仓（monorepo）**。后端提供两种可运行形态——**单体（boot）** 与 **微服务（cloud）**，二者共享同一套业务代码与 Flyway 迁移，前端为 Vue3 管理后台。
 
-> 架构演进：早期为 22 模块微服务（RuoYi-Cloud 风格，Nacos + Gateway + OpenFeign），已重构为单体——
-> 移除 Spring Cloud / OpenFeign / Nacos 注册发现 / Gateway，跨域调用改为进程内 Service 直接注入；
-> HTTP 路径 `/api/v1/**` 与包名 `com.moyue.*` 保持不变（前端契约不受影响）。
+---
 
-## 一、模块总览（单体：1 个 Maven 模块）
+## 一、仓库结构
 
 ```
-moyue-parent/                      # git 仓库根
-└── moyue-parent/                  # 工程根（本 README 所在目录）
-    ├── moyue-app/                 # 单体应用（com.moyue.* 全部业务域）
-    ├── moyue-frontend/            # 前端脚手架（Vite + TS，直连 /api/v1）
-    ├── docs/                      # 设计 / 运维 / 迭代文档
-    ├── scripts/                   # build.sh / start-all.sh / smoke-test.sh
-    ├── tools/                     # gen-h2-schema.py 等
-    ├── pom.xml                    # 单体父 POM（单模块 moyue-app）
-    ├── .env.example
-    └── README.md
+moyue-parent/
+├── moyue-boot/        # 单体后端：Spring Boot 3.2 多模块，可直接 java -jar 启动，无需注册中心
+├── moyue-cloud/        # 微服务后端：Gateway + Auth + System + 7 业务服务（content/social/commerce/
+│                       #            search/message/risk/ai），依赖 Nacos 服务发现
+├── moyue-web/          # 管理后台前端：Vue3 + Vite5 + Element Plus + Pinia
+├── e2e/                # 端到端冒烟脚本（Python + requests），覆盖 8 个场景
+├── docs/               # 架构 / 设计 / 运维文档（保留）
+├── deliverables/       # 交付物
+├── scripts/            # 运维脚本
+├── tools/              # 工具
+├── .env.example        # 环境变量示例
+├── .gitignore
+└── README.md
 ```
 
-业务域（包名 `com.moyue.<域>`，统一 `@ComponentScan("com.moyue")` + `@MapperScan("com.moyue")`）：
+> **双后端一致性**：`moyue-boot` 与 `moyue-cloud` 的业务源码通过 `sync.sh` 逐字节比对保持一致（仅 `moyue-auth/pom.xml` 因两仓角色不同列入豁免：cloud=可执行服务，boot=依赖库）。一次修复同时覆盖两套架构。
 
-| 域 | 包 | 说明 |
-|---|---|---|
-| 认证 | `com.moyue.auth` | 登录 / 注册 / 刷新令牌 |
-| 账号 | `com.moyue.user` / `com.moyue.account` | 用户资料 |
-| 内容 | `com.moyue.book` / `com.moyue.chapter` / `com.moyue.read` / `com.moyue.category` | 书城 / 章节 / 阅读书架 / 封面文件 |
-| 社交 | `com.moyue.blog` / `com.moyue.comment` / `com.moyue.im` / `com.moyue.follow` / `com.moyue.dynamic` | 博客 / 评论 / IM / 关注 / 动态 |
-| 商业 | `com.moyue.points` / `com.moyue.merch` / `com.moyue.author` / `com.moyue.operation` | 积分 / 商城 / 作者稿酬 / 运营 |
-| 检索 | `com.moyue.search` | 全文检索 / 推荐（只读 ES） |
-| 触达 | `com.moyue.message` | 站内信 + 渠道 SPI（邮件真实现，短信/推送桩） |
-| 内容安全 | `com.moyue.risk` / `com.moyue.audit` / `com.moyue.report` / `com.moyue.sensitive` | 审核 / 举报 / 敏感词 / 机审 |
-| 会员 | `com.moyue.member` | 订阅 / 会员体系（P2-B） |
-| 智能 | `com.moyue.ai` | AI 客服 |
-| 平台 | `com.moyue.system` / `com.moyue.stat` | RBAC / 统计 |
+---
 
-## 二、环境要求
+## 二、技术栈
 
-| 组件 | 版本 | 说明 |
-|---|---|---|
-| JDK | 21（target 17） | 编译与运行 |
-| Maven | 3.9+ | 裸跑可编译（不依赖已删除的 `_bootstrap/settings.xml`） |
-| MySQL | 8.x | Flyway 自动迁移 |
-| Redis | 7.x | 缓存 / IM / refreshToken |
-| Elasticsearch | 8.13.4 | 检索域（可选） |
-| XXL-Job Admin | 2.4.0 | 调度中心（可选，8088）；执行器随单体进程启动（9099） |
+| 层 | 选型 |
+| --- | --- |
+| 语言 / JDK | Java 21（构建兼容 17） |
+| 框架 | Spring Boot 3.2.5 |
+| 持久层 | MyBatis-Plus 3.5.7 + Flyway（V12–V43） |
+| 数据源 / 缓存 | Druid + Redis / Redisson |
+| 微服务 | Spring Cloud Gateway / OpenFeign / Nacos 2.3（仅 cloud 形态） |
+| 前端 | Vue3 + Vite5 + Element Plus + Pinia |
+| 安全 | JWT（`X-User-Id` 由网关注入，防前端伪造） |
 
-> Nacos 已不再使用（单体无注册中心）。
+---
 
-## 三、环境变量（`.env.example`）
+## 三、七大业务管理模块（已深化为可运营模块）
 
-| 变量 | 用途 | 默认（dev） |
-|---|---|---|
-| `MYSQL_HOST/PORT/DB/USERNAME/PASSWORD` | 数据源 | localhost:3306/moyue，dev 口令 root |
-| `REDIS_HOST/PORT` | Redis | localhost:6379 |
-| `MOYUE_JWT_SECRET` | JWT 签名密钥（单体应用） | dev 有默认值，**test/prod 必须注入** |
-| `ES_URIS` | Elasticsearch | http://localhost:9200 |
-| `MOYUE_MAIL_HOST/PORT/USERNAME/PASSWORD/FROM` | SMTP（触达域） | MailHog localhost:1025 |
-| `XXL_JOB_ADMIN_ADDRESSES` | 调度中心 | http://localhost:8088/xxl-job-admin |
-| `SPRING_PROFILES_ACTIVE` | dev / test / prod | dev |
+每个模块均从「后台管理脚手架」升级为带**状态流转**与**异常分支**的真实领域能力：
 
-## 四、构建与启动
+| 模块 | 后端路径 | 核心运营能力 |
+| --- | --- | --- |
+| content | `moyue-{boot,cloud}/moyue-modules/moyue-content` | 章节草稿/发布/下架/排序、作品上/下架、全局书架查询 |
+| social | `…/moyue-social` | 评论置顶/下架/恢复/删除、`ImConversation` 会话禁用与运营查看消息 |
+| commerce | `…/moyue-commerce` | 订单状态机、支付/退款幂等、积分账户与兑换/签到 |
+| search | `…/moyue-search` | 热词管理；热词榜按「权重→搜索次数→id」稳定排序 |
+| message | `…/moyue-message` | 站内信管理、未读计数、消息模板 |
+| risk | `…/moyue-risk` | 举报工单流转（待处理→已处理）、敏感词多级命中（拦截优先于警告） |
+| ai | `…/moyue-ai` | 任务状态机（排队→运行→完成/失败）、配额扣减/重置/不足拒绝 |
+
+> 数据库迁移统一由 `moyue-system` 执行（Flyway 仅在该模块开启）。业务模块涉及的新表/新列见 `V35__* ` ~ `V43__*`。
+
+---
+
+## 四、快速开始
+
+### 4.1 依赖（Docker 一键起）
 
 ```bash
-# 在本工程根（moyue-parent/moyue-parent）执行
-mvn clean package -DskipTests
-# 或一键脚本
-./scripts/build.sh && ./scripts/start-all.sh
+docker run -d --name moyue-mysql  -p 3306:3306   -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=moyue mysql:8.0
+docker run -d --name moyue-redis  -p 6379:6379   redis:7-alpine
+# 仅微服务形态需要 Nacos（注意 2.x 需额外暴露 gRPC 端口 9848）
+docker run -d --name moyue-nacos  -p 8848:8848 -p 9848:9848 \
+  -e MODE=standalone -e JVM_XMS=256m -e JVM_XMX=384m nacos/nacos-server:v2.3.2
 ```
 
-启动：单体 `moyue-app` 一个进程，直接监听 **:8080**。
-基础设施：**原生安装**（MySQL / Redis / Elasticsearch / MailHog）。⚠️ 项目硬性约束：**禁用 Docker**，详见 [docs/不可忽视条件.md](docs/不可忽视条件.md)。
+### 4.2 单体形态（moyue-boot）
 
-验证：`./scripts/smoke-test.sh`（单体直连 :8080 的全链路冒烟）。
-
-## 五、路由（单体直连）
-
-统一入口 `http://localhost:8080`，单体内部校验 Bearer token 后注入 `X-User-Id` / `X-User-Role`；白名单配置化（`moyue.auth.whitelist`）：
-
-```yaml
-moyue:
-  auth:
-    whitelist: /api/v1/auth/login,/api/v1/auth/register,/api/v1/auth/refresh,/api/v1/system/login
-    whitelist-prefixes: /api/v1/files/
+```bash
+cd moyue-boot
+mvn -Plocal-jdk20 -DskipTests package
+java -jar moyue-modules/moyue-system/target/moyue-system-*.jar
+# 管理后台接口前缀：/api/v1/admin/**
 ```
 
-所有 `/api/v1/**` 由 `moyue-app` 在 8080 直接处理（不再有网关按服务名路由）。
+### 4.3 微服务形态（moyue-cloud）
 
-## 六、鉴权体系（双层防线）
+```bash
+cd moyue-cloud
+mvn -Plocal-jdk20 -DskipTests package
+# 依次启动：system -> auth -> 各业务服务 -> gateway
+# 或参考 e2e/start-cloud.sh 批量拉起（需先 unset SERVER__PORT 以免被沙箱环境变量劫持端口）
+# 网关入口：http://localhost:8080/api/v1/...
+```
 
-1. **路径级默认拒绝**：`AdminRoleInterceptor` 拦截 `/api/v1/admin/**`（仅 role=3）；
-2. **注解级细粒度控制**（`moyue-common-security`）：`@RequiresRoles` / `@RequiresPermissions` + `PreAuthorizeAspect`。
+### 4.4 前端（moyue-web）
 
-## 七、跨域调用（进程内）
+```bash
+cd moyue-web
+npm install
+npm run dev          # 开发
+npm run build        # 产物 dist/，类型检查 vue-tsc --noEmit
+```
 
-单体化后删除全部 `@FeignClient`，改为直接注入目标 `Service`（如 `UserClient` → `UserService`、
-`BookClient` → `BookService`）。原 `moyue-api/*` 契约模块已删除；`/api/v1/internal/**` 仅供进程内 Service 互调。
+---
 
-## 八、Flyway 迁移
+## 五、测试与自测验证
 
-`classpath:db/migration` 下 V1–Vn 脚本，全域共享。详见 [docs/运维部署手册.md](docs/运维部署手册.md)。
+### 5.1 单元测试（Mockito，无需起服务）
 
-## 九、路线图状态（P0→P2 已全部交付）
+```bash
+cd moyue-cloud
+mvn -Plocal-jdk20 -pl moyue-modules/moyue-content,moyue-modules/moyue-social,\
+moyue-modules/moyue-risk,moyue-modules/moyue-ai test
+# 覆盖：content 5 / social 11 / risk 7 / ai 10 —— 共 33 例，全部通过
+```
 
-| 项 | 状态 |
-|---|---|
-| P2-B 会员/订阅 | ✅ 订阅状态机 + 支付 Stub + H2 集成测试 |
-| P2-C 内容安全反作弊 | ✅ 配置化行为风控 + 复用触达 + H2 集成测试 |
-| P2-13 搜索与推荐 | ✅ ES 分类筛选 / 排序 / 热门推荐 |
-| P2-14 消息触达 | ✅ ChannelSender SPI + 站内信/邮件真实现 + 短信/推送桩 |
-| P2-15 内容安全 | ✅ 人工审核 + 敏感词/机审/举报 |
-| P2-16 缓存与性能 | ✅ Redis 缓存 + 限流熔断 |
-| P2-17 配置治理 | ✅ dev/test/prod 隔离 + 密钥环境变量化 + 白名单配置化 |
-| 单体化重构 | ✅ 移除 Spring Cloud / OpenFeign / Nacos / Gateway，单模块 moyue-app |
+### 5.2 端到端冒烟（e2e/）
+
+依赖 MySQL + Redis + Nacos 全部就绪，且微服务栈已启动：
+
+```bash
+cd e2e
+bash start-infra.sh     # 拉起并等待基础设施
+bash start-cloud.sh     # 拉起 10 个微服务
+python3 ai_e2e.py        # M5 AI：任务状态机 + 配额
+python3 content_e2e.py   # M6 内容：章节生命周期 + 书架
+python3 social_e2e.py    # M7 社交：评论运营 + IM 会话
+python3 cloud_e2e.py commerce_e2e.py search_e2e.py message_e2e.py risk_e2e.py
+# 8 个脚本共 137 项断言，全部通过
+```
+
+> E2E 脚本已做幂等处理（开头重置测试数据、结尾还原配额），可重复运行。
+
+---
+
+## 六、API 约定
+
+- 管理后台前缀：`/api/v1/admin/**`（后端 `Constants.ADMIN_PATH_PREFIX`）
+- 业务 C 端前缀：`/api/v1/**`
+- 统一响应：`R<T>`；分页：`PageResult<T>`（`total` + `records`）
+- 异常码：`PARAM_ERROR=10001`、`NOT_FOUND=20001`、`PAY_FAILED=50001`、`FORBIDDEN`、`UNAUTHORIZED`
+- 权限注解：`@RequiresPermissions("module:action:op")`
+
+---
+
+## 七、文档索引（docs/）
+
+架构说明书、运维部署手册、时序图、AI 客服训练手册、迭代计划等见 `docs/` 目录。

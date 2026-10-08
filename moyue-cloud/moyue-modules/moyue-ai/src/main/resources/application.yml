@@ -1,0 +1,77 @@
+# =============================================================================
+# moyue-ai（8097）— AI 服务
+#
+# 本轮为工程骨架占位，业务代码按开发计划排期补齐。
+# 职责：AI 摘要 / 智能推荐 / 内容辅助
+# =============================================================================
+server:
+  port: 8097
+  servlet:
+    context-path: /moyue-ai
+
+spring:
+  application:
+    name: moyue-ai
+  profiles:
+    active: ${MOYUE_PROFILE:dev}
+  jackson:
+    default-property-inclusion: non_null
+    time-zone: Asia/Shanghai
+  datasource:
+    druid:
+      url: jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:3306}/${MYSQL_DB:moyue}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+      username: ${MYSQL_USER:root}
+      password: ${MYSQL_PASSWORD:root}
+      driver-class-name: com.mysql.cj.jdbc.Driver
+      initial-size: 5
+      min-idle: 5
+      max-active: 30
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DB:0}
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_ADDR:127.0.0.1:8848}
+        namespace: ${NACOS_NAMESPACE:public}
+        group: MOYUE_GROUP
+  flyway:
+    # 迁移统一由 moyue-system 执行，避免多服务并发抢锁
+    enabled: false
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      id-type: assign_id
+      logic-delete-field: is_deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+moyue:
+  mode: ${MOYUE_MODE:cloud}
+  security:
+    permit-paths:
+      - /internal/**
+      - /actuator/**
+  jwt:
+    secret: ${JWT_SECRET:moyue-default-secret-please-change-in-production-32bytes}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  packages-to-scan: com.moyue.ai.controller
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  level:
+    com.moyue: debug

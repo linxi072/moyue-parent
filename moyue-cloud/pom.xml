@@ -1,0 +1,359 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.moyue</groupId>
+    <artifactId>moyue-parent</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+
+    <name>moyue-parent</name>
+    <description>墨阅小说网 · 父工程（仓库 A：moyue-cloud，Spring Cloud 微服务版）</description>
+
+    <modules>
+        <module>moyue-common</module>
+        <module>moyue-api</module>
+        <module>moyue-gateway</module>
+        <module>moyue-auth</module>
+        <module>moyue-modules</module>
+    </modules>
+
+    <properties>
+        <!-- ========== 基础 ========== -->
+        <!-- 架构基线 JDK 21；沙箱为 JDK 20，用 -Plocal-jdk20 降级到 17 以便本地编译 -->
+        <java.version>21</java.version>
+        <maven.compiler.source>${java.version}</maven.compiler.source>
+        <maven.compiler.target>${java.version}</maven.compiler.target>
+        <maven.compiler.encoding>UTF-8</maven.compiler.encoding>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+
+        <!-- ========== 框架版本（对齐架构说明书 4.1 技术选型） ========== -->
+        <spring-boot.version>3.2.5</spring-boot.version>
+        <spring-cloud.version>2023.0.1</spring-cloud.version>
+        <spring-cloud-alibaba.version>2023.0.1.0</spring-cloud-alibaba.version>
+        <mybatis-plus.version>3.5.7</mybatis-plus.version>
+        <druid.version>1.2.22</druid.version>
+        <mysql.version>8.3.0</mysql.version>
+        <flyway.version>10.11.1</flyway.version>
+        <redisson.version>3.33.0</redisson.version>
+        <xxl-job.version>2.4.0</xxl-job.version>
+        <springdoc.version>2.5.0</springdoc.version>
+        <velocity.version>2.3</velocity.version>
+        <hutool.version>5.8.27</hutool.version>
+        <lombok.version>1.18.32</lombok.version>
+        <fastjson2.version>2.0.49</fastjson2.version>
+        <elasticsearch.version>8.13.4</elasticsearch.version>
+        <rocketmq.version>2.3.0</rocketmq.version>
+        <jjwt.version>0.12.5</jjwt.version>
+
+        <!-- ========== 项目版本 ========== -->
+        <moyue.common.version>1.0.0-SNAPSHOT</moyue.common.version>
+        <moyue.api.version>1.0.0-SNAPSHOT</moyue.api.version>
+
+        <!-- ========== 插件 ========== -->
+        <maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
+        <maven-surefire-plugin.version>3.2.5</maven-surefire-plugin.version>
+        <maven-resources-plugin.version>3.3.1</maven-resources-plugin.version>
+        <flatten-maven-plugin.version>1.6.0</flatten-maven-plugin.version>
+    </properties>
+
+    <!-- ========== 依赖 BOM 导入（只导入不引入） ========== -->
+    <dependencyManagement>
+        <dependencies>
+            <!-- Spring Boot BOM -->
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-dependencies</artifactId>
+                <version>${spring-boot.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!-- Spring Cloud BOM -->
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>${spring-cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!-- Spring Cloud Alibaba BOM -->
+            <dependency>
+                <groupId>com.alibaba.cloud</groupId>
+                <artifactId>spring-cloud-alibaba-dependencies</artifactId>
+                <version>${spring-cloud-alibaba.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- 项目内部构件：common 七拆 -->
+            <dependency>
+                <groupId>com.moyue</groupId>
+                <artifactId>common-core</artifactId>
+                <version>${moyue.common.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.moyue</groupId>
+                <artifactId>common-security</artifactId>
+                <version>${moyue.common.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.moyue</groupId>
+                <artifactId>common-redis</artifactId>
+                <version>${moyue.common.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.moyue</groupId>
+                <artifactId>common-mybatis</artifactId>
+                <version>${moyue.common.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.moyue</groupId>
+                <artifactId>common-migration</artifactId>
+                <version>${moyue.common.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.moyue</groupId>
+                <artifactId>common-log</artifactId>
+                <version>${moyue.common.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.moyue</groupId>
+                <artifactId>common-monitor</artifactId>
+                <version>${moyue.common.version}</version>
+            </dependency>
+
+            <!-- 项目内部构件：api 七拆 -->
+            <dependency>
+                <groupId>com.moyue</groupId>
+                <artifactId>api-system</artifactId>
+                <version>${moyue.api.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.moyue</groupId>
+                <artifactId>api-content</artifactId>
+                <version>${moyue.api.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.moyue</groupId>
+                <artifactId>api-social</artifactId>
+                <version>${moyue.api.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.moyue</groupId>
+                <artifactId>api-commerce</artifactId>
+                <version>${moyue.api.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.moyue</groupId>
+                <artifactId>api-search</artifactId>
+                <version>${moyue.api.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.moyue</groupId>
+                <artifactId>api-message</artifactId>
+                <version>${moyue.api.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.moyue</groupId>
+                <artifactId>api-risk</artifactId>
+                <version>${moyue.api.version}</version>
+            </dependency>
+
+            <!-- 第三方：ORM / 连接池 / 迁移 -->
+            <dependency>
+                <groupId>com.baomidou</groupId>
+                <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
+                <version>${mybatis-plus.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.alibaba</groupId>
+                <artifactId>druid-spring-boot-3-starter</artifactId>
+                <version>${druid.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.flywaydb</groupId>
+                <artifactId>flyway-core</artifactId>
+                <version>${flyway.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.flywaydb</groupId>
+                <artifactId>flyway-mysql</artifactId>
+                <version>${flyway.version}</version>
+            </dependency>
+
+            <!-- 第三方：微服务（spring-cloud-starter-* / spring-cloud-starter-alibaba-* 均由上方
+                 Spring Cloud BOM 与 Spring Cloud Alibaba BOM 统一管理版本。
+                 注意：切勿在此重复声明 —— dependencyManagement 内声明的条目不会自动继承 import BOM 的版本，
+                 缺失 <version> 会直接导致 'dependencies.dependency.version is missing' 构建失败。） -->
+
+            <!-- 第三方：缓存 / 消息 / 检索 -->
+            <dependency>
+                <groupId>org.redisson</groupId>
+                <artifactId>redisson-spring-boot-starter</artifactId>
+                <version>${redisson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.rocketmq</groupId>
+                <artifactId>rocketmq-spring-boot-starter</artifactId>
+                <version>${rocketmq.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>co.elastic.clients</groupId>
+                <artifactId>elasticsearch-java</artifactId>
+                <version>${elasticsearch.version}</version>
+            </dependency>
+
+            <!-- 第三方：工具 -->
+            <dependency>
+                <groupId>com.xuxueli</groupId>
+                <artifactId>xxl-job-core</artifactId>
+                <version>${xxl-job.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.springdoc</groupId>
+                <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+                <version>${springdoc.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.velocity</groupId>
+                <artifactId>velocity-engine-core</artifactId>
+                <version>${velocity.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>cn.hutool</groupId>
+                <artifactId>hutool-all</artifactId>
+                <version>${hutool.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.alibaba.fastjson2</groupId>
+                <artifactId>fastjson2</artifactId>
+                <version>${fastjson2.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-api</artifactId>
+                <version>${jjwt.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-impl</artifactId>
+                <version>${jjwt.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-jackson</artifactId>
+                <version>${jjwt.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <!-- ========== 所有模块公共依赖 ========== -->
+    <dependencies>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>${maven-compiler-plugin.version}</version>
+                    <configuration>
+                        <release>${java.version}</release>
+                    <parameters>true</parameters>
+                        <encoding>UTF-8</encoding>
+                        <annotationProcessorPaths>
+                            <path>
+                                <groupId>org.projectlombok</groupId>
+                                <artifactId>lombok</artifactId>
+                                <version>${lombok.version}</version>
+                            </path>
+                        </annotationProcessorPaths>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>${maven-surefire-plugin.version}</version>
+                    <configuration>
+                        <skipTests>false</skipTests>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <!-- 【打包修复】父 pom 为自研 moyue-parent，不继承 spring-boot-starter-parent，
+                         repackage 不会自动绑定：不声明则 mvn package 只出 thin jar（13KB），无法 java -jar。
+                         mainClass 不在此固定（各服务不同），由各可执行模块自行配置。 -->
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-maven-plugin</artifactId>
+                    <version>${spring-boot.version}</version>
+                    <executions>
+                        <execution>
+                            <id>repackage</id>
+                            <goals>
+                                <goal>repackage</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+        <plugins>
+            <!-- 统一扁平化 pom，避免 install 后依赖方解析 ${revision} 变量失败 -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>flatten-maven-plugin</artifactId>
+                <version>${flatten-maven-plugin.version}</version>
+                <configuration>
+                    <updatePomFile>true</updatePomFile>
+                    <flattenMode>resolveCiFriendliesOnly</flattenMode>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>flatten</id>
+                        <phase>process-resources</phase>
+                        <goals><goal>flatten</goal></goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <!-- 沙箱 / 低版本 JDK 兜底：把 release 降到 17，用于本地编译验证 -->
+        <profile>
+            <id>local-jdk20</id>
+            <properties>
+                <java.version>17</java.version>
+            </properties>
+        </profile>
+        <!-- 跳过测试，加速本地构建 -->
+        <profile>
+            <id>skip-test</id>
+            <properties>
+                <skipTests>true</skipTests>
+            </properties>
+        </profile>
+    </profiles>
+</project>

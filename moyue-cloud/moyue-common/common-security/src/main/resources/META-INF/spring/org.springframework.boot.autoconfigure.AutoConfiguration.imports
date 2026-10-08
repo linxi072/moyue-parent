@@ -1,0 +1,2 @@
+com.moyue.common.security.config.SecurityAutoConfiguration
+com.moyue.common.security.config.SecurityAutoConfiguration.WebSecurityConfiguration
