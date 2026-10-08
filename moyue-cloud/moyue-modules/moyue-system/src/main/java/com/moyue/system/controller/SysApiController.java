@@ -11,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.ArrayList;
@@ -80,10 +81,10 @@ public class SysApiController {
         return R.ok(list);
     }
 
-    @Operation(summary = "接口详情", description = "路径参数、查询参数、请求体、响应体、错误码")
+    @Operation(summary = "接口详情", description = "路径参数、查询参数、请求体、响应体、错误码；apiId 为完整接口路径（含斜杠），故用请求参数而非路径变量")
     @RequiresPermissions("system:api:list")
-    @GetMapping("/detail/{apiId}")
-    public R<Map<String, Object>> detail(@PathVariable String apiId) {
+    @GetMapping("/detail")
+    public R<Map<String, Object>> detail(@RequestParam("apiId") String apiId) {
         OpenAPI api = openAPI.orElse(null);
         Map<String, Object> detail = new LinkedHashMap<>();
         detail.put("apiId", apiId);
