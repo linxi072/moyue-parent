@@ -168,6 +168,15 @@ export interface JobLog {
   handleMsg?: string
 }
 
+/** 定时任务执行器分组（XXL-Job jobgroup） */
+export interface JobGroup {
+  id?: number
+  appname?: string
+  title?: string
+  addressType?: number
+  registryList?: string[]
+}
+
 /** 服务监控 */
 export interface ServerVO {
   cpu?: { cpuNum?: number; total?: number; sys?: number; used?: number; wait?: number; free?: number }
@@ -175,6 +184,15 @@ export interface ServerVO {
   jvm?: { name?: string; version?: string; home?: string; total?: number; used?: number; free?: number; usage?: number; startTime?: string; runTime?: string }
   sys?: { computerName?: string; osName?: string; osArch?: string; computerIp?: string; userDir?: string }
   disk?: { name?: string; total?: string; free?: string; used?: string; usage?: number }[]
+}
+
+/** 服务实例（多实例健康清单，单实例部署为 local） */
+export interface ServerInstance {
+  instanceId?: string
+  hostName?: string
+  ip?: string
+  status?: string
+  os?: string
 }
 
 /** 缓存监控 */

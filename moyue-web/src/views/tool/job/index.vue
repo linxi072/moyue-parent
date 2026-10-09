@@ -3,8 +3,8 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { usePage } from '@/composables/usePage'
-import { pageJobs, changeJobStatus, triggerJob, jobHealth } from '@/api/job'
-import type { JobInfo } from '@/api/types'
+import { pageJobs, changeJobStatus, triggerJob, jobHealth, jobGroups } from '@/api/job'
+import type { JobInfo, JobGroup } from '@/api/types'
 
 /**
  * ⑩ 定时任务 —— 复用 XXL-Job Admin（架构 ADR-13），后端是 OpenAPI 代理。
@@ -18,12 +18,22 @@ const { loading, total, records, query, search, reset, handleSizeChange, handleC
   usePage<JobInfo>(pageJobs, { jobDesc: '', jobGroup: undefined })
 
 const health = ref<{ available: boolean; address: string }>({ available: false, address: '' })
+const groups = ref<JobGroup[]>([])
 
 async function loadHealth() {
   try {
     health.value = await jobHealth()
   } catch {
     health.value = { available: false, address: '' }
+  }
+}
+
+/** 执行器分组（任务页筛选源），Admin 不可达时静默降级为空 */
+async function loadGroups() {
+  try {
+    groups.value = await jobGroups()
+  } catch {
+    groups.value = []
   }
 }
 
@@ -51,6 +61,7 @@ function goLog(row: JobInfo) {
 onMounted(() => {
   reset()
   loadHealth()
+  loadGroups()
 })
 </script>
 
@@ -72,7 +83,20 @@ onMounted(() => {
           <el-input v-model="query.jobDesc" clearable style="width: 200px" @keyup.enter="search" />
         </el-form-item>
         <el-form-item label="执行器分组">
-          <el-input v-model="query.jobGroup" clearable style="width: 140px" placeholder="分组 ID" />
+          <el-select
+            v-model="query.jobGroup"
+            clearable
+            filterable
+            placeholder="全部分组"
+            style="width: 200px"
+          >
+            <el-option
+              v-for="g in groups"
+              :key="g.id"
+              :label="`${g.title || g.appname}（${g.appname}）`"
+              :value="String(g.id)"
+            />
+          </el-select>
         </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="search">查询</el-button>

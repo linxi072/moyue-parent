@@ -1,5 +1,5 @@
 import request from '@/utils/request'
-import type { ServerVO, RedisInfoVO, DruidPoolVO } from './types'
+import type { ServerVO, RedisInfoVO, DruidPoolVO, ServerInstance } from './types'
 
 /** ⑫ 服务监控：5 个端点 */
 export function serverInfo() {
@@ -12,6 +12,16 @@ export function jvmInfo() {
 
 export function diskInfo() {
   return request.get<ServerVO['disk']>('/admin/system/monitor/server/disk')
+}
+
+/** 服务实例清单（⑫ 多实例健康；单实例部署返回 local 实例） */
+export function serverInstances() {
+  return request.get<ServerInstance[]>('/admin/system/monitor/server/instances')
+}
+
+/** 指定实例的监控数据（server + health 详情） */
+export function serverInstanceDetail(instanceId: string) {
+  return request.get<Record<string, unknown>>(`/admin/system/monitor/server/instances/${instanceId}`)
 }
 
 /**
@@ -72,6 +82,11 @@ export function redisKeyspace() {
 /** ⑭ 连接池监视：6 个端点 */
 export function poolList() {
   return request.get<DruidPoolVO[]>('/admin/system/monitor/pool')
+}
+
+/** 数据源清单（多数据源场景，与 poolList 同源但强调按数据源维度呈现） */
+export function poolDatasources() {
+  return request.get<DruidPoolVO[]>('/admin/system/monitor/pool/datasources')
 }
 
 export function sqlList() {

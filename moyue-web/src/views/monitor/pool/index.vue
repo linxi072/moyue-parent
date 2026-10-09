@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { poolList } from '@/api/monitor'
+import { poolList, poolDatasources } from '@/api/monitor'
 import type { DruidPoolVO } from '@/api/types'
 
 /** ⑭ 连接池监视 —— Druid 数据源运行时指标 */
 const loading = ref(false)
 const pools = ref<DruidPoolVO[]>([])
+
+const dsLoading = ref(false)
+const datasources = ref<DruidPoolVO[]>([])
 
 async function load() {
   loading.value = true
@@ -16,7 +19,21 @@ async function load() {
   }
 }
 
-onMounted(load)
+async function loadDatasources() {
+  dsLoading.value = true
+  try {
+    datasources.value = (await poolDatasources()) || []
+  } catch {
+    datasources.value = []
+  } finally {
+    dsLoading.value = false
+  }
+}
+
+onMounted(() => {
+  load()
+  loadDatasources()
+})
 </script>
 
 <template>
@@ -48,6 +65,25 @@ onMounted(load)
         <el-table-column prop="closeCount" label="关闭次数" width="100" align="center" />
         <el-table-column prop="waitThreadCount" label="等待线程" width="100" align="center" />
         <el-table-column prop="logicConnectErrorCount" label="连接错误" width="100" align="center" />
+      </el-table>
+    </el-card>
+
+    <el-card v-loading="dsLoading" shadow="never" class="mt-4">
+      <template #header>
+        <div class="card-header">
+          <span>数据源清单</span>
+          <el-button link type="primary" @click="loadDatasources">刷新</el-button>
+        </div>
+      </template>
+
+      <el-table :data="datasources" border stripe>
+        <el-table-column prop="name" label="数据源" min-width="160" />
+        <el-table-column prop="url" label="JDBC URL" min-width="300" show-overflow-tooltip />
+        <el-table-column prop="driverClassName" label="驱动类" min-width="200" show-overflow-tooltip />
+        <el-table-column prop="activeCount" label="活跃连接" width="100" align="center" />
+        <el-table-column prop="poolingCount" label="空闲连接" width="100" align="center" />
+        <el-table-column prop="maxActive" label="最大连接" width="100" align="center" />
+        <el-table-column prop="waitThreadCount" label="等待线程" width="100" align="center" />
       </el-table>
     </el-card>
   </div>

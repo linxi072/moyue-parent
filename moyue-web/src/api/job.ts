@@ -1,5 +1,5 @@
 import request from '@/utils/request'
-import type { JobInfo, JobLog, PageQuery } from './types'
+import type { JobInfo, JobLog, JobGroup, PageQuery } from './types'
 
 export interface JobQuery extends PageQuery {
   jobDesc?: string
@@ -70,4 +70,13 @@ export async function pageJobLogs(jobId: number, params: PageQuery) {
  */
 export function jobHealth() {
   return request.get<{ available: boolean; address: string }>('/admin/system/jobs/health')
+}
+
+/**
+ * 执行器分组列表（⑩ 任务页分组筛选源）。
+ * 后端透传 XXL-Job jobgroup pageList，归一为 records 列表。
+ */
+export async function jobGroups() {
+  const raw = await request.get<XxlRawPage>('/admin/system/jobs/groups')
+  return normalize<JobGroup>(raw).records
 }

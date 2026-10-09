@@ -1,13 +1,16 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { serverInfo } from '@/api/monitor'
-import type { ServerVO } from '@/api/types'
+import { serverInfo, serverInstances } from '@/api/monitor'
+import type { ServerVO, ServerInstance } from '@/api/types'
 
 /** ⑫ 服务监控 —— 数据来自 Actuator + oshi（后端聚合），只读 */
 const router = useRouter()
 const loading = ref(false)
 const info = ref<ServerVO>({})
+
+const instancesLoading = ref(false)
+const instances = ref<ServerInstance[]>([])
 
 async function load() {
   loading.value = true
@@ -18,7 +21,21 @@ async function load() {
   }
 }
 
-onMounted(load)
+async function loadInstances() {
+  instancesLoading.value = true
+  try {
+    instances.value = (await serverInstances()) || []
+  } catch {
+    instances.value = []
+  } finally {
+    instancesLoading.value = false
+  }
+}
+
+onMounted(() => {
+  load()
+  loadInstances()
+})
 </script>
 
 <template>
@@ -116,6 +133,21 @@ onMounted(load)
           </el-card>
         </el-col>
       </el-row>
+
+      <el-divider content-position="left">服务实例</el-divider>
+      <el-table v-loading="instancesLoading" :data="instances" border stripe size="small">
+        <el-table-column prop="instanceId" label="实例 ID" width="140" />
+        <el-table-column prop="hostName" label="主机名" min-width="140" />
+        <el-table-column prop="ip" label="IP" width="140" />
+        <el-table-column prop="os" label="操作系统" min-width="140" />
+        <el-table-column label="健康状态" width="110" align="center">
+          <template #default="{ row }">
+            <el-tag :type="row.status === 'UP' ? 'success' : 'danger'">
+              {{ row.status || 'UNKNOWN' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+      </el-table>
     </el-card>
   </div>
 </template>
