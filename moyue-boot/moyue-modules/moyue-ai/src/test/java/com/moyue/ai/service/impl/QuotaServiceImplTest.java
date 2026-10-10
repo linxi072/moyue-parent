@@ -1,6 +1,7 @@
 package com.moyue.ai.service.impl;
 
 import com.moyue.ai.domain.entity.AiQuota;
+import com.moyue.ai.domain.vo.AiQuotaVO;
 import com.moyue.ai.mapper.AiQuotaMapper;
 import com.moyue.common.core.exception.BusinessException;
 import com.moyue.common.core.exception.ErrorCode;
@@ -100,5 +101,22 @@ class QuotaServiceImplTest {
         assertEquals(500, cap.getValue().getTotal());
         assertEquals(500, cap.getValue().getRemain());
         assertEquals(0, cap.getValue().getUsed());
+    }
+
+    // ---------------------------------------------------------------- C 端配额查询（G-L‴）
+
+    @Test
+    void myQuota_returnsVoForExisting() {
+        AiQuota exist = new AiQuota();
+        exist.setUserId(7L);
+        exist.setTotal(100);
+        exist.setUsed(10);
+        exist.setRemain(90);
+        when(quotaMapper.selectOne(any())).thenReturn(exist);
+
+        AiQuotaVO vo = service.myQuota(7L);
+        assertEquals(90, vo.getRemain());
+        assertEquals(100, vo.getTotal());
+        verify(quotaMapper, never()).insert(any(AiQuota.class));
     }
 }

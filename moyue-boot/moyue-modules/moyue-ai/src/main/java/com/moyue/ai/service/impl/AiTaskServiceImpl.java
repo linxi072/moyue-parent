@@ -50,6 +50,29 @@ public class AiTaskServiceImpl implements AiTaskService {
     }
 
     @Override
+    public PageResult<AiTaskVO> pageMyTasks(Long userId, AiTaskQuery query) {
+        if (query == null) {
+            query = new AiTaskQuery();
+        }
+        // 强制按当前用户限定发起用户，忽略调用方可能传入的 userId
+        query.setUserId(userId);
+        return pageTasks(query);
+    }
+
+    @Override
+    public AiTaskVO getMyTask(Long userId, Long id) {
+        AiTask task = taskMapper.selectById(id);
+        if (task == null) {
+            throw BusinessException.notFound("AI 任务");
+        }
+        // 非本人任务：按「不存在」处理，不泄露他人任务内容
+        if (task.getUserId() == null || !task.getUserId().equals(userId)) {
+            throw BusinessException.notFound("AI 任务");
+        }
+        return toVO(task);
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
     public Long createTask(AiTask entity) {
         if (!StringUtils.hasText(entity.getPrompt())) {

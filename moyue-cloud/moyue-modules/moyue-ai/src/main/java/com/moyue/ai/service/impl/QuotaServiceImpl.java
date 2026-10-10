@@ -59,6 +59,11 @@ public class QuotaServiceImpl implements QuotaService {
     }
 
     @Override
+    public AiQuotaVO myQuota(Long userId) {
+        return toVO(getOrCreate(userId));
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
     public void deduct(Long userId, int amount) {
         Long uid = userId == null ? 0L : userId;

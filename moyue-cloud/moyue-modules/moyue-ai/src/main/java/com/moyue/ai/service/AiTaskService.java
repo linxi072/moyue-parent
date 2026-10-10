@@ -16,6 +16,22 @@ public interface AiTaskService {
 
     PageResult<AiTaskVO> pageTasks(AiTaskQuery query);
 
+    /**
+     * 当前用户的 AI 任务列表（C 端）。
+     *
+     * <p>强制按 {@code userId} 限定发起用户，忽略调用方传入的 userId，避免越权查看他人任务。
+     */
+    PageResult<AiTaskVO> pageMyTasks(Long userId, AiTaskQuery query);
+
+    /**
+     * 当前用户的单个 AI 任务详情（C 端）。
+     *
+     * <p>按 {@code userId} 校验任务归属，非本人任务按「不存在」处理，不泄露他人任务内容。
+     *
+     * @return 任务视图（含状态 / 结果 / 消耗 token）
+     */
+    AiTaskVO getMyTask(Long userId, Long id);
+
     Long createTask(AiTask entity);
 
     boolean updateTask(AiTask entity);

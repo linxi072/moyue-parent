@@ -17,6 +17,9 @@ public interface QuotaService {
     /** 获取或初始化用户配额（默认总额 1000） */
     AiQuota getOrCreate(Long userId);
 
+    /** 我的配额视图（C 端，自动初始化后返回 VO） */
+    AiQuotaVO myQuota(Long userId);
+
     /** 扣减配额；不足抛出 PAY_FAILED 异常（事务回滚） */
     void deduct(Long userId, int amount);
 
