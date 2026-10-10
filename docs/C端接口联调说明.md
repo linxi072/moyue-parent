@@ -277,3 +277,58 @@ const quota = await myQuota() // { total, used, remain }
 | 典型用途 | 群发消息、调积分、看全量 | 看自己的消息/积分/任务 |
 
 > 前端封装中，admin 函数（如 `pageMessages`、`pagePointsLogs`）与 C 端函数（如 `pageMyMessages`、`pageMyPointsLogs`）**成对存在**，请勿混用。
+
+---
+
+## 六、C 端页面（读者中心）与本地启动
+
+> 上一阶段已补齐 4 个模块的 `src/api` 封装；本阶段进一步落地了**可直接联调的 C 端页面**（读者中心），把封装真正用起来。
+
+### 6.1 页面清单与路由
+
+| 路由 | 组件 | 消费的 C 端接口 | 说明 |
+| --- | --- | --- | --- |
+| `/consumer/home` | `views/consumer/home/index.vue` | `myUnreadCount`/`myPointsBalance`/`myQuota` | 个人中心首页，聚合未读/积分/AI 余量 |
+| `/consumer/messages` | `views/consumer/messages/index.vue` | `pageMyMessages`/`myUnreadCount`/`readMessages`/`readAllMessages` | 收件箱：列表 + 全部已读 + 单条已读 |
+| `/consumer/points` | `views/consumer/points/index.vue` | `myPointsBalance`/`pageMyPointsLogs`/`signIn` | 积分钱包：余额 + 签到 + 明细 |
+| `/consumer/search` | `views/consumer/search/index.vue` | `consumerHotWords`/`consumerSuggest` | 搜索发现：热词榜 + 实时联想 |
+| `/consumer/ai` | `views/consumer/ai/index.vue` | `pageMyTasks`/`getMyTask`/`myQuota` | AI 创作：任务列表 + 详情抽屉 + 配额卡 |
+
+布局与导航：`layouts/consumer/index.vue`（移动端风格顶栏 + 底部 Tab），与 admin 布局完全解耦，不依赖运营侧边栏与 RBAC 菜单。
+
+### 6.2 本地启动与访问
+
+```bash
+cd moyue-web
+npm install        # 首次
+npm run dev        # 启动 Vite，默认 http://localhost:5173
+```
+
+- 浏览器打开 `http://localhost:5173/consumer/home` 即进入读者中心（未登录会被守卫跳 `/login`）。
+- 开发环境 `baseURL=/api/v1` 由 `vite.config.ts` 代理到网关；确认代理目标端口与后端一致（见 §4.5）。
+- 顶栏「管理后台」入口仅对运营角色（`isOperator`）可见，普通读者看不到。
+
+### 6.3 路由守卫说明（关键）
+
+`router/index.ts` 的 `beforeEach` 原本要求**运营主体**（`isOperator`）才能进后台。C 端路由通过 `meta.consumer: true` 豁免该限制：
+
+```ts
+if (!userStore.isLogin) return { path: '/login', query: { redirect: to.fullPath } }
+if (to.meta.consumer) return true          // C 端：任意已登录用户可访问
+if (!userStore.isOperator && userStore.userId) return '/401'  // 后台：需运营角色
+```
+
+> 这与后端口径一致：C 端接口（`/api/v1/{module}`）由网关注入用户身份，无 RBAC 注解；后台接口（`/api/v1/admin/**`）需运营角色。前端守卫与后端拦截器对齐，避免「登录了普通账号却打不开读者中心」。
+
+### 6.4 页面 → 接口对照（联调时用）
+
+- **首页**：挂载即并发拉取 `未读数 / 余额 / AI余量` 三项摘要；任一项失败不影响其余展示（`try/catch` 吞掉）。
+- **收件箱**：
+  - 「全部 / 未读 / 已读」Tab → `pageMyMessages({ readFlag })`（`readFlag` 未读=0、已读=1、全部=undefined）。
+  - 点开未读消息或「标记已读」→ `readMessages([id])`；「全部已读」→ `readAllMessages()`。
+  - 列表加载后顺带刷新顶部未读角标（`myUnreadCount`）。
+- **积分钱包**：
+  - 挂载并发拉 `余额 + 明细`；另查当日 `bizType=5` 流水判断是否已签到，置灰「签到」按钮。
+  - 「签到」→ `signIn()`（返回签到后余额，幂等）。
+- **搜索发现**：热词榜 `consumerHotWords(10)`；输入框 `@input` 走 `consumerSuggest` 联想；选词回填搜索框。内容检索结果接口由搜索模块后续补齐（当前仅「发现」能力）。
+- **AI 创作**：并发拉 `配额 + 任务列表`；状态筛选 `pageMyTasks({ status })`；点任务 → `getMyTask(id)` 开底部抽屉；非本人任务按 404 提示。
