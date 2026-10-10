@@ -1,6 +1,7 @@
 package com.moyue.search.service.impl;
 
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.moyue.common.core.exception.BusinessException;
 import com.moyue.common.core.exception.ErrorCode;
@@ -10,6 +11,7 @@ import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -101,5 +103,50 @@ class SearchHotWordServiceImplTest {
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> service.createHotWord(new SearchHotWord()));
         assertEquals(ErrorCode.PARAM_ERROR.getCode(), ex.getCode());
+    }
+
+    // ---------------------------------------------------------------- C 端搜索发现（G-L″）
+
+    @Test
+    void consumerHotWords_clampsLimitAndQueries() {
+        List<SearchHotWord> all = List.of(hw("a", 10, 1));
+        when(hotWordMapper.selectList(any())).thenReturn(all);
+
+        var r = service.consumerHotWords(100);
+
+        assertEquals(1, r.size());
+        ArgumentCaptor<LambdaQueryWrapper<SearchHotWord>> wcap = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(hotWordMapper).selectList(wcap.capture());
+        // C 端展示上限收敛到 20，避免超大 limit 拖垮榜单
+        assertTrue(wcap.getValue().getCustomSqlSegment().contains("LIMIT 20"),
+                "C 端热词榜 limit 应收敛到 20");
+    }
+
+    @Test
+    void consumerHotWords_lowerBoundClampDoesNotThrow() {
+        List<SearchHotWord> all = List.of(hw("a", 10, 1));
+        when(hotWordMapper.selectList(any())).thenReturn(all);
+
+        assertDoesNotThrow(() -> service.consumerHotWords(0));
+        ArgumentCaptor<LambdaQueryWrapper<SearchHotWord>> wcap = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(hotWordMapper).selectList(wcap.capture());
+        assertTrue(wcap.getValue().getCustomSqlSegment().contains("LIMIT 1"),
+                "limit<=0 应收敛到 1");
+    }
+
+    @Test
+    void consumerSuggest_blank_returnsEmptyWithoutQuery() {
+        assertTrue(service.consumerSuggest("  ").isEmpty());
+        verify(hotWordMapper, never()).selectList(any());
+    }
+
+    @Test
+    void consumerSuggest_nonBlank_delegatesToSuggest() {
+        List<SearchHotWord> matches = List.of(hw("斗破", 9, 1));
+        when(hotWordMapper.selectList(any())).thenReturn(matches);
+
+        var r = service.consumerSuggest("斗");
+        assertEquals(1, r.size());
+        assertTrue(r.get(0).getWord().startsWith("斗"));
     }
 }

@@ -106,6 +106,26 @@ public class SearchHotWordServiceImpl implements SearchHotWordService {
         return list.stream().map(this::toVO).toList();
     }
 
+    @Override
+    public List<SearchHotWordVO> consumerHotWords(int limit) {
+        int n = Math.max(1, Math.min(limit, 20)); // C 端榜单展示上限 20
+        var list = hotWordMapper.selectList(new LambdaQueryWrapper<SearchHotWord>()
+                .eq(SearchHotWord::getEnabled, 1)
+                .orderByDesc(SearchHotWord::getWeight)
+                .orderByDesc(SearchHotWord::getHitCount)
+                .orderByAsc(SearchHotWord::getId)
+                .last("LIMIT " + n));
+        return list.stream().map(this::toVO).toList();
+    }
+
+    @Override
+    public List<SearchHotWordVO> consumerSuggest(String keyword) {
+        if (!StringUtils.hasText(keyword)) {
+            return List.of();
+        }
+        return suggest(keyword.trim());
+    }
+
     private SearchHotWordVO toVO(SearchHotWord e) {
         return SearchHotWordVO.builder()
                 .id(e.getId())

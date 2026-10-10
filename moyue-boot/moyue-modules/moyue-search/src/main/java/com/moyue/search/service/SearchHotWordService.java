@@ -32,4 +32,18 @@ public interface SearchHotWordService {
      * @return 匹配的热词（启用中，按权重倒序）
      */
     List<SearchHotWordVO> suggest(String keyword);
+
+    /**
+     * C 端热词榜（公开，无用户归属）。
+     *
+     * <p>启用中热词按权重倒序，{@code limit} 收敛到 [1, 20]（比运营端更保守的展示上限）。
+     */
+    List<SearchHotWordVO> consumerHotWords(int limit);
+
+    /**
+     * C 端搜索联想（公开，无用户归属）。
+     *
+     * <p>空词直接返回空列表，不查库；否则委托 {@link #suggest(String)} 做前缀匹配。
+     */
+    List<SearchHotWordVO> consumerSuggest(String keyword);
 }
