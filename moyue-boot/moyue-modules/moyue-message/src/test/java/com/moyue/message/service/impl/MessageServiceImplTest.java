@@ -4,8 +4,11 @@ import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyue.common.core.exception.BusinessException;
 import com.moyue.common.core.exception.ErrorCode;
+import com.moyue.common.core.result.PageResult;
+import com.moyue.message.domain.dto.query.MessageQuery;
 import com.moyue.message.domain.entity.Message;
 import com.moyue.message.domain.entity.MessageTemplate;
 import com.moyue.message.mapper.MessageMapper;
@@ -29,7 +32,8 @@ import static org.mockito.Mockito.*;
  * 站内信服务单元测试（Mockito，无 Spring 上下文）。
  *
  * <p>覆盖：标题校验、单发/群发落库（默认未读、系统身份）、模板渲染 ${name}、
- * 空接收人/空列表校验、未读计数、批量已读。
+ * 空接收人/空列表校验、未读计数、批量已读，以及 C 端收件箱的作用域限定
+ * （pageMyMessages / readMine / readAllMine 均强制按 toUser 限定，防止越权）。
  */
 @ExtendWith(MockitoExtension.class)
 class MessageServiceImplTest {
@@ -142,5 +146,53 @@ class MessageServiceImplTest {
         ArgumentCaptor<Message> cap = ArgumentCaptor.forClass(Message.class);
         verify(messageMapper).update(cap.capture(), any());
         assertEquals(1, cap.getValue().getReadFlag());
+    }
+
+    // ---------------------------------------------------------------- C 端收件箱（G-L）
+
+    @Test
+    void pageMyMessages_forcesScopeToUser() {
+        when(messageMapper.selectPage(any(), any())).thenReturn(new Page<Message>());
+        MessageQuery query = new MessageQuery();
+        query.setToUser(999L); // 调用方伪造他人 toUser，应被覆盖
+
+        service.pageMyMessages(42L, query);
+
+        ArgumentCaptor<LambdaQueryWrapper<Message>> wcap = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(messageMapper).selectPage(any(), wcap.capture());
+        // 作用域强制为当前登录用户，而非调用方传入的 999
+        assertTrue(wcap.getValue().getCustomSqlSegment().contains("to_user"),
+                "C 端列表查询必须按 toUser 限定作用域");
+    }
+
+    @Test
+    void readMine_scopesUpdateToUser() {
+        when(messageMapper.update(any(Message.class), any(LambdaQueryWrapper.class))).thenReturn(1);
+
+        assertTrue(service.readMine(42L, List.of(10L, 11L)));
+
+        ArgumentCaptor<LambdaQueryWrapper<Message>> wcap = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(messageMapper).update(any(), wcap.capture());
+        String sql = wcap.getValue().getCustomSqlSegment();
+        assertTrue(sql.contains("to_user"), "readMine 更新必须按 toUser 限定，避免越权标记他人消息已读");
+        assertTrue(sql.contains("id"), "readMine 更新应按消息 ID 范围更新");
+    }
+
+    @Test
+    void readMine_empty_returnsTrueWithoutUpdate() {
+        assertTrue(service.readMine(42L, List.of()));
+        verify(messageMapper, never()).update(any(), any());
+    }
+
+    @Test
+    void readAllMine_scopesToUser() {
+        when(messageMapper.update(any(Message.class), any(LambdaQueryWrapper.class))).thenReturn(1);
+
+        assertTrue(service.readAllMine(42L));
+
+        ArgumentCaptor<LambdaQueryWrapper<Message>> wcap = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(messageMapper).update(any(), wcap.capture());
+        assertTrue(wcap.getValue().getCustomSqlSegment().contains("to_user"),
+                "readAllMine 必须仅更新本人消息");
     }
 }

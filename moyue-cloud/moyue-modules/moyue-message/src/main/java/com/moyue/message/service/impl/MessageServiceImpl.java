@@ -125,6 +125,39 @@ public class MessageServiceImpl implements MessageService {
         return messageMapper.update(upd, new LambdaQueryWrapper<Message>().in(Message::getId, ids)) > 0;
     }
 
+    @Override
+    public PageResult<MessageVO> pageMyMessages(Long userId, MessageQuery query) {
+        if (query == null) {
+            query = new MessageQuery();
+        }
+        // 强制按当前用户限定接收人，忽略调用方可能传入的 toUser
+        query.setToUser(userId);
+        return pageMessages(query);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean readMine(Long userId, List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return true;
+        }
+        Message upd = new Message();
+        upd.setReadFlag(1);
+        // 仅更新本人消息：即使 ids 含他人消息 ID，WHERE toUser=userId 也会将其排除
+        return messageMapper.update(upd, new LambdaQueryWrapper<Message>()
+                .eq(Message::getToUser, userId)
+                .in(Message::getId, ids)) > 0;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean readAllMine(Long userId) {
+        Message upd = new Message();
+        upd.setReadFlag(1);
+        return messageMapper.update(upd, new LambdaQueryWrapper<Message>()
+                .eq(Message::getToUser, userId)) > 0;
+    }
+
     /** 落库单条未读消息；templateCode 非空时引用启用中模板并渲染 ${name} */
     private Long doSend(Long toUser, String title, String content, Integer type, String templateCode, String name) {
         String finalTitle = title;

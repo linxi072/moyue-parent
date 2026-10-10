@@ -26,6 +26,29 @@ public interface MessageService {
     long unreadCount(Long toUser);
 
     /**
+     * 当前用户的消息分页（C 端收件箱）。
+     *
+     * <p>强制按 {@code userId} 限定接收人，忽略调用方传入的 toUser，避免越权查看他人消息。
+     */
+    PageResult<MessageVO> pageMyMessages(Long userId, MessageQuery query);
+
+    /**
+     * 标记本人指定消息已读（C 端）。
+     *
+     * <p>更新按 {@code toUser = userId} 限定，即使 {@code ids} 含他人消息 ID 也不会生效。
+     *
+     * @return 是否产生更新
+     */
+    boolean readMine(Long userId, List<Long> ids);
+
+    /**
+     * 标记本人全部消息已读（C 端）。
+     *
+     * @return 是否产生更新
+     */
+    boolean readAllMine(Long userId);
+
+    /**
      * 单发站内信（默认未读，fromUser=0 表示系统）。
      *
      * @return 消息 ID
