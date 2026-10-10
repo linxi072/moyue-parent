@@ -118,3 +118,15 @@ export function pagePointsLogs(params: PointsLogQuery) {
 export function adjustPoints(data: { userId: number; bizType: number; amount: number; remark?: string }) {
   return request.post<number>(`/admin/commerce/points/adjust`, null, { params: data })
 }
+
+// ============ 积分钱包（C 端 / 用户，G-L′）============
+// 身份由网关注入，无需传 userId。
+export function myPointsBalance() {
+  return request.get<number>('/points/balance')
+}
+export function pageMyPointsLogs(params: PointsLogQuery) {
+  return request.get<PageResult<PointsLogVO>>('/points/records', { params })
+}
+export function signIn() {
+  return request.post<number>('/points/sign')
+}

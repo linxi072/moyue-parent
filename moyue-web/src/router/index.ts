@@ -400,6 +400,46 @@ export const routes: RouteRecordRaw[] = [
         meta: { title: '配额管理', icon: 'Coin' }
       }
     ]
+  },
+  {
+    // ============ C 端（读者中心，G-L 系列）============
+    // 面向普通用户，独立于 admin 布局；meta.consumer 让守卫跳过 operator 校验（对齐后端 /api/v1/{module} 口径）。
+    path: '/consumer',
+    component: () => import('@/layouts/consumer/index.vue'),
+    redirect: '/consumer/home',
+    meta: { title: '读者中心', consumer: true },
+    children: [
+      {
+        path: 'home',
+        name: 'ConsumerHome',
+        component: () => import('@/views/consumer/home/index.vue'),
+        meta: { title: '我的', consumer: true }
+      },
+      {
+        path: 'messages',
+        name: 'ConsumerMessages',
+        component: () => import('@/views/consumer/messages/index.vue'),
+        meta: { title: '消息', consumer: true }
+      },
+      {
+        path: 'points',
+        name: 'ConsumerPoints',
+        component: () => import('@/views/consumer/points/index.vue'),
+        meta: { title: '积分', consumer: true }
+      },
+      {
+        path: 'search',
+        name: 'ConsumerSearch',
+        component: () => import('@/views/consumer/search/index.vue'),
+        meta: { title: '发现', consumer: true }
+      },
+      {
+        path: 'ai',
+        name: 'ConsumerAi',
+        component: () => import('@/views/consumer/ai/index.vue'),
+        meta: { title: '创作', consumer: true }
+      }
+    ]
   }
 ]
 
@@ -416,6 +456,10 @@ router.beforeEach((to) => {
   }
   if (!userStore.isLogin) {
     return { path: '/login', query: { redirect: to.fullPath } }
+  }
+  // C 端（消费者）路由：任意已登录用户即可访问，无需运营角色（对齐后端 G-L 系列 /api/v1/{module}）
+  if (to.meta.consumer) {
+    return true
   }
   // 后台要求运营主体（与后端 AdminRoleInterceptor 口径一致）
   if (!userStore.isOperator && userStore.userId) {

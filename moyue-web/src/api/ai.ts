@@ -59,3 +59,15 @@ export function pageQuotas(params: AiQuotaQuery) {
 export function resetQuota(userId: number, total = 1000) {
   return request.post<boolean>('/admin/ai/quota/reset', null, { params: { userId, total } })
 }
+
+// ============ AI 任务与配额（C 端 / 用户，G-L‴）============
+// 身份由网关注入，无需传 userId；任务详情按归属校验，非本人任务返回「不存在」。
+export function pageMyTasks(params: AiTaskQuery) {
+  return request.get<PageResult<AiTaskVO>>('/ai/tasks', { params })
+}
+export function getMyTask(id: number) {
+  return request.get<AiTaskVO>(`/ai/tasks/${id}`)
+}
+export function myQuota() {
+  return request.get<AiQuotaVO>('/ai/quota')
+}

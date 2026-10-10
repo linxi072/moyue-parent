@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed, ref, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import { useAppStore } from '@/stores/app'
 import { useUserStore } from '@/stores/user'
 import { routes } from '@/router'
+import { getCurrentMenus } from '@/api/menu'
+import type { SysMenu } from '@/api/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -15,12 +17,11 @@ interface MenuNode {
   path: string
   title: string
   icon?: string
-  hidden?: boolean
   children?: MenuNode[]
 }
 
-// 由路由表推导侧边栏，避免菜单与路由两处维护不同步
-const menus = computed<MenuNode[]>(() => {
+// 静态兜底：由路由表推导（菜单迁移未跑 / 接口异常时保证侧边栏不空）
+const fallbackMenus = computed<MenuNode[]>(() => {
   const result: MenuNode[] = []
   for (const r of routes) {
     if (!r.meta?.title || r.meta.hidden) continue
@@ -44,6 +45,34 @@ const menus = computed<MenuNode[]>(() => {
   }
   return result
 })
+
+// 后端动态菜单：/menus/current 返回当前角色可见菜单树（RBAC，G-H）
+const dynamicMenus = ref<MenuNode[] | null>(null)
+
+function toNodes(list: SysMenu[]): MenuNode[] {
+  return (list || [])
+    .filter((m) => m.menuName && m.path)
+    .map((m) => ({
+      path: m.path as string,
+      title: m.menuName as string,
+      icon: m.icon || undefined,
+      children: m.children && m.children.length ? toNodes(m.children) : undefined
+    }))
+}
+
+onMounted(() => {
+  getCurrentMenus()
+    .then((list) => {
+      const nodes = toNodes(list || [])
+      if (nodes.length) dynamicMenus.value = nodes
+    })
+    .catch(() => {
+      // 接口异常：保留静态兜底，侧边栏不空
+    })
+})
+
+// 优先用后端动态菜单，未就绪时回退静态路由推导
+const menus = computed<MenuNode[]>(() => dynamicMenus.value ?? fallbackMenus.value)
 
 const breadcrumbs = computed(() =>
   route.matched.filter((m) => m.meta?.title).map((m) => m.meta.title as string)

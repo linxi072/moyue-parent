@@ -10,6 +10,11 @@ export function listMenus(params: MenuQuery) {
   return request.get<SysMenu[]>('/admin/system/menus', { params })
 }
 
+/** 当前登录者可见菜单树（后端按角色/RBAC 动态下发，动态菜单数据源） */
+export function getCurrentMenus() {
+  return request.get<SysMenu[]>('/admin/system/menus/current')
+}
+
 export function getMenu(id: number) {
   return request.get<SysMenu>(`/admin/system/menus/${id}`)
 }

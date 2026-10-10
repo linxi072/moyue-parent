@@ -84,3 +84,18 @@ export function enableTemplate(id: number) {
 export function disableTemplate(id: number) {
   return request.post<boolean>(`/admin/message/templates/${id}/disable`)
 }
+
+// ============ 站内信（C 端 / 用户收件箱，G-L）============
+// 身份由网关注入，无需传 userId；以下接口均限定为当前登录用户。
+export function pageMyMessages(params: MessageQuery) {
+  return request.get<PageResult<MessageVO>>('/messages', { params })
+}
+export function myUnreadCount() {
+  return request.get<number>('/messages/unread-count')
+}
+export function readMessages(ids: number[]) {
+  return request.post<boolean>('/messages/read', ids)
+}
+export function readAllMessages() {
+  return request.post<boolean>('/messages/read-all')
+}

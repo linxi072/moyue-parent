@@ -72,3 +72,12 @@ export function enableBlockWord(id: number) {
 export function disableBlockWord(id: number) {
   return request.post<boolean>(`/admin/search/block-words/${id}/disable`)
 }
+
+// ============ 搜索发现（C 端 / 公开只读，G-L″）============
+// 公开能力，无用户归属，无需登录态之外的额外参数。
+export function consumerHotWords(limit = 10) {
+  return request.get<SearchHotWordVO[]>('/search/hot-words', { params: { limit } })
+}
+export function consumerSuggest(keyword: string) {
+  return request.get<SearchHotWordVO[]>('/search/suggest', { params: { keyword } })
+}
