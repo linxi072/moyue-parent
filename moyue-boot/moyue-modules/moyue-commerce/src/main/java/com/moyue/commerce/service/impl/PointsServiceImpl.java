@@ -20,6 +20,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 /**
  * 积分账户服务实现：余额原子增减，不足即拒。
@@ -32,6 +35,9 @@ import java.math.BigDecimal;
 public class PointsServiceImpl implements PointsService {
 
     private static final BigDecimal ZERO = BigDecimal.ZERO;
+
+    /** 每日签到奖励积分 */
+    private static final BigDecimal SIGN_AMOUNT = BigDecimal.TEN;
 
     private final PointsAccountMapper accountMapper;
     private final PointsLogMapper logMapper;
@@ -116,6 +122,41 @@ public class PointsServiceImpl implements PointsService {
         PointsAccount acc = accountMapper.selectOne(new LambdaQueryWrapper<PointsAccount>()
                 .eq(PointsAccount::getUserId, userId));
         return acc == null ? null : toAccountVO(acc);
+    }
+
+    @Override
+    public BigDecimal myBalance(Long userId) {
+        PointsAccountVO acc = getAccount(userId);
+        return acc == null || acc.getBalance() == null ? ZERO : acc.getBalance();
+    }
+
+    @Override
+    public PageResult<PointsLogVO> pageMyLogs(Long userId, PointsLogQuery query) {
+        if (query == null) {
+            query = new PointsLogQuery();
+        }
+        // 强制按当前用户限定，忽略调用方可能传入的 userId
+        query.setUserId(userId);
+        return pageLogs(query);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public BigDecimal sign(Long userId) {
+        if (userId == null) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "用户 ID 不能为空");
+        }
+        LocalDate today = LocalDate.now();
+        PointsLog exist = logMapper.selectOne(new LambdaQueryWrapper<PointsLog>()
+                .eq(PointsLog::getUserId, userId)
+                .eq(PointsLog::getBizType, PointsLog.BIZ_SIGN)
+                .ge(PointsLog::getCreateTime, today.atStartOfDay()));
+        if (exist != null) {
+            // 今日已签到，幂等返回当前余额，不重复发放
+            return myBalance(userId);
+        }
+        return changePoints(userId, PointsLog.BIZ_SIGN, SIGN_AMOUNT,
+                today.format(DateTimeFormatter.ISO_LOCAL_DATE));
     }
 
     private PointsAccountVO toAccountVO(PointsAccount e) {

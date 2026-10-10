@@ -42,4 +42,27 @@ public interface PointsService {
 
     /** 查询单个用户账户（不存在返回 null） */
     PointsAccountVO getAccount(Long userId);
+
+    /**
+     * 我的可用积分余额（C 端）。
+     *
+     * @return 余额，无账户时返回 0
+     */
+    BigDecimal myBalance(Long userId);
+
+    /**
+     * 我的积分流水（C 端）。
+     *
+     * <p>强制按 {@code userId} 限定用户，忽略调用方传入的 userId，避免越权查看他人流水。
+     */
+    PageResult<PointsLogVO> pageMyLogs(Long userId, PointsLogQuery query);
+
+    /**
+     * 每日签到（C 端）。
+     *
+     * <p>首次签到奖励固定积分，同日重复签到幂等（直接返回当前余额，不重复发放）。
+     *
+     * @return 签到后余额
+     */
+    BigDecimal sign(Long userId);
 }

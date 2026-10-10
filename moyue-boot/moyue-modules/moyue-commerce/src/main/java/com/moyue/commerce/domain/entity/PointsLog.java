@@ -29,6 +29,8 @@ public class PointsLog extends BaseEntity {
     public static final int BIZ_CONSUME = 3;
     /** 退款 */
     public static final int BIZ_REFUND = 4;
+    /** 签到 */
+    public static final int BIZ_SIGN = 5;
 
     /** 用户 ID */
     private Long userId;
